@@ -122,3 +122,10 @@ what was verified (and how), what remains open.
   the first Build APK run. All other S1 content is in the repo.
   Note for the future: workflow-file changes likewise cannot go
   through this connector — web UI or real git for those.
+- Owner added the workflow via web UI (commit d2e9db7, 2026-10-29
+  17:31 UTC) but with two defects found on re-check: filename is
+  `build- apk. yml` (spaces — extension " yml" is not `.yml`, so
+  Actions ignores it), and the pasted content's last line is split
+  (`retention` / `-days: 30` instead of `retention-days: 30`).
+  Everything else byte-identical. Fix is owner-side (rename + one
+  line in the web editor); that commit will trigger the first run.

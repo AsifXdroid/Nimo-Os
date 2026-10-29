@@ -112,3 +112,13 @@ what was verified (and how), what remains open.
   deletion folds into that batch), or (b) laptop push (one commit).
   Probe file left in place until the owner picks, so its deletion
   rides along with the chosen route.
+- Outcome: owner picked the file-by-file route. **46 of 47 writes
+  landed** (head `ede4b3fa30db`, the probe-deletion commit; probe file
+  gone). The single failure is the workflow file itself: creating
+  `.github/workflows/*` needs GitHub's separate **Workflows**
+  permission, which this integration token also lacks — same 403.
+  Owner to add that one file via the GitHub web UI (their own
+  identity is not subject to the restriction); its commit triggers
+  the first Build APK run. All other S1 content is in the repo.
+  Note for the future: workflow-file changes likewise cannot go
+  through this connector — web UI or real git for those.

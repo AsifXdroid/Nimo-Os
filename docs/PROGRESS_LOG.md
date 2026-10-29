@@ -3,6 +3,23 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-30 — S2 pushed to GitHub as one snapshot commit
+- Owner approved the push in the main chat. Pre-push checks run in
+  the main chat: manifest rebuilt (54 files, 194 KiB, all UTF-8;
+  `.github/workflows/build-apk.yml` excluded — the working version
+  already lives on GitHub); `flutter analyze` clean and
+  `flutter test` **23/23** re-run independently of the build report;
+  divergence check — remote commits since the S1 sync were only the
+  owner's workflow commits, three of my PROGRESS_LOG updates, and
+  the probe commits; the one real divergence (this log, reorganized
+  newest-first during S2) verified as a strict superset (0
+  remote-only lines), so overwriting loses nothing.
+- `push_files` now works (the owner's permission changes took
+  effect; two-file probe pushed and cleaned up first). S2 landed as
+  single commit `2655793f31b1c84af79722b2f7e93ab428a116b0` — 54
+  files (45 updated/carried + 9 new). The push triggers the Build
+  APK workflow; on-device verification of S2 remains open.
+
 ## 2026-10-30 — S2 built and host-verified: Today dashboard (Hub Home) + goals-basic
 - Owner approved the "Hub Home" layout from viewable mockups
   (D-009). Built: schema v2 migration (migration 1 untouched) —

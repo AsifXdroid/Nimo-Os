@@ -80,9 +80,27 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
               return ListTile(
                 leading: const Icon(Icons.folder_outlined),
                 title: Text(ws.name),
-                trailing: IconButton(
-                  icon: const Icon(Icons.more_vert),
-                  onPressed: () => _menu(ws),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: Icon(ws.pinned
+                          ? Icons.push_pin
+                          : Icons.push_pin_outlined),
+                      tooltip: ws.pinned
+                          ? 'Unpin from Home'
+                          : 'Pin to Home',
+                      onPressed: () async {
+                        await widget.store
+                            .setWorkspacePinned(ws.id, !ws.pinned);
+                        setState(_reload);
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.more_vert),
+                      onPressed: () => _menu(ws),
+                    ),
+                  ],
                 ),
                 onTap: () => Navigator.push(
                   context,

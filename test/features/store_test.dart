@@ -99,6 +99,49 @@ void main() {
     await dir.delete(recursive: true);
   });
 
+  test('workspace pin toggle and pinned list (S2)', () async {
+    final a = await store.createWorkspace('A');
+    final b = await store.createWorkspace('B');
+    expect(await store.pinnedWorkspaces(), isEmpty);
+
+    await store.setWorkspacePinned(a.id, true);
+    final pinned = await store.pinnedWorkspaces();
+    expect(pinned.map((w) => w.id), [a.id]);
+    final all = await store.workspaces();
+    expect(all.firstWhere((w) => w.id == a.id).pinned, isTrue);
+    expect(all.firstWhere((w) => w.id == b.id).pinned, isFalse);
+
+    await store.setWorkspacePinned(a.id, false);
+    expect(await store.pinnedWorkspaces(), isEmpty);
+  });
+
+  test('recent items: newest first, with project/workspace names (S2)',
+      () async {
+    final db = await AppDatabase.openInMemory();
+    final s = Store(db);
+    final ws = await s.createWorkspace('Study');
+    final prj = await s.createProject(ws.id, 'Arabic');
+    final older = await s.createItem(prj.id,
+        type: ItemType.note, title: 'Older');
+    final newer = await s.createItem(prj.id,
+        type: ItemType.checklist, title: 'Newer');
+    // Deterministic ordering: the in-memory DB is shared per process
+    // (sqflite_common_ffi), so give these two the newest timestamps
+    // and read exactly two rows.
+    final base = DateTime.now().millisecondsSinceEpoch + 1000000;
+    await db.update('items', {'updated_at': base},
+        where: 'id = ?', whereArgs: [older.id]);
+    await db.update('items', {'updated_at': base + 1000},
+        where: 'id = ?', whereArgs: [newer.id]);
+
+    final recent = await s.recentItems(limit: 2);
+    expect(recent.map((r) => r.item.title), ['Newer', 'Older']);
+    expect(recent.first.workspaceName, 'Study');
+    expect(recent.first.projectName, 'Arabic');
+    expect(await s.itemCountForWorkspace(ws.id), 2);
+    await db.close();
+  });
+
   test('checklist entries: add, toggle, order, delete', () async {
     final ws = await store.createWorkspace('W');
     final prj = await store.createProject(ws.id, 'P');

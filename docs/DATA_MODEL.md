@@ -47,6 +47,62 @@ One row per item, whatever its type. Type-specific data goes in
 | is_done | INTEGER NOT NULL DEFAULT 0 | 0/1 |
 | sort_order | INTEGER NOT NULL DEFAULT 0 | |
 
+## Schema v2 (Stage S2) — added tables & columns
+
+### `plan_templates` (TODAY)
+The routine template: items copied fresh (unticked) into each new
+day's plan (D-002).
+| column | type | notes |
+|---|---|---|
+| id | INTEGER PK AUTOINCREMENT | |
+| title | TEXT NOT NULL | |
+| position | INTEGER NOT NULL DEFAULT 0 | ordering |
+| is_active | INTEGER NOT NULL DEFAULT 1 | 0/1; inactive items don't generate |
+| created_at | INTEGER NOT NULL | epoch ms |
+
+### `day_plans` (TODAY)
+One row per calendar day that has a plan.
+| column | type | notes |
+|---|---|---|
+| id | INTEGER PK AUTOINCREMENT | |
+| date | TEXT NOT NULL UNIQUE | 'yyyy-mm-dd', local |
+| created_at | INTEGER NOT NULL | epoch ms |
+
+### `day_plan_items` (TODAY)
+| column | type | notes |
+|---|---|---|
+| id | INTEGER PK AUTOINCREMENT | |
+| day_plan_id | INTEGER NOT NULL → day_plans(id) ON DELETE CASCADE | |
+| title | TEXT NOT NULL | copied at generation time |
+| kind | TEXT NOT NULL | `routine` / `oneoff` |
+| template_id | INTEGER → plan_templates(id) ON DELETE SET NULL | routine items only |
+| done | INTEGER NOT NULL DEFAULT 0 | 0/1, per-date (this row belongs to one day) |
+| carried | INTEGER NOT NULL DEFAULT 0 | 0/1; copied from previous day's unticked one-off (D-002) |
+| position | INTEGER NOT NULL DEFAULT 0 | ordering within the day |
+
+### `goals` (GOAL-basic)
+| column | type | notes |
+|---|---|---|
+| id | INTEGER PK AUTOINCREMENT | |
+| title | TEXT NOT NULL | |
+| target | INTEGER NOT NULL | |
+| current | INTEGER NOT NULL DEFAULT 0 | clamped 0..target by the store |
+| unit | TEXT NOT NULL DEFAULT '' | e.g. 'words' |
+| position | INTEGER NOT NULL DEFAULT 0 | ordering |
+| created_at | INTEGER NOT NULL | epoch ms |
+
+### `app_settings` (CORE)
+Key/value strings. S2 uses `home_show_<section>` = '1'/'0' for Home
+section visibility (Customize Home); absent key = visible.
+| column | type | notes |
+|---|---|---|
+| key | TEXT PK | |
+| value | TEXT NOT NULL | |
+
+### Changed in v2
+- `workspaces` += `pinned INTEGER NOT NULL DEFAULT 0` — pinned to
+  Home (WS, S2).
+
 ## Payload shapes (JSON in `items.payload`)
 
 - `note`: no payload (body text lives in `items.note`).
@@ -55,10 +111,8 @@ One row per item, whatever its type. Type-specific data goes in
 - `html_quiz` (S4, planned): `{"file_path": "..."}` (path inside app
   storage, relative).
 
-## Planned, NOT in v1 (added by their stage's migration)
+## Planned, NOT yet added (added by their stage's migration)
 
-- S2 (TODAY): `plan_templates`, `day_plans`, `day_plan_items`.
-- S2/S5 (GOAL): `goals`.
 - S4 (QUIZ, only if D-004 is revisited): `quiz_attempts`.
 
 ## Migration history
@@ -66,3 +120,4 @@ One row per item, whatever its type. Type-specific data goes in
 | version | stage | change |
 |---|---|---|
 | 1 | S1 | workspaces, projects, items, checklist_entries |
+| 2 | S2 | plan_templates, day_plans, day_plan_items, goals, app_settings; workspaces += pinned |

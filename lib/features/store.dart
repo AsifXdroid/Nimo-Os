@@ -21,6 +21,7 @@ class Workspace {
     required this.sortOrder,
     required this.createdAt,
     required this.updatedAt,
+    this.pinned = false,
   });
 
   final int id;
@@ -29,13 +30,31 @@ class Workspace {
   final int createdAt;
   final int updatedAt;
 
+  /// Pinned to the Home screen (S2, schema v2).
+  final bool pinned;
+
   factory Workspace.fromRow(Map<String, Object?> r) => Workspace(
         id: r['id'] as int,
         name: r['name'] as String,
         sortOrder: r['sort_order'] as int,
         createdAt: r['created_at'] as int,
         updatedAt: r['updated_at'] as int,
+        pinned: (r['pinned'] as int? ?? 0) == 1,
       );
+}
+
+/// An item plus the names of its project and workspace (Home's
+/// "recent items" list, S2).
+class RecentItem {
+  RecentItem({
+    required this.item,
+    required this.projectName,
+    required this.workspaceName,
+  });
+
+  final Item item;
+  final String projectName;
+  final String workspaceName;
 }
 
 // ---------------------------------------------------------------- PRJ
@@ -179,6 +198,47 @@ class Store {
 
   Future<void> deleteWorkspace(int id) async {
     await _db.delete('workspaces', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // --- pinned workspaces & Home queries (S2) ---
+  Future<void> setWorkspacePinned(int id, bool pinned) async {
+    await _db.update('workspaces', {'pinned': pinned ? 1 : 0},
+        where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<List<Workspace>> pinnedWorkspaces() async {
+    final rows = await _db.query('workspaces',
+        where: 'pinned = 1', orderBy: 'sort_order ASC, id ASC');
+    return rows.map(Workspace.fromRow).toList();
+  }
+
+  Future<int> itemCountForWorkspace(int workspaceId) async {
+    final rows = await _db.rawQuery(
+      'SELECT COUNT(*) AS c FROM items i '
+      'JOIN projects p ON p.id = i.project_id '
+      'WHERE p.workspace_id = ?',
+      [workspaceId],
+    );
+    return rows.single['c'] as int;
+  }
+
+  /// Latest items across all projects, newest activity first.
+  Future<List<RecentItem>> recentItems({int limit = 5}) async {
+    final rows = await _db.rawQuery(
+      'SELECT i.*, p.name AS project_name, w.name AS workspace_name '
+      'FROM items i '
+      'JOIN projects p ON p.id = i.project_id '
+      'JOIN workspaces w ON w.id = p.workspace_id '
+      'ORDER BY i.updated_at DESC, i.id DESC LIMIT ?',
+      [limit],
+    );
+    return rows
+        .map((r) => RecentItem(
+              item: Item.fromRow(r),
+              projectName: r['project_name'] as String,
+              workspaceName: r['workspace_name'] as String,
+            ))
+        .toList();
   }
 
   // --- projects ---

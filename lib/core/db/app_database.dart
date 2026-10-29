@@ -15,7 +15,7 @@ class AppDatabase {
   static Database? _db;
 
   /// The current schema version. Must equal _migrations.length.
-  static const int schemaVersion = 1;
+  static const int schemaVersion = 2;
 
   /// Migration SQL per version: _migrations[v - 1] upgrades to v.
   static const List<List<String>> _migrations = [
@@ -61,6 +61,59 @@ class AppDatabase {
         is_done INTEGER NOT NULL DEFAULT 0,
         sort_order INTEGER NOT NULL DEFAULT 0
       )
+      ''',
+    ],
+    // v2 (S2): TODAY (plan_templates, day_plans, day_plan_items),
+    // GOAL-basic (goals), Home customize (app_settings),
+    // WS pinned flag on workspaces.
+    [
+      '''
+      CREATE TABLE plan_templates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        position INTEGER NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER NOT NULL
+      )
+      ''',
+      '''
+      CREATE TABLE day_plans (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL UNIQUE,
+        created_at INTEGER NOT NULL
+      )
+      ''',
+      '''
+      CREATE TABLE day_plan_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        day_plan_id INTEGER NOT NULL REFERENCES day_plans(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        template_id INTEGER REFERENCES plan_templates(id) ON DELETE SET NULL,
+        done INTEGER NOT NULL DEFAULT 0,
+        carried INTEGER NOT NULL DEFAULT 0,
+        position INTEGER NOT NULL DEFAULT 0
+      )
+      ''',
+      '''
+      CREATE TABLE goals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        target INTEGER NOT NULL,
+        current INTEGER NOT NULL DEFAULT 0,
+        unit TEXT NOT NULL DEFAULT '',
+        position INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL
+      )
+      ''',
+      '''
+      CREATE TABLE app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+      ''',
+      '''
+      ALTER TABLE workspaces ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0
       ''',
     ],
   ];

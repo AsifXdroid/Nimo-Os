@@ -36,6 +36,65 @@ Future<String?> promptText(
   );
 }
 
+/// Values from the add-goal dialog (GOAL, S2).
+typedef GoalInput = ({String title, int target, String unit});
+
+/// Ask for a goal: title, numeric target, and an optional unit
+/// (e.g. title "Learn Arabic words", target 100, unit "words").
+/// Returns null if cancelled or the input is unusable.
+Future<GoalInput?> promptGoal(BuildContext context) {
+  final title = TextEditingController();
+  final target = TextEditingController();
+  final unit = TextEditingController();
+  return showDialog<GoalInput>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('New goal'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: title,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: 'Goal'),
+          ),
+          TextField(
+            controller: target,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Target'),
+          ),
+          TextField(
+            controller: unit,
+            decoration:
+                const InputDecoration(labelText: 'Unit (optional)'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final t = title.text.trim();
+            final n = int.tryParse(target.text.trim());
+            if (t.isEmpty || n == null || n <= 0) {
+              Navigator.pop(context);
+              return;
+            }
+            Navigator.pop(
+              context,
+              (title: t, target: n, unit: unit.text.trim()),
+            );
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    ),
+  );
+}
+
 Future<bool> confirmDelete(BuildContext context, String what) async {
   final ok = await showDialog<bool>(
     context: context,

@@ -3,6 +3,43 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-30 — S2 built and host-verified: Today dashboard (Hub Home) + goals-basic
+- Owner approved the "Hub Home" layout from viewable mockups
+  (D-009). Built: schema v2 migration (migration 1 untouched) —
+  `plan_templates`, `day_plans`, `day_plan_items`, `goals`,
+  `app_settings`, `workspaces.pinned`. App shell is now a 3-tab
+  bottom NavigationBar (Today · Spaces · Goals).
+- TODAY (`lib/features/today/`): TodayStore (plan generation per
+  D-002 — active template items fresh/unticked + previous day's
+  unticked one-offs copied as carried, idempotent; per-date ticks;
+  Mon–Sun weekly pending + per-day pending counts; Home section
+  visibility in `app_settings`), Hub Home screen (header with
+  disabled search/settings placeholders, week strip, quick add for
+  task/goal/note/checklist, plan card with progress + ROUTINE /
+  CARRIED badges + inline add + This-week view, pinned spaces,
+  recent items, goals section, Customize Home dialog), and the
+  RoutineScreen template editor.
+- GOAL-basic (`lib/features/goals/`): GoalsStore (add, delete,
+  progress clamped 0..target) + Goals tab screen.
+- WS: pin/unpin toggle on each workspace row; pinned spaces and
+  recent items read through the S1 Store (pinned list, per-workspace
+  item counts, latest-5 recent items join).
+- Verified by running: `flutter analyze` → no issues.
+  `flutter test` → **23/23 passed** (was 10/10): v1→v2 migration
+  keeps S1 data + creates S2 tables; plan generation from template;
+  carry-over exactly once + idempotency; tick isolation between
+  days; weekly pending exactness; goals add/clamp/delete; pinned
+  toggle; recent-items query; updated app-boot widget test (boots
+  to Hub Home, Spaces tab shows Workspaces); design-preview tests
+  still pass.
+- Implementation note: new stores follow the S1 pattern exactly
+  (plain classes over the database, constructor-injected) — the
+  codebase has no provider/ChangeNotifier, and none was added.
+- Not verified: on-device behaviour (this VM cannot build APKs —
+  see toolchain/NOTES.md); S2 acceptance is host-verified only
+  until the owner runs a CI-built APK and confirms the day-rollover
+  behaviour on the phone.
+
 ## 2026-10-29 — Repo created by owner; access verified; awaiting push
 - Owner created the GitHub repo: **AsifXdroid/Nimo-Os** (private,
   empty). Muse's GitHub access to it verified by an actual read
@@ -23,6 +60,40 @@ what was verified (and how), what remains open.
   replaced with a real project README.
 - Awaiting: owner's push → workflow run → APK artifact download →
   on-device S1 check (install, create data, kill/reopen app).
+
+## 2026-10-30 — D-008 decided: Plate B Midnight; features discussion opened
+- Owner viewed the three plates in a viewable chat preview (the
+  Widget Preview code alone wasn't visible to them — noted for how
+  previews get presented in future) and picked **B Midnight**: "I
+  like dark mode mostly." Preview widget state corroborates
+  (plate = midnight).
+- Change: `main.dart` defaults to
+  `AppTheme.forPlate(AppPlate.midnight)`; DECISIONS.md D-008 moved
+  to Decided. Plates A/C kept as options.
+- Next: owner wants to discuss the app's features before S2 starts.
+
+## 2026-10-29 — Design plates as real code + Widget Previews (D-008 open)
+- Owner asked for the UI and design options as a preview of the real
+  app code (not a mockup image). Added `AppPlate` (Calm Focus /
+  Midnight / Warm Paper) to `lib/core/theme.dart` — `AppTheme.light()`
+  unchanged for the running app; `AppTheme.forPlate()` returns any
+  plate.
+- Added `lib/features/design_preview/design_preview.dart`: pure-UI
+  prototypes of the Today dashboard (S2), the reel board with the
+  D-003 fallback card (S3) and the workspaces list (S1), each with
+  three `@Preview`s (one per plate, phone size 390×780, group
+  "Design plates"). Sample data only; no DB/dart:io so the web-based
+  previewer can render them.
+- Verified by running: `flutter analyze` → no issues.
+  `flutter test` → **10/10 passed** (7 S1 + 3 new plate smoke tests
+  rendering every body in every plate). `flutter widget-preview
+  start` created the `.widget_preview` scaffolding and connected its
+  analysis server, then stopped at "Failed to locate browser" — this
+  VM has no Chrome, so the visual render itself is NOT verified
+  here; it renders on the owner's machine (IDE Widget Preview tab or
+  the CLI's Chrome view).
+- Open: owner picks a plate (D-008). Unpicked plates stay in the
+  theme file as documented options, app keeps Plate A meanwhile.
 
 ## 2026-10-29 — S1 built and host-verified; APK build blocked by VM
 - Toolchain installed under `~/tools` (survives VM replacement):

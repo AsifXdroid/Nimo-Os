@@ -17,10 +17,10 @@ date + decision ID when a later change alters it).
 | ITEM | Item model & registry | Generic item (type, title, note, timestamps); registry mapping type → renderer/editor/icon. **New item types register here** | `lib/features/items/` | `items` | `test/features/items/` | done (S1, host-verified) |
 | ITEM-note | Note item | Plain text note item | `lib/features/items/note/` | (uses `items`) | in ITEM tests | done (S1, host-verified) |
 | ITEM-list | Checklist item | Tickable list inside an item | `lib/features/items/checklist/` | `checklist_entries` | in ITEM tests | done (S1, host-verified) |
-| TODAY | Today dashboard & daily plan | Home screen; routine template + one-off tasks; per-day ticks; weekly pending view | `lib/features/today/` | `plan_templates`, `day_plans`, `day_plan_items` | `test/features/today/` | planned (S2) |
+| TODAY | Today dashboard & daily plan | Home screen ("Hub Home", D-009); routine template + one-off tasks; per-day ticks; weekly pending view; week strip, quick add, pinned spaces, recent items, customize | `lib/features/today/` | `plan_templates`, `day_plans`, `day_plan_items`, `app_settings` | `test/features/today/` | done (S2, host-verified) |
 | LINK | Link cards (reels) | Save links by paste/share intent; square-preview grid; thumbnail fetch + fallback + manual image; open link | `lib/features/items/link_card/` | (uses `items`; thumbnail path in payload) | `test/features/link_card/` | planned (S3) |
 | QUIZ | HTML quizzes | Import `.html` files; store in app files; play in WebView offline; attempts if D-004 = yes | `lib/features/items/html_quiz/` | (uses `items`; file path in payload) `quiz_attempts`? | `test/features/html_quiz/` | planned (S4) |
-| GOAL | Goals & streaks | Short-term goals on Home; progress; daily-plan streaks | `lib/features/goals/` | `goals` | `test/features/goals/` | basic in S2, full in S5 |
+| GOAL | Goals & streaks | Short-term goals on Home; progress; daily-plan streaks | `lib/features/goals/` | `goals` | `test/features/goals/` | basic done (S2, host-verified), full in S5 |
 | SET | Settings, backup, widget | Export/import backup file; Android home-screen Today widget | `lib/features/settings/`, `android/` (widget) | — | `test/features/settings/` | planned (S6) |
 
 ## Item-type registry (grows by addition only)
@@ -38,9 +38,27 @@ architecture rule is being broken; log a decision instead.
 
 ## Status notes
 
+- 2026-10-30 (S2): TODAY marked "done (S2, host-verified)" and GOAL
+  "basic done": Hub Home (D-009) with daily plan (template +
+  carry-over per D-002), This-week pending view, week strip, quick
+  add, pinned spaces, recent items, goals section with steppers, and
+  Customize Home (section visibility in `app_settings`). Schema v2
+  migration covers all S2 tables plus `workspaces.pinned` — WS grew
+  a pin/unpin toggle on each workspace row (pin state is an S2/WS
+  addition; the S1 WS behaviour is unchanged). `flutter analyze`
+  clean, tests 23/23 including a v1→v2 migration test with S1 data.
+  On-device verification still pending (VM cannot build APKs).
 - 2026-10-29 (S1): CORE/WS/PRJ/ITEM rows marked "done (S1,
   host-verified)": `flutter analyze` clean, 7/7 tests pass including
   a real-file close/reopen persistence test. The remaining S1
   acceptance item — running the installed APK on the owner's phone —
   is pending because this VM cannot build APKs (see
   toolchain/NOTES.md); build routes are CI or the owner's laptop.
+- 2026-10-29 (design preview, D-008 open): CORE theme grew three
+  design plates (`AppPlate` in `lib/core/theme.dart`: Calm Focus /
+  Midnight / Warm Paper), and `lib/features/design_preview/` holds
+  `@Preview` prototypes of TODAY, LINK and WS bodies in all three
+  plates (pure UI + sample data; no DB). Tests:
+  `test/design_preview_test.dart` renders every body in every plate
+  (suite now 10/10). TODAY and LINK rows stay `planned` — the
+  prototypes are not their stage implementations.

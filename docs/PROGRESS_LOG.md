@@ -135,3 +135,15 @@ what was verified (and how), what remains open.
   correct 1268), so the YAML remains invalid; the rename commit's
   run cannot succeed. Owner given the one-line fix to apply in the
   web editor; that commit re-triggers the build.
+- Owner fixed the line and reports (2026-10-29 ~23:31 IST): the
+  Build APK run SUCCEEDED and the app installed and opened on their
+  phone. The full pipeline (code here → GitHub Actions → APK →
+  device) is now proven end to end. Remaining S1 acceptance item:
+  owner to confirm the persistence check (create data, swipe away,
+  reopen — data still there).
+- Owner feedback on first run: "the app was not what I expected, it
+  was a very basic one." Expected at S1: this stage is the core
+  shell only (workspaces/projects/items, note + checklist, plain
+  Material UI). The parts from the original vision — Today
+  dashboard (S2), reel cards (S3), in-app quizzes (S4), goals (S5)
+  — are the upcoming stages. Next-step choice put to the owner.

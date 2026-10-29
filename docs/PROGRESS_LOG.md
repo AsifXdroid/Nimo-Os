@@ -129,3 +129,9 @@ what was verified (and how), what remains open.
   (`retention` / `-days: 30` instead of `retention-days: 30`).
   Everything else byte-identical. Fix is owner-side (rename + one
   line in the web editor); that commit will trigger the first run.
+- Owner renamed the file to `build-apk.yml` (commit b24de9dd,
+  2026-10-29 17:45 UTC) — name now correct. Content re-diffed: the
+  tail is STILL split (`retention` / `-days: 30`, 1269 bytes vs
+  correct 1268), so the YAML remains invalid; the rename commit's
+  run cannot succeed. Owner given the one-line fix to apply in the
+  web editor; that commit re-triggers the build.

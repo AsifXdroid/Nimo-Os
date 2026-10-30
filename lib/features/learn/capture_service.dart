@@ -5,15 +5,20 @@
 /// and becomes a topic in the Inbox project. Organising is
 /// deferred to triage, never asked at capture time.
 ///
-/// The platform plugin (`receive_sharing_intent`) sits behind
-/// [ShareIntentService] so the whole flow is testable with a fake:
-/// tests never touch a platform channel.
+/// The platform side sits behind [ShareIntentService] so the
+/// whole flow is testable with a fake: tests never touch a
+/// platform channel. Since D-034 the platform side is in-house —
+/// MainActivity decodes ACTION_SEND intents and serves them over
+/// the `app.dailylife/share_intent` channels (the
+/// receive_sharing_intent plugin is defective in every published
+/// version under this project's toolchain; see
+/// docs/CI_BUILD_AUDIT-2026-10-30.md).
 library;
 
 import 'dart:async';
 import 'dart:io';
 
-import 'package:receive_sharing_intent/receive_sharing_intent.dart';
+import 'package:flutter/services.dart';
 
 import 'import_service.dart';
 import 'learn_store.dart';
@@ -35,8 +40,9 @@ class SharedCapture {
   /// The URL (link) or the shared text (text).
   final String? text;
 
-  /// Local path of a shared file (the plugin copies shares into a
-  /// temp cache — capture copies it into the Library promptly).
+  /// Local path of a shared file (the platform side copies shares
+  /// into the app cache — capture copies it into the Library
+  /// promptly).
   final String? filePath;
 
   /// Display name of a shared file (UNTRUSTED — the Library
@@ -65,8 +71,8 @@ class SharedCapture {
   }
 }
 
-/// The boundary the UI talks to. The plugin implementation is
-/// [PluginShareIntentService]; tests use a fake.
+/// The boundary the UI talks to. The in-house implementation is
+/// [AppShareIntentService]; tests use a fake.
 abstract interface class ShareIntentService {
   /// The share that launched the app (cold start), if any.
   Future<List<SharedCapture>> initialCaptures();
@@ -78,50 +84,69 @@ abstract interface class ShareIntentService {
   Future<void> markConsumed();
 }
 
-/// `receive_sharing_intent` implementation (Android ACTION_SEND).
-class PluginShareIntentService implements ShareIntentService {
+/// In-house implementation (D-034): MainActivity decodes Android
+/// ACTION_SEND / ACTION_SEND_MULTIPLE intents into
+/// `{kind: text|file, value}` payloads — text stays text (a bare
+/// URL is upgraded to a link here, exactly as the plugin-era
+/// conversion did), files arrive as private cache copies whose
+/// paths the Library imports from promptly. The plugin's video
+/// thumbnail/duration extras were never used and are not
+/// reproduced.
+class AppShareIntentService implements ShareIntentService {
+  static const MethodChannel _methods =
+      MethodChannel('app.dailylife/share_intent');
+  static const EventChannel _events =
+      EventChannel('app.dailylife/share_intent/events');
+
   @override
   Future<List<SharedCapture>> initialCaptures() async {
     try {
-      final media = await ReceiveSharingIntent.instance.getInitialMedia();
-      return media.map(_convert).whereType<SharedCapture>().toList();
+      final raw =
+          await _methods.invokeListMethod<Object?>('getInitialMedia');
+      return (raw ?? const [])
+          .map(_convert)
+          .whereType<SharedCapture>()
+          .toList();
     } catch (_) {
-      // No platform (desktop/tests without the plugin): no share.
+      // No platform (desktop/tests without the channel): no share.
       return const [];
     }
   }
 
   @override
-  Stream<SharedCapture> get captures => ReceiveSharingIntent.instance
-      .getMediaStream()
-      .expand((list) => list.map(_convert).whereType<SharedCapture>());
+  Stream<SharedCapture> get captures => _events
+      .receiveBroadcastStream()
+      .expand((event) => (event as List)
+          .map(_convert)
+          .whereType<SharedCapture>());
 
   @override
-  Future<void> markConsumed() => ReceiveSharingIntent.instance.reset();
+  Future<void> markConsumed() => _methods.invokeMethod<void>('reset');
 
-  static SharedCapture? _convert(SharedMediaFile media) {
-    switch (media.type) {
-      case SharedMediaType.url:
-        return SharedCapture(kind: CaptureKind.link, text: media.path);
-      case SharedMediaType.text:
+  static SharedCapture? _convert(Object? item) {
+    if (item is! Map) return null;
+    final value = item['value'];
+    if (value is! String) return null;
+    switch (item['kind']) {
+      case 'text':
         // Some apps share URLs AS text: a bare URL is a link.
-        final text = media.path.trim();
+        final text = value.trim();
         final uri = Uri.tryParse(text);
         if (uri != null &&
             (uri.scheme == 'http' || uri.scheme == 'https') &&
             !text.contains(RegExp(r'\s'))) {
           return SharedCapture(kind: CaptureKind.link, text: text);
         }
-        return SharedCapture(kind: CaptureKind.text, text: media.path);
-      case SharedMediaType.file:
-      case SharedMediaType.image:
-      case SharedMediaType.video:
-        final name = media.path.split(RegExp(r'[/\\]')).last;
+        return SharedCapture(kind: CaptureKind.text, text: value);
+      case 'file':
+        final name = value.split(RegExp(r'[/\\]')).last;
         return SharedCapture(
           kind: CaptureKind.file,
-          filePath: media.path,
+          filePath: value,
           fileName: name,
         );
+      default:
+        return null;
     }
   }
 }
@@ -172,7 +197,7 @@ class CaptureService {
         );
         return topic;
       case CaptureKind.file:
-        // The plugin hands us a temp-cache path that Android may
+        // The platform side hands us a cache path that Android may
         // clean before the owner confirms. A vanished file is a
         // FAILED capture — never an empty topic wearing a success
         // message (§R9.5: capture must not lose things silently).

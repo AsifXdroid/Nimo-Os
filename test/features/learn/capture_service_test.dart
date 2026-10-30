@@ -1,6 +1,7 @@
 // LEARN-data — share-intent capture (S4, §R8.2/§R9.5): the
-// plugin sits behind ShareIntentService; its conversion is
-// tested through the plugin's OWN mock (setMockValues), and the
+// platform side sits behind ShareIntentService; its conversion
+// is tested through the in-house channel contract (D-034 — mock
+// binary-messenger handlers stand in for MainActivity), and the
 // save path through CaptureService with a hand-written fake —
 // cold start and warm stream both land as Inbox topics in ≤ the
 // one confirm tap.
@@ -12,8 +13,8 @@ import 'package:daily_life_app/features/learn/capture_service.dart';
 import 'package:daily_life_app/features/learn/import_service.dart';
 import 'package:daily_life_app/features/learn/learn_store.dart';
 import 'package:daily_life_app/features/learn/library_store.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class FakeShareIntentService implements ShareIntentService {
@@ -36,6 +37,8 @@ class FakeShareIntentService implements ShareIntentService {
 
 void main() {
   setUpAll(() {
+    // For the channel mocks (TestDefaultBinaryMessengerBinding).
+    TestWidgetsFlutterBinding.ensureInitialized();
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   });
@@ -70,56 +73,79 @@ void main() {
     await tmp.delete(recursive: true);
   });
 
-  group('plugin conversion (via the plugin mock)', () {
-    test('cold-start URL share becomes a link capture', () async {
-      ReceiveSharingIntent.setMockValues(
-        initialMedia: [
-          SharedMediaFile(
-              path: 'https://instagram.com/reel/abc',
-              type: SharedMediaType.url),
-        ],
-        mediaStream: const Stream.empty(),
+  group('channel conversion (MainActivity contract, D-034)', () {
+    const methodChannel = MethodChannel('app.dailylife/share_intent');
+    const eventChannel =
+        EventChannel('app.dailylife/share_intent/events');
+
+    late List<Object?> mockInitial;
+    late List<Object?> mockEvents;
+
+    setUp(() {
+      mockInitial = const [];
+      mockEvents = const [];
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(methodChannel, (call) async {
+        switch (call.method) {
+          case 'getInitialMedia':
+            return mockInitial;
+          case 'reset':
+            return null;
+          default:
+            return null;
+        }
+      });
+      messenger.setMockStreamHandler(
+        eventChannel,
+        MockStreamHandler.inline(
+          onListen: (args, events) {
+            for (final e in mockEvents) {
+              events.success(e);
+            }
+            events.endOfStream();
+          },
+        ),
       );
-      final service = PluginShareIntentService();
-      final captures = await service.initialCaptures();
+    });
+
+    tearDown(() {
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(methodChannel, null);
+      messenger.setMockStreamHandler(eventChannel, null);
+    });
+
+    test('cold-start URL share becomes a link capture', () async {
+      mockInitial = [
+        {'kind': 'text', 'value': 'https://instagram.com/reel/abc'},
+      ];
+      final captures = await AppShareIntentService().initialCaptures();
       expect(captures.single.kind, CaptureKind.link);
       expect(captures.single.text, 'https://instagram.com/reel/abc');
       expect(captures.single.suggestedTitle, 'Link from instagram.com');
     });
 
     test('a bare URL shared AS text is still a link', () async {
-      ReceiveSharingIntent.setMockValues(
-        initialMedia: [
-          SharedMediaFile(
-              path: 'https://example.com/article',
-              type: SharedMediaType.text),
-        ],
-        mediaStream: const Stream.empty(),
-      );
-      final captures = await PluginShareIntentService().initialCaptures();
+      mockInitial = [
+        {'kind': 'text', 'value': 'https://example.com/article'},
+      ];
+      final captures = await AppShareIntentService().initialCaptures();
       expect(captures.single.kind, CaptureKind.link);
     });
 
     test('warm stream: text stays text, files carry their name',
         () async {
-      ReceiveSharingIntent.setMockValues(
-        initialMedia: const [],
-        mediaStream: Stream.fromIterable([
-          [
-            SharedMediaFile(
-                path: 'Some thought worth keeping',
-                type: SharedMediaType.text),
-          ],
-          [
-            SharedMediaFile(
-                path: '/cache/shared/notes.txt',
-                type: SharedMediaType.file),
-          ],
-        ]),
-      );
-      final got = await PluginShareIntentService().captures.toList();
-      expect(got.map((c) => c.kind),
-          [CaptureKind.text, CaptureKind.file]);
+      mockEvents = [
+        [
+          {'kind': 'text', 'value': 'Some thought worth keeping'},
+        ],
+        [
+          {'kind': 'file', 'value': '/cache/shared/notes.txt'},
+        ],
+      ];
+      final got = await AppShareIntentService().captures.toList();
+      expect(got.map((c) => c.kind), [CaptureKind.text, CaptureKind.file]);
       expect(got.last.fileName, 'notes.txt');
     });
   });

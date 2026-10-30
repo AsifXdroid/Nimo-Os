@@ -3,6 +3,50 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-30 — D-034: share capture reimplemented in-house, plugin removed (main chat)
+- Owner chose the proper fix over forcing the plugin's JVM
+  targets from our Gradle config. `receive_sharing_intent` is
+  GONE from pubspec/lock and the resolved plugin set (verified
+  by grep + scanner). MainActivity (stock 3 lines until now)
+  decodes ACTION_SEND / ACTION_SEND_MULTIPLE and serves the
+  unchanged ShareIntentService contract over
+  `app.dailylife/share_intent` channels; Dart side is
+  `AppShareIntentService` with the plugin-era conversion
+  semantics preserved exactly (bare-URL text upgrades to a
+  link; files arrive as app-cache copies). Manifest filters
+  were already ours — comment updated only. One improvement
+  over the plugin: warm shares arriving before Dart listens
+  are buffered natively and flushed on listen.
+- Tests: the 3 plugin-mock tests were rewritten against mock
+  channel handlers with identical expectations; the rest of
+  capture_service_test is untouched.
+- Post-removal build-risk scan (hardened skill): 10 plugins,
+  zero FAIL/CHECK. jni's NDK/CMake step remains the one
+  never-yet-exercised stage, as recorded in the audit doc.
+- Verified here: `flutter analyze` clean, `flutter test`
+  **483/483** (count unchanged — 3 tests rewritten in place).
+  The Kotlin side compiles for the first time in CI — that is
+  the known verification gap of this environment, stated
+  plainly rather than papered over.
+
+## 2026-10-30 — CI failure 3: RSI 1.8.1 JVM-target mismatch; skill hardened in response (main chat)
+- The `969f7c04` build failed at `:receive_sharing_intent:
+  compileReleaseKotlin` — JVM targets 11 (Java) vs 17 (Kotlin).
+  Root cause is a DEFECT OF OMISSION: 1.8.1's build.gradle
+  declares neither compileOptions nor kotlinOptions (verified by
+  reading the file), so each side took a different toolchain
+  default; Kotlin 2.x target validation rejects the mix. 1.9.0
+  sets 17/17 explicitly (also verified) — the downgrade traded
+  the compileSdk defect for this one. The log's KGP warning also
+  names this plugin (it applies kotlin-android itself): future
+  Flutter hard-fails KGP plugins, so both published versions are
+  dead ends under this toolchain.
+- Skill `flutter_android_build_risk_audit` updated: scanner now
+  checks JVM-target coherence including omission (re-scan flags
+  RSI 1.8.1 as CHECK-omission); playbook gained a defects-of-
+  omission section and candidate-check step 2b. Fix decision
+  (Gradle override vs in-house replacement) is the owner's.
+
 ## 2026-10-30 — CI fix 2: receive_sharing_intent pinned exactly to 1.8.1 (main chat)
 - Owner approved the audit's recommendation. pubspec now pins
   `receive_sharing_intent: 1.8.1` EXACTLY (no caret — `^1.8.0` is

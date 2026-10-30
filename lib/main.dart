@@ -125,7 +125,7 @@ Future<void> bootstrap() async {
       // sheet to capture from (§R8.7). The shell null-guards it;
       // on Linux the capture entry points simply never fire, and
       // file import via the picker remains the capture route.
-      shareService: Platform.isAndroid ? PluginShareIntentService() : null,
+      shareService: Platform.isAndroid ? AppShareIntentService() : null,
       onRestoreBackup: (zip, {required replaceConfirmed}) async {
         // D-011 restore: close → swap files under the guard → the
         // whole app re-bootstraps onto the restored database. The

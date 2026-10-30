@@ -111,6 +111,31 @@ signature:
   evaluation-time removal (the audit found no other candidate
   lines, so this would itself be new information).
 
+## Failure 3 and the resolution (2026-10-30, later)
+
+The pin-to-1.8.1 build (commit `969f7c04`) failed at
+`:receive_sharing_intent:compileReleaseKotlin` — JVM targets
+11 (Java) vs 17 (Kotlin). 1.8.1's build.gradle declares NEITHER
+`compileOptions` nor `kotlinOptions` (verified by reading the
+file): a **defect of omission**, invisible to the original text
+battery. Its script is AGP 7.3.1 / Kotlin 1.9.22-era; 1.9.0 sets
+17/17 explicitly. The same log carried the Flutter KGP warning
+naming this plugin (it applies `kotlin-android` itself) —
+future Flutter turns that into a hard failure, so BOTH
+published versions are dead ends here. The owner rejected a
+Gradle force-override ("what if we force now and this becomes
+a big problem later — do proper work") and chose D-034:
+**the plugin is removed; share capture is implemented in-house
+in MainActivity** behind the unchanged ShareIntentService
+contract. The audit skill was hardened from this miss: the
+scanner now checks JVM-target coherence including omission —
+with one calibrated exception (Java declared + Kotlin unset is
+a NOTE: KGP defaults jvmTarget from the Java target, and whole
+plugin sets of that shape demonstrably packaged AARs in run 2).
+Post-removal scan of the 10 remaining plugins: zero FAIL/CHECK;
+jni's NDK/CMake environment requirement remains the standing
+known-unknown until a build passes its native step.
+
 ## Recommended mitigations (for owner decision — none applied)
 
 1. **Pin the CI Flutter version** to the dev toolchain (3.47.8) in

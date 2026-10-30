@@ -350,6 +350,27 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
     default is CWD-relative), and a writability probe before
     a picked Library folder is persisted.
 
+- **D-034 (2026-10-30) — Share-intent capture is in-house; the
+  `receive_sharing_intent` plugin is removed.** Every published
+  version is defective under this project's toolchain (1.9.0
+  declares compileSdk 37 → `checkReleaseAarMetadata` failure;
+  1.8.1 declares neither JVM target → Java 11 / Kotlin 17
+  mismatch at target validation; both apply the Kotlin Gradle
+  Plugin that future Flutter versions hard-fail). The owner
+  chose the proper fix over a Gradle force-override.
+  Implementation: `MainActivity` decodes ACTION_SEND /
+  ACTION_SEND_MULTIPLE itself and serves the unchanged
+  `ShareIntentService` contract over the
+  `app.dailylife/share_intent` channels (`AppShareIntentService`
+  in `capture_service.dart`). Scope held to what the app
+  actually used: text shares (bare URLs still upgrade to links
+  in Dart) and file shares (copied to the app cache; the
+  Library imports promptly, as before). The plugin's unused
+  extras (video thumbnails/durations, ACTION_VIEW handling) are
+  NOT reproduced. One deliberate improvement: a warm share that
+  arrives before Dart listens is buffered natively and flushed
+  on listen, where the plugin dropped it.
+
 ## Open — awaiting owner
 
 - (none right now)

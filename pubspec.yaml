@@ -47,15 +47,10 @@ dependencies:
   path_provider: ^2.1.5
   pdfrx: ^2.11.0
   pdfrx_engine: ^0.9.0
-  # Exact pin, no caret (2026-10-30): 1.9.0 declares compileSdk 37,
-  # above both the app's 36 and AGP 9.1.0's maximum recommended —
-  # the CI release build failed at :app:checkReleaseAarMetadata.
-  # 1.8.1 declares compileSdk 34 and exposes the identical Dart API
-  # this app uses; 1.9.0's changes were iOS-side plus the SDK bump.
-  # ^1.8.0 silently floated to 1.9.0, so the pin must stay exact
-  # until a release with compileSdk <= 36 exists. See
-  # docs/CI_BUILD_AUDIT-2026-10-30.md.
-  receive_sharing_intent: 1.8.1
+  # Share-intent capture has NO plugin dependency since D-034:
+  # MainActivity decodes ACTION_SEND itself (receive_sharing_intent
+  # is defective in every published version under this toolchain —
+  # see docs/CI_BUILD_AUDIT-2026-10-30.md). Do not re-add it.
   archive: ^4.0.7
   file_selector: ^1.0.3
   url_launcher: ^6.3.1

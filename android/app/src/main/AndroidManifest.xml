@@ -29,7 +29,8 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- S4: share-intent capture (receive_sharing_intent).
+            <!-- S4: share-intent capture (in-house since D-034 —
+                 MainActivity decodes these intents itself).
                  Text/URLs land as Inbox topics; files are copied
                  into the Library. -->
             <intent-filter>

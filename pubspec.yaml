@@ -35,10 +35,33 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   sqflite: ^2.4.5
+  # S7 (DESKTOP): the FFI database factory is how the app opens
+  # SQLite on Linux desktop (sqflite has no Linux implementation);
+  # Android keeps the native factory. Was a dev_dependency (tests)
+  # until S7 — now also a runtime dependency for lib/ code.
+  sqflite_common_ffi: ^2.4.5
   path: ^1.9.1
-
+  # S4 (LEARN-data / SET-backup): Library paths, PDF view + text
+  # extraction, share-intent capture, backup zip, file picking,
+  # opening links externally.
+  path_provider: ^2.1.5
+  pdfrx: ^2.11.0
+  pdfrx_engine: ^0.9.0
+  receive_sharing_intent: ^1.8.0
+  archive: ^4.0.7
+  file_selector: ^1.0.3
+  url_launcher: ^6.3.1
+  crypto: ^3.0.0
+  flutter_inappwebview: ^6.1.5
+  # S6 (SET-reminders): local notifications (inexact, opt-in),
+  # its timezone database, and the device-timezone lookup.
+  flutter_local_notifications: ^22.3.3
+  timezone: ^0.11.2
+  flutter_timezone: ^5.1.1
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  integration_test:
     sdk: flutter
 
   # The "flutter_lints" package below contains a set of recommended lints to
@@ -47,7 +70,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
-  sqflite_common_ffi: ^2.4.5
+  glados: ^1.1.7
+  leak_tracker_flutter_testing: ^3.0.10
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

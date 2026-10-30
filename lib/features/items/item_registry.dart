@@ -27,8 +27,14 @@ const List<ItemTypeDef> itemTypes = [
       key: ItemType.checklist,
       label: 'Checklist',
       icon: Icons.checklist_outlined),
-  // S3: link_card — ItemTypeDef(key: 'link_card', label: 'Link card', icon: Icons.grid_view_outlined)
-  // S4: html_quiz — ItemTypeDef(key: 'html_quiz', label: 'HTML quiz', icon: Icons.quiz_outlined)
+  ItemTypeDef(
+      key: ItemType.linkCard,
+      label: 'Link card',
+      icon: Icons.grid_view_outlined),
+  ItemTypeDef(
+      key: ItemType.htmlQuiz,
+      label: 'HTML quiz',
+      icon: Icons.quiz_outlined),
 ];
 
 ItemTypeDef itemTypeDef(String key) => itemTypes.firstWhere(

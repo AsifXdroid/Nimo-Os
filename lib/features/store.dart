@@ -92,7 +92,8 @@ class Project {
 abstract final class ItemType {
   static const String note = 'note';
   static const String checklist = 'checklist';
-  // S3: linkCard = 'link_card'; S4: htmlQuiz = 'html_quiz';
+  static const String linkCard = 'link_card';
+  static const String htmlQuiz = 'html_quiz';
 }
 
 class Item {
@@ -318,6 +319,23 @@ class Store {
     if (title != null) values['title'] = title;
     if (note != null) values['note'] = note;
     await _db.update('items', values, where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Replace an item's JSON payload (link_card topic link and
+  /// thumbnail name are written this way after creation, S4).
+  Future<void> updateItemPayload(int id, Map<String, Object?> payload) async {
+    await _db.update(
+      'items',
+      {'payload': jsonEncode(payload), 'updated_at': AppDatabase.nowMs()},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<Item> itemById(int id) async {
+    final rows =
+        await _db.query('items', where: 'id = ?', whereArgs: [id], limit: 1);
+    return Item.fromRow(rows.single);
   }
 
   Future<void> deleteItem(int id) async {

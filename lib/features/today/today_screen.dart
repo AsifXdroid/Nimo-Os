@@ -13,6 +13,14 @@ import '../../core/theme.dart';
 import '../goals/goals_store.dart';
 import '../items/item_detail_screen.dart';
 import '../items/item_registry.dart';
+import '../items/link_card/thumbnail_service.dart';
+import '../learn/learn_services.dart';
+import '../learn/session_composer.dart';
+import '../learn/session_screen.dart';
+import '../progress/progress_store.dart';
+import '../progress/weekly_summary.dart';
+import '../review/day_close_screen.dart';
+import '../review/review_store.dart';
 import '../shared_ui.dart';
 import '../store.dart';
 import 'routine_screen.dart';
@@ -46,6 +54,14 @@ class _HubData {
     required this.recent,
     required this.goals,
     required this.sections,
+    required this.streak,
+    required this.todayReview,
+    required this.closeTarget,
+    required this.ifThen,
+    required this.inboxCount,
+    required this.dueCount,
+    required this.newCount,
+    this.weekSummary,
   });
 
   final List<DayPlanItem> items;
@@ -55,6 +71,30 @@ class _HubData {
   final List<RecentItem> recent;
   final List<Goal> goals;
   final Map<String, bool> sections;
+
+  /// REVIEW (S3): streak summary, today's review (null until
+  /// closed), the Day Close target (today, or yesterday inside the
+  /// late-close window), and the if–then line.
+  final StreakState streak;
+  final DayReview? todayReview;
+  final CloseTarget closeTarget;
+  final String ifThen;
+
+  /// LEARN (S4): topics waiting in the Inbox (shown on the Topics
+  /// & Library card only — the count is deliberately NOT a Home
+  /// badge; §R9.5 keeps the Inbox off the guilt surface).
+  final int inboxCount;
+
+  /// LEARN (S5): cheap engine counts for the Learn card (due now
+  /// / never answered). COUNT queries only — loading Home never
+  /// seeds or writes anything.
+  final int dueCount;
+  final int newCount;
+
+  /// PROGRESS (S6): this week's summary, loaded ONLY when the
+  /// Sunday-evening card is due (§R5.4: Sunday from ~18:00) and
+  /// a ProgressStore is wired; null otherwise.
+  final WeeklySummary? weekSummary;
 }
 
 class TodayScreen extends StatefulWidget {
@@ -63,16 +103,50 @@ class TodayScreen extends StatefulWidget {
     required this.store,
     required this.todayStore,
     required this.goalsStore,
+    required this.reviewStore,
+    required this.learn,
+    required this.thumbnails,
+    required this.onOpenTopics,
     required this.onOpenWorkspace,
+    required this.onOpenLearn,
+    this.progressStore,
+    this.onOpenSettings,
+    this.onOpenWeeklySummary,
   });
 
   final Store store;
   final TodayStore todayStore;
   final GoalsStore goalsStore;
+  final ReviewStore reviewStore;
+
+  /// LEARN (S4): topics/library services (Day Close topic picker).
+  final LearnServices learn;
+
+  /// LINK (S4): thumbnail cache for item detail screens opened
+  /// from Home's recent items.
+  final ThumbnailService thumbnails;
+
+  /// Opens the Topics & Library screen (built by the shell, which
+  /// also wires the backup section into it).
+  final void Function() onOpenTopics;
 
   /// Called when a pinned space is tapped: the shell switches to the
   /// Spaces tab and opens the workspace.
   final void Function(Workspace workspace) onOpenWorkspace;
+
+  /// Opens the Learn tab (the shell selects the learn destination).
+  final void Function() onOpenLearn;
+
+  /// PROGRESS (S6): progress read model for the Sunday summary
+  /// card; optional so isolated tests can mount Home without it.
+  final ProgressStore? progressStore;
+
+  /// Opens the Settings surface (S6); null keeps the header icon
+  /// a disabled placeholder.
+  final void Function()? onOpenSettings;
+
+  /// Opens the full weekly summary for the given Monday (S6).
+  final void Function(DateTime monday)? onOpenWeeklySummary;
 
   @override
   State<TodayScreen> createState() => _TodayScreenState();
@@ -101,6 +175,13 @@ class _TodayScreenState extends State<TodayScreen> {
 
   Future<_HubData> _load() async {
     final now = DateTime.now();
+    // REVIEW (S3): resolve the close target BEFORE generating
+    // today's plan, then refresh the streak fold through yesterday.
+    final closeTarget = await widget.reviewStore.closableDate(now: now);
+    await widget.reviewStore.evaluate(now: now);
+    final streak = await widget.reviewStore.streakState();
+    final todayReview = await widget.reviewStore.reviewFor(now);
+    final ifThen = await widget.todayStore.ifThenLine();
     final items = await widget.todayStore.planItems(now);
     final weekPending = await widget.todayStore.weekPending(now);
     final weekCounts = await widget.todayStore.weekPendingCounts(now);
@@ -115,6 +196,16 @@ class _TodayScreenState extends State<TodayScreen> {
     final recent = await widget.store.recentItems(limit: 5);
     final goals = await widget.goalsStore.goals();
     final sections = await widget.todayStore.homeSectionVisibility();
+    final inboxCount = await widget.learn.store.inboxCountOrZero();
+    final dueCount = await widget.learn.engine.dueCount();
+    final newCount = await widget.learn.engine.newCount();
+    // PROGRESS (S6): the Sunday summary is computed only when its
+    // card is due (Sunday ≥18:00, §R5.4) — a pure recompute over
+    // stored data, never a stored artefact.
+    final weekSummary = (widget.progressStore != null &&
+            sundaySummaryDue(now))
+        ? await widget.progressStore!.weeklySummary(now, now: now)
+        : null;
     return _HubData(
       items: items,
       weekPending: weekPending,
@@ -123,6 +214,14 @@ class _TodayScreenState extends State<TodayScreen> {
       recent: recent,
       goals: goals,
       sections: sections,
+      streak: streak,
+      todayReview: todayReview,
+      closeTarget: closeTarget,
+      ifThen: ifThen,
+      inboxCount: inboxCount,
+      dueCount: dueCount,
+      newCount: newCount,
+      weekSummary: weekSummary,
     );
   }
 
@@ -132,6 +231,7 @@ class _TodayScreenState extends State<TodayScreen> {
     final t = title.trim();
     if (t.isEmpty) return;
     await widget.todayStore.addOneOff(DateTime.now(), t);
+    await _afterPlanEdit();
     _addController.clear();
     setState(_reload);
   }
@@ -215,6 +315,7 @@ class _TodayScreenState extends State<TodayScreen> {
   Future<void> _customize(_HubData data) async {
     const labels = {
       TodayStore.sectionWeekStrip: 'Week strip',
+      TodayStore.sectionDayClose: 'Day Close banner',
       TodayStore.sectionPinned: 'Pinned spaces',
       TodayStore.sectionRecent: 'Recent items',
       TodayStore.sectionGoals: 'Goals',
@@ -277,9 +378,21 @@ class _TodayScreenState extends State<TodayScreen> {
             padding: const EdgeInsets.all(Gap.md),
             children: [
               _header(context, now),
+              if (data.weekSummary != null) ...[
+                const SizedBox(height: Gap.md),
+                _sundaySummaryCard(context, data.weekSummary!),
+              ],
               if (data.sections[TodayStore.sectionWeekStrip] ?? true)
                 _weekStrip(context, data),
               _quickAddRow(context),
+              const SizedBox(height: Gap.md),
+              if (data.sections[TodayStore.sectionDayClose] ?? true) ...[
+                _dayCloseCard(context, data),
+                const SizedBox(height: Gap.md),
+              ],
+              _topicsCard(context, data),
+              const SizedBox(height: Gap.md),
+              _learnCard(context, data),
               const SizedBox(height: Gap.md),
               if (_showWeek)
                 _weekCard(context, data)
@@ -329,12 +442,38 @@ class _TodayScreenState extends State<TodayScreen> {
           tooltip: 'Coming soon',
           onPressed: null,
         ),
-        const IconButton(
-          icon: Icon(Icons.settings_outlined),
-          tooltip: 'Coming soon',
-          onPressed: null,
+        IconButton(
+          icon: const Icon(Icons.settings_outlined),
+          tooltip: widget.onOpenSettings == null ? 'Coming soon' : 'Settings',
+          onPressed: widget.onOpenSettings,
         ),
       ],
+    );
+  }
+
+  /// Sunday weekly summary card (PROGRESS, S6 — §R2.3/§R5.4):
+  /// takes over the top of Today on Sunday evening; dismissing
+  /// is not needed because it simply stops being due on Monday,
+  /// and the full summary lives in Progress afterwards.
+  Widget _sundaySummaryCard(BuildContext context, WeeklySummary summary) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: EdgeInsets.zero,
+      color: theme.colorScheme.secondaryContainer,
+      child: ListTile(
+        leading: Icon(Icons.auto_stories_outlined,
+            color: theme.colorScheme.primary),
+        title: const Text('Your week, wrapped up'),
+        subtitle: Text(summary.isEmpty
+            ? 'A quiet week — see the summary in Progress.'
+            : 'You showed up ${summary.daysCounted} of 7 days'
+                '${summary.shieldDays > 0 ? ' · ${summary.shieldDays} shield day${summary.shieldDays == 1 ? '' : 's'}' : ''}'
+                '${summary.majorPoints.isNotEmpty ? ' · ${summary.majorPoints.length} major point${summary.majorPoints.length == 1 ? '' : 's'} captured' : ''}'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: widget.onOpenWeeklySummary == null
+            ? null
+            : () => widget.onOpenWeeklySummary!(summary.monday),
+      ),
     );
   }
 
@@ -426,6 +565,213 @@ class _TodayScreenState extends State<TodayScreen> {
     );
   }
 
+  Future<void> _openDayClose(_HubData data,
+      {DateTime? date, bool? isLate}) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DayCloseScreen(
+          todayStore: widget.todayStore,
+          reviewStore: widget.reviewStore,
+          date: date ?? data.closeTarget.date,
+          isLate: isLate ?? data.closeTarget.isLate,
+          learnStore: widget.learn.store,
+        ),
+      ),
+    );
+    setState(_reload);
+  }
+
+  /// After any edit to today's plan from Hub Home, keep a closed
+  /// day's stored Done Score in step (review S3).
+  Future<void> _afterPlanEdit() =>
+      widget.reviewStore.refreshDoneScoreIfClosed(DateTime.now());
+
+  Future<void> _editIfThen(_HubData data) async {
+    final text = await promptText(
+      context,
+      title: 'Your if–then line',
+      label: 'If …, then I will …',
+      initial: data.ifThen,
+      maxLines: 2,
+    );
+    if (text == null) return;
+    await widget.todayStore.setIfThenLine(text);
+    setState(_reload);
+  }
+
+  /// Topics & Library card (LEARN, S4): the doorway to topics,
+  /// sources and backup. The Inbox count is shown as plain text
+  /// ("3 waiting") — information, not a badge (§R9.5).
+  Widget _topicsCard(BuildContext context, _HubData data) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        leading: Icon(Icons.library_books_outlined,
+            color: theme.colorScheme.primary),
+        title: const Text('Topics & Library'),
+        subtitle: Text(data.inboxCount == 0
+            ? 'Inbox is clear'
+            : 'Inbox · ${data.inboxCount} waiting'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: widget.onOpenTopics,
+      ),
+    );
+  }
+
+  /// Pushes a review session directly from Home (the ≤2-tap
+  /// path to learning: this Start button is tap one, answering
+  /// is tap two) and reloads the Hub on return.
+  Future<void> _openLearnSession() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SessionScreen(
+          learn: widget.learn,
+          reviewStore: widget.reviewStore,
+          store: widget.store,
+          kind: SessionKind.review,
+        ),
+      ),
+    );
+    setState(_reload);
+  }
+
+  /// Learn card (LEARN engine, S5): due/new counts and the direct
+  /// Start path. Tapping the card itself goes to the Learn tab.
+  Widget _learnCard(BuildContext context, _HubData data) {
+    final theme = Theme.of(context);
+    final total = data.dueCount + data.newCount;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        leading: Icon(Icons.school_outlined,
+            color: theme.colorScheme.primary),
+        title: const Text('Learn'),
+        subtitle: Text(total == 0
+            ? 'Import a pack to start learning'
+            : '${data.dueCount} due · ${data.newCount} new'),
+        trailing: total > 0
+            ? FilledButton(
+                onPressed: _openLearnSession,
+                child: const Text('Start'),
+              )
+            : const Icon(Icons.chevron_right),
+        onTap: widget.onOpenLearn,
+      ),
+    );
+  }
+
+  /// Day Close banner (REVIEW, S3): streak + shields, today's dual
+  /// scores once closed, otherwise the close action — targeting
+  /// yesterday instead while the late-close window is open.
+  Widget _dayCloseCard(BuildContext context, _HubData data) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final streak = data.streak;
+    final review = data.todayReview;
+    final doneCount = data.items.where((i) => i.done).length;
+    final closed = review != null && review.isClosed;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(Gap.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.local_fire_department_outlined,
+                    color: scheme.primary),
+                const SizedBox(width: Gap.sm),
+                Expanded(
+                  child: Text(
+                    streak.currentStreak > 0
+                        ? '${streak.currentStreak}-day streak'
+                        : 'No streak yet — today counts',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
+                for (var i = 0; i < streak.shieldsHeld; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 2),
+                    child: Icon(Icons.shield_outlined,
+                        size: 18, color: scheme.tertiary),
+                  ),
+              ],
+            ),
+            if (streak.shieldsHeld > 0 && !streak.shieldsIntroShown) ...[
+              const SizedBox(height: Gap.sm),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      "You've earned protection: a shield covers a "
+                      'missed day, so one bad day never ends the '
+                      'streak (max 2 shield-days a week).',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 16),
+                    tooltip: 'Got it',
+                    onPressed: () async {
+                      await widget.reviewStore.markShieldsIntroShown();
+                      setState(_reload);
+                    },
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: Gap.sm),
+            if (data.closeTarget.isLate)
+              Text("Yesterday isn't closed yet — you can still close it.",
+                  style: theme.textTheme.bodyMedium)
+            else if (closed)
+              Text(
+                'Today closed · Done ${review.doneScore ?? '—'}'
+                ' · Mine ${review.selfScore ?? '—'}'
+                '${review.selfScore != null ? ' / 10' : ''}',
+                style: theme.textTheme.bodyMedium,
+              )
+            else
+              Text('$doneCount of ${data.items.length} done today',
+                  style: theme.textTheme.bodyMedium),
+            const SizedBox(height: Gap.sm),
+            Row(
+              children: [
+                // Review S2: while the late window is open the
+                // primary action closes yesterday — but today's
+                // close must never be blocked behind it.
+                if (data.closeTarget.isLate)
+                  TextButton(
+                    onPressed: () => _openDayClose(
+                      data,
+                      date: DateTime.now(),
+                      isLate: false,
+                    ),
+                    child: const Text('Close today instead'),
+                  ),
+                const Spacer(),
+                FilledButton.tonal(
+                  onPressed: () => _openDayClose(data),
+                  child: Text(
+                    data.closeTarget.isLate
+                        ? 'Close yesterday'
+                        : closed
+                            ? 'Review today'
+                            : 'Close the day',
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _planCard(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
     final items = data.items;
@@ -462,6 +808,34 @@ class _TodayScreenState extends State<TodayScreen> {
             const SizedBox(height: Gap.sm),
             LinearProgressIndicator(
                 value: items.isEmpty ? 0 : done / items.length),
+            const SizedBox(height: Gap.sm),
+            InkWell(
+              onTap: () => _editIfThen(data),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Icon(Icons.bolt_outlined,
+                        size: 18, color: theme.colorScheme.tertiary),
+                    const SizedBox(width: Gap.sm),
+                    Expanded(
+                      child: Text(
+                        data.ifThen.isEmpty
+                            ? 'Set your if–then line: '
+                                '"If …, then I will …"'
+                            : data.ifThen,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: data.ifThen.isEmpty
+                              ? theme.colorScheme.onSurfaceVariant
+                              : null,
+                        ),
+                      ),
+                    ),
+                    const Icon(Icons.edit_outlined, size: 16),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: Gap.sm),
             if (items.isEmpty)
               Text('Nothing planned yet. Add a task below, or build '
@@ -516,6 +890,7 @@ class _TodayScreenState extends State<TodayScreen> {
     return InkWell(
       onTap: () async {
         await widget.todayStore.toggleItem(item);
+        await _afterPlanEdit();
         setState(_reload);
       },
       child: Padding(
@@ -557,6 +932,7 @@ class _TodayScreenState extends State<TodayScreen> {
                 tooltip: 'Delete',
                 onPressed: () async {
                   await widget.todayStore.deletePlanItem(item.id);
+                  await _afterPlanEdit();
                   setState(_reload);
                 },
               ),
@@ -736,7 +1112,11 @@ class _TodayScreenState extends State<TodayScreen> {
                         context,
                         MaterialPageRoute(
                           builder: (_) => ItemDetailScreen(
-                              store: widget.store, item: r.item),
+                            store: widget.store,
+                            item: r.item,
+                            learn: widget.learn,
+                            thumbnails: widget.thumbnails,
+                          ),
                         ),
                       );
                       setState(_reload);

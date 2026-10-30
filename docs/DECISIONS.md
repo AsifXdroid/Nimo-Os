@@ -69,6 +69,287 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
   `app_settings`). The app shell is a 3-tab bottom NavigationBar:
   Today · Spaces · Goals.
 
+- **D-010 (2026-10-30) — Research report approved; stages S3–S8
+  supersede old S3–S6.** The owner commissioned and approved the
+  overnight research report
+  (`~/workspace/goals/daily-life-android-app/files/RESEARCH-2026-10-30.md`,
+  incl. quality pass + red-team review). Its feature list v2 (§R10.1)
+  is now the feature contract, and the re-sequenced stages S3–S8
+  (§R10.2) replace the old PLAN S3–S6 (reel cards / HTML quizzes /
+  goals & polish / safety net). Key locked mechanics the stages must
+  implement as specified: the daily loop (plan → grow → review) is
+  the heart; Day Close + dual scores (Done auto / Self, never
+  merged); Streak Shields (a day counts ONLY via core plan done OR
+  Day Close done — exactly two signals); learning measured by
+  enjoyment, not minutes; content via owner-supplied sources and
+  externally generated quiz packs; schema v3 carries sync identity
+  columns early; sync is staged LAN-only (Stage A files + "Sync
+  now" packages, Stage B auto) and the live SQLite file is never
+  file-synced. The owner also granted a standing go-ahead
+  (2026-10-30) to build S3→S8 stage by stage with a
+  build → review → fix loop and full docs updates, without waiting
+  for per-stage approval.
+- **D-011 (2026-10-30) — Repair-sync overwrite guard (applies at
+  S7).** From the approved report's red-team MUST-FIX #3: a snapshot
+  "Repair sync" restore must never silently overwrite a device
+  holding newer unsynced data. Decided: BOTH guards — (1) an
+  automatic pre-restore backup is always taken before a snapshot
+  import/restore, and (2) restoring over a non-empty database
+  requires an explicit "this replaces everything on this device"
+  confirmation. Restoring into an empty database is the fast path
+  (guard 1 still applies). Until implemented this way at S7, Repair
+  sync must not ship.
+- **D-012 (2026-10-30) — First shield is granted when a run reaches
+  7 (S3 review S1).** §R5.3's narrative ("at 7 the app says 'You've
+  earned protection'") and the owner's round-3 summary ("from day
+  7 up to 2 shields") conflict with the report's pseudocode, whose
+  refill-only rule would deliver the first shield on day 14.
+  Decided for the narrative: when a run first reaches streak 7 and
+  no shield is held, 1 shield is granted immediately (re-arms after
+  a reset); the pseudocode's refill rule (1 per 7 counted days
+  while protected, max 2 held, max 2 shield-days per ISO week)
+  governs all later shields. Recorded because the S3 reviewer found
+  the divergence implemented but undecided; the behaviour is pinned
+  by streak tests and matches the owner's stated model.
+- **D-013 (2026-10-30) — Core-ness is snapshotted onto plan items
+  (S3 review M1).** The streak's core signal must be stable under
+  routine edits: `day_plan_items.counts_core` copies the template's
+  flag at plan generation, and the fold reads only the snapshot.
+  Editing a template's counts_core — or deleting the template —
+  affects future days only (the routine editor's stated contract),
+  never past counted-ness; "totals/best never reset" (§R5.3) holds
+  by construction.
+
+- **D-014 (2026-10-30) — Marked points are their own table.**
+  §R4.5's "point" (a sentence + key span, marked while reading)
+  is stored in `marked_points`, not minted into `questions` at
+  mark time. S5's Learn engine mints questions from these
+  records, so the act of marking stays a pure capture (no quiz
+  decisions while reading), and one point can feed several
+  question formats later.
+- **D-015 (2026-10-30) — Library root resolution.** The Library
+  lives at `<app documents>/Library` by default; an
+  `app_settings.library_root` value (plain path) overrides it —
+  the laptop route of §R6.4, and what tests use. The DB only
+  ever stores Library-relative paths, so moving the folder (or
+  syncing it elsewhere) never breaks a source.
+- **D-016 (2026-10-30) — D-011's guard is implemented in S4 for
+  backup restore.** Both halves, enforced at the store level
+  (not just the UI): an automatic pre-restore backup is always
+  taken first, and restoring over a non-empty database requires
+  the explicit replaces-everything confirmation; restoring into
+  an empty database is the fast path. "Non-empty" counts every
+  root content table including `day_plans` (S4 review fix). This
+  entry records the implementation D-011 anticipated for S7;
+  D-011 itself still binds Repair sync at S7 unchanged.
+- **D-017 (2026-10-30) — Mark-a-point validation rules (§R4.5).**
+  A mark is stored only when: the span occurs inside the
+  sentence; the span is at most 8 words; there is at most one
+  mark per (source, reading card); and the same sentence is not
+  already marked for that source (compared case- and
+  whitespace-insensitively). Violations raise
+  `MarkedPointException` and write nothing — a half-valid mark
+  would poison S5's question generation.
+- **D-018 (2026-10-30) — TXT decoding is strict UTF-8 in S4;
+  the §R4.5 fallback encoding is deferred, knowingly.** TXT
+  sources decode as UTF-8 (BOM stripped); undecodable bytes
+  land as `extraction_status = failed` with the file retained —
+  never silently imported as mojibake. §R4.5 asks for a
+  fallback encoding (e.g. Windows-1256 for Arabic sources) on
+  decode failure. Deferred to a later stage: Dart has no
+  built-in cp1256 codec, and a hand-written mapping table that
+  cannot be verified here risks producing exactly the garbled
+  text the rule exists to prevent. Until then the recourse is
+  the same honest one as for scanned PDFs: read/convert the
+  file elsewhere. Flagged as an open spec gap by the S4 review.
+- **D-019 (2026-10-30) — Link thumbnails live in the app cache.**
+  Thumbnail files sit in app-private cache storage (`thumbs/`),
+  not the Library: they are regenerable and stay out of the
+  synced/backed-up tree. The item payload stores only the file
+  NAME plus its D-003 provenance (`thumbnail_source`:
+  user/auto), so a restored payload can never point outside
+  the cache and auto-fetch can never demote a user image.
+- **D-020 (2026-10-30) — A `packs` registry table exists (S5).**
+  §R6 lists no table for imported packs, but §R4.4's re-import
+  semantics (same version = no-op, higher version = update in
+  place, never reset scheduler state) need durable version
+  memory per pack id. One row per pack id: version, title,
+  language, topic link, the `kind='pack'` source link, and the
+  arc JSON. A deliberate, recorded deviation from §R6's list.
+- **D-021 (2026-10-30) — End-state navigation resolved
+  (red-team #11).** Final layout: **Today · Learn · Progress ·
+  Spaces · Goals** (§R2.3's screen proposals + §R2.4's rail
+  order). S5 ships four destinations (Today · Learn · Spaces ·
+  Goals) in a data-driven shell keyed by destination id; S6
+  inserts Progress between Learn and Spaces with no
+  restructure. The mockup-first gate is lifted by D-010's
+  standing go-ahead, so the approved report's own layout is
+  the design of record.
+- **D-022 (2026-10-30) — Myth-vs-Fact is its own question
+  type (`mythfact`).** §R4B.5 #2 allowed either a type or a
+  rendering mode of true/false MCQ. Chosen: own payload
+  `{statement, isFact, explanation}` — one validation rule
+  set, one card widget; MCQ stays purely MCQ.
+- **D-023 (2026-10-30) — Session composition quotas read
+  §R4.2's three buckets literally.** ~55% due reviews, ~20%
+  previously-missed (a subset of due, given its own bucket),
+  ~25% new; shortfalls back-fill due-first, then new. Boss
+  sets compose from due + new sorted by difficulty (the
+  hardest material he has, §R4B #5's "hardest due items"
+  read to include hard new cards from the arc's pack).
+  Implemented in `session_composer.dart`.
+- **D-024 (2026-10-30) — Session attribution + enjoyment
+  timing.** A finished session activates its day's Done Score
+  learning block by the local date of `ended_at`; ReviewStore
+  derives it inside closeDay and refreshDoneScoreIfClosed, so
+  Day Close, Hub plan edits, and session completion all stay
+  consistent — and the streak derivation is never touched
+  (red-team #1). Enjoyment is asked only on natural
+  completion, never on abandon (an interrupted session is not
+  the moment to interrogate), always before stats (§R9.9
+  #11). The teach-back end-card (F8) appears on episode
+  sessions only.
+- **D-025 (2026-10-30) — Boss-level hints: the softened
+  default (red-team #10).** Boss sessions run hints-off with
+  ONE unscored hint available per session (MCQ: names one
+  wrong choice to eliminate; other types: the payload's
+  authored `hint`). Using it never changes grading, and boss
+  sessions are one-pass — misses do NOT resurface in-session
+  (S5 review S3); they return via the scheduler at 1 day,
+  stated plainly on the end screen (§R4B.4).
+- **D-026 (2026-10-30) — Cloze grading is reveal-and-self-
+  grade in v1.** §R4.1 offers exact/normalised match or
+  self-grade. Minted cloze comes from the owner's own marked
+  points, where honest self-grading (the flashcard rule)
+  fits; typed-answer grading can be added per card later
+  with no schema change.
+- **D-027 (2026-10-30) — Pack media dimension caps (S5).**
+  Import rejects any image over 8192 px per side or
+  50 MP total, read from the file header at import time
+  (PNG/JPEG/GIF/WebP), per TESTING §7's MASVS-CODE row: a
+  small hostile file declaring huge dimensions would
+  otherwise be fully decoded at play time and OOM the app.
+- **D-028 (2026-10-30) — Charts are hand-rolled painters, no
+  `fl_chart` (S6).** §R3/§R10.2 named `fl_chart` for the
+  dual-score and enjoyment charts; S6 shipped hand-rolled
+  `CustomPainter`s instead (~150 lines in
+  `lib/features/progress/charts.dart` for two line series and
+  a scatter): the app needs exactly two series styles on a
+  fixed axis set, theme tokens map 1:1 onto painter colours,
+  and a chart package would add dependency surface plus its
+  own theming fight for glanceable axes. Revisit only if a
+  chart needs interaction (scrubbing/zoom) the painters can't
+  cheaply do. (Cited by `charts.dart` from the build; the
+  entry itself was recorded at S6 close-out — the citation
+  preceded the record, S6 review S2.)
+
+- **D-029 (2026-10-30) — Sync change detection is a state diff
+  against `sync_base`, not a store-written op log (S7).** §R7.2
+  describes packages as "ops since the peer's last acknowledged
+  sequence", but the S3 scaffold's `sync_ops` was never written
+  by any store, and only the S4/S5 stores stamp `updated_hlc`.
+  Retrofitting op-writing into every store would have touched
+  all of S1–S6 for S7's sake. Instead: export canonicalises
+  every syncable row (FKs as parent sync_ids), hashes it, and
+  diffs against `sync_base` (the last state both devices are
+  known to share); vanished rows become delete ops. Import is a
+  3-way merge (base/local/remote), which is what makes
+  §R7.2's conflict copies possible. Consequences, accepted:
+  op stamps are the row's own edit stamp where a store stamps
+  one, else export-time (conflict copies backstop the
+  difference); op granularity is per-row, not per-field (except
+  day_reviews' score/point split and plan items' done flag,
+  which §R7.2 names explicitly). Base-advance discipline (found
+  in S7 testing): the base advances only to a state the peer is
+  known to hold; a local merge win never advances it, or the
+  winner would never travel and the devices diverge for good.
+- **D-030 (2026-10-30) — Linux desktop verification level (S7).**
+  The VM has the GTK3 runtime but no GTK3 development files,
+  and apt there cannot supply them (toolchain/NOTES.md #7), so
+  the Linux GUI build cannot complete in the VM. Verified here:
+  `linux/` scaffolding (Android untouched), analyze clean, and
+  the full test suite green against the FFI database factory —
+  the same factory + SQLite path the Linux build runs. The GUI
+  build itself runs on the owner's Arch laptop
+  (`toolchain/build_linux_on_laptop.sh`, one pacman line).
+  Desktop behaviour as built: share-intent absent (Android-only
+  plugin, gated in main); HTML quizzes open in the system
+  browser (§R8.4 fallback); reminders are inert on desktop —
+  the generated Linux plugin registrant does not include
+  flutter_local_notifications at all, so scheduling silently
+  no-ops (the Settings copy already told the owner the phone is
+  the reminder device; the gateway's failures are caught and
+  can never block boot).
+- **D-031 (2026-10-30) — S7 test strategy: seeded model-based
+  harness, no new test packages.** TESTING.md §3.4 named
+  `property_testing` ^0.2.1 as a candidate for stateful merge
+  tests and §4.1 named `mocktail` for a fake sync peer. S7 uses
+  neither: the merge is exercised by a seeded-`Random` two-real-
+  database harness (the doc's own stated fallback — real DBs
+  beat fakes for store behaviour, §4.1's first principle), and
+  Stage A has no transport to fake (packages are files).
+  `mocktail` stays the named candidate for S8's LAN transport.
+  Mutation spot-checks landed as named boundary tests instead:
+  quarantine horizon (exactly +1 day applies, +1 ms is held)
+  and the zero-padded HLC comparator (counter 9 vs 10).
+
+- **D-032 (2026-10-30) — A restored database is adopted, not
+  impersonated (S7 review S2).** Snapshot restore (Backup or
+  Repair) replaces the whole database file, including the
+  source device's `device_id`, `sync_base`, peer high-waters and
+  export sequence. On the next boot after a restore, the app
+  resets that bookkeeping (`SyncStore.adoptRestoredDatabase`,
+  wired in main's restore path): fresh device_id, sync_base /
+  sync_peers / sync_quarantine cleared, export sequence reset;
+  `sync_ops` dedupe history and `sync_conflicts` content are
+  kept, and all row sync_ids survive (data identity ≠ device
+  identity), so the device re-publishes its state as a full
+  package and peers converge without duplicates. Accepted
+  consequence, stated in SYNC_SETUP: deletions the peer made
+  after the snapshot was taken reappear — a snapshot cannot
+  contain them.
+
+- **D-033 (2026-10-30) — "Last shared" and "last sent" are
+  separate sync state (S7 independent review, round 2).** The
+  review's full report landed after S7's first close-out and
+  carried four probe-verified MUST-FIX findings; this decision
+  records the structural one, the rest are rule completions
+  documented in DATA_MODEL's package-format section:
+  - **M1 → schema v7 `sync_exported`.** v6 advanced `sync_base`
+    at export time; with both devices exporting before either
+    imported (the normal folder-sync interleaving), each
+    importer saw `local == base` for its own edit and applied
+    the peer's op as a fast-forward: the edits silently
+    swapped, zero conflict copies, permanent divergence. The
+    base now advances ONLY on import outcomes that apply a
+    peer state wholesale; export diffs and records against
+    `sync_exported`. Corollary fix: the op-stamp reuse rule
+    compares the row's `updated_hlc` against the last SENT
+    stamp, not the base — the export recording writes the op
+    stamp back into the row, and against a lagging base that
+    echo froze re-exports at their first stamp (caught by the
+    pre-existing edit-edit test).
+  - **M2:** `syncEntityOrder` is parents-first in fact, not
+    just in comment (`projects` before `topics`); the Held
+    dialog explains each hold by its own reason.
+  - **M3:** `packs` adopt identity by `pack_id`, `questions`
+    by (`pack_id`, `pack_qid`) — independent pack imports on
+    both devices are an expected flow. Backstop: a per-op
+    SAVEPOINT turns any unforeseen apply-time constraint
+    failure into an `apply-error` quarantine of that one op
+    instead of a permanently unimportable package.
+  - **M4:** a delete never cascades over a descendant that
+    differs from its shared base; it is held as a
+    `delete-with-unsynced-children` conflict instead.
+  - Also: stale-package guard (an op not newer than its base
+    never rolls a row back; day_reviews exempt — idempotent
+    field merge), day_reviews `self_note` conflict copies,
+    declared-size zip checks before decompression, HLC format
+    validation, per-file tolerance in folder import, desktop
+    database under the application-support directory (the FFI
+    default is CWD-relative), and a writability probe before
+    a picked Library folder is persisted.
+
 ## Open — awaiting owner
 
 - (none right now)

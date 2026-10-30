@@ -10,6 +10,7 @@ library;
 import 'package:sqflite/sqflite.dart';
 
 import '../../core/db/app_database.dart';
+import '../../core/ids.dart';
 
 /// Item kinds in `day_plan_items.kind`.
 abstract final class PlanItemKind {
@@ -24,6 +25,10 @@ class PlanTemplate {
     required this.position,
     required this.isActive,
     required this.createdAt,
+    this.starterTitle,
+    this.anchorText,
+    this.track,
+    this.countsCore = true,
   });
 
   final int id;
@@ -32,13 +37,39 @@ class PlanTemplate {
   final bool isActive;
   final int createdAt;
 
+  /// Tiny-habits fields (S3, §R5.5): the tiny version of the habit,
+  /// the anchor it attaches to ("after …"), its life-area track,
+  /// and whether it belongs to the day's core (drives the streak's
+  /// core-plan signal, §R5.3).
+  final String? starterTitle;
+  final String? anchorText;
+  final String? track;
+  final bool countsCore;
+
   factory PlanTemplate.fromRow(Map<String, Object?> r) => PlanTemplate(
         id: r['id'] as int,
         title: r['title'] as String,
         position: r['position'] as int,
         isActive: (r['is_active'] as int) == 1,
         createdAt: r['created_at'] as int,
+        starterTitle: r['starter_title'] as String?,
+        anchorText: r['anchor_text'] as String?,
+        track: r['track'] as String?,
+        countsCore: ((r['counts_core'] as int?) ?? 1) == 1,
       );
+}
+
+/// Life-area tracks offered for habits (§R5.5; owner-extensible —
+/// the editor also accepts free text).
+abstract final class HabitTracks {
+  static const List<String> suggestions = [
+    'Learning',
+    'Health',
+    'Mind',
+    'Money',
+    'People',
+    'Other',
+  ];
 }
 
 class DayPlanItem {
@@ -51,6 +82,7 @@ class DayPlanItem {
     required this.done,
     required this.carried,
     required this.position,
+    this.countsCore = false,
   });
 
   final int id;
@@ -66,6 +98,12 @@ class DayPlanItem {
   final bool carried;
   final int position;
 
+  /// Snapshot of the template's `counts_core` taken when this
+  /// item was generated (S3, review M1). The streak's core signal
+  /// reads THIS, never the template's current value, so routine
+  /// edits/deletes can't rewrite history. One-offs: false.
+  final bool countsCore;
+
   bool get isRoutine => kind == PlanItemKind.routine;
 
   factory DayPlanItem.fromRow(Map<String, Object?> r) => DayPlanItem(
@@ -77,6 +115,7 @@ class DayPlanItem {
         done: (r['done'] as int) == 1,
         carried: (r['carried'] as int) == 1,
         position: r['position'] as int,
+        countsCore: ((r['counts_core'] as int?) ?? 0) == 1,
       );
 }
 
@@ -140,6 +179,33 @@ class TodayStore {
     await _db.delete('plan_templates', where: 'id = ?', whereArgs: [id]);
   }
 
+  /// Update the tiny-habits fields of a template (S3, §R5.5).
+  /// Empty strings are stored as NULL ("not set").
+  Future<void> updateTemplateHabits(
+    int id, {
+    String? starterTitle,
+    String? anchorText,
+    String? track,
+    required bool countsCore,
+  }) async {
+    String? clean(String? v) {
+      final t = v?.trim();
+      return (t == null || t.isEmpty) ? null : t;
+    }
+
+    await _db.update(
+      'plan_templates',
+      {
+        'starter_title': clean(starterTitle),
+        'anchor_text': clean(anchorText),
+        'track': clean(track),
+        'counts_core': countsCore ? 1 : 0,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   // ------------------------------------------------------------ day plans
 
   /// Create the plan for [date] if it does not exist yet (D-002):
@@ -163,6 +229,8 @@ class TodayStore {
       required String kind,
       int? templateId,
       bool carried = false,
+      bool countsCore = false,
+      String? syncId,
     }) async {
       await _db.insert('day_plan_items', {
         'day_plan_id': planId,
@@ -172,6 +240,13 @@ class TodayStore {
         'done': 0,
         'carried': carried ? 1 : 0,
         'position': position++,
+        'counts_core': countsCore ? 1 : 0,
+        // S7 (§R7.2): generated items carry DETERMINISTIC sync_ids
+        // so the phone and the laptop generating the same morning
+        // produce the SAME item identity and sync dedupes instead
+        // of duplicating. Null → the open-time/export-time
+        // identity backfill assigns a random one (one-offs).
+        'sync_id': syncId,
       });
     }
 
@@ -182,6 +257,9 @@ class TodayStore {
         title: t['title'] as String,
         kind: PlanItemKind.routine,
         templateId: t['id'] as int,
+        // Snapshot the template's core flag at generation time.
+        countsCore: ((t['counts_core'] as int?) ?? 1) == 1,
+        syncId: 'rt-${await _rowSyncId('plan_templates', t)}-$key',
       );
     }
 
@@ -199,6 +277,10 @@ class TodayStore {
           title: r['title'] as String,
           kind: PlanItemKind.oneoff,
           carried: true,
+          // A carried one-off derives from yesterday's item:
+          // deterministic id from the SOURCE item + this date, so
+          // both devices carrying the same item dedupe too.
+          syncId: 'co-${await _rowSyncId('day_plan_items', r)}-$key',
         );
       }
     }
@@ -239,6 +321,7 @@ class TodayStore {
       'kind': PlanItemKind.oneoff,
       'done': 0,
       'carried': 0,
+      'counts_core': 0,
       'position':
           (await _maxPosition('day_plan_items', where: 'day_plan_id = ?', whereArgs: [planId])) + 1,
     });
@@ -289,8 +372,13 @@ class TodayStore {
   static const sectionRecent = 'recent';
   static const sectionGoals = 'goals';
 
+  /// The Day Close banner (S6: Customize Home gains its control,
+  /// per PLAN S6). Default visible, like every section.
+  static const sectionDayClose = 'day_close';
+
   static const List<String> homeSections = [
     sectionWeekStrip,
+    sectionDayClose,
     sectionPinned,
     sectionRecent,
     sectionGoals,
@@ -317,10 +405,42 @@ class TodayStore {
     );
   }
 
+  // ------------------------------------------------------------ if–then
+
+  /// The owner's if–then line ("If …, then I will …", §R1.3),
+  /// stored in `app_settings`; empty string when unset.
+  Future<String> ifThenLine() async {
+    final rows = await _db.query('app_settings',
+        where: 'key = ?', whereArgs: ['if_then_line'], limit: 1);
+    if (rows.isEmpty) return '';
+    return rows.single['value'] as String;
+  }
+
+  Future<void> setIfThenLine(String text) async {
+    await _db.insert(
+      'app_settings',
+      {'key': 'if_then_line', 'value': text.trim()},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
   Future<int> _maxPosition(String table,
       {String? where, List<Object?>? whereArgs}) async {
     final rows = await _db.query(table,
         columns: ['MAX(position) AS m'], where: where, whereArgs: whereArgs);
     return (rows.single['m'] as int?) ?? -1;
+  }
+
+  /// The row's sync_id, backfilling one (and persisting it) when
+  /// the row was created this session before any identity pass
+  /// ran. Deterministic plan-item ids (S7) are built from these,
+  /// so they must be stable, never re-rolled per generation.
+  Future<String> _rowSyncId(String table, Map<String, Object?> row) async {
+    final existing = row['sync_id'] as String?;
+    if (existing != null && existing.isNotEmpty) return existing;
+    final id = newUuid();
+    await _db.update(table, {'sync_id': id},
+        where: 'id = ?', whereArgs: [row['id']]);
+    return id;
   }
 }

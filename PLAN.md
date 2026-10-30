@@ -1,7 +1,11 @@
 # Daily Life App — Executable Plan
 
-Status: PLAN v1, defined 2026-10-29. Nothing built yet.
-Owner decisions pending: see `docs/DECISIONS.md` (D-002 … D-005).
+Status: PLAN v2, updated 2026-10-30 (D-010). S1 and S2 are built
+and host-verified. Stages S3–S8 below supersede the original
+S3–S6 (reel cards / HTML quizzes / goals & polish / safety net)
+and follow the approved research report
+(`RESEARCH-2026-10-30.md` §R10.2, in the goal workspace).
+Owner decisions: see `docs/DECISIONS.md`.
 
 ## 1. What this app is
 
@@ -89,36 +93,84 @@ docs stale is not finished (see EDITING_GUIDE, Definition of Done).
   ticks persist per date; weekly view shows exactly the week's pending
   items; yesterday's ticks do not leak into today.
 
-### S3 — Reel link cards (LINK)
-- Add link by paste and by Android **share intent** (share from
-  Instagram → save in ≤ a few taps); square-preview card grid;
-  thumbnail strategy per D-003: try auto-fetch → designed fallback card
-  → user-attached image; open link in app/browser.
-- **Acceptance:** sharing a reel link from another app creates a card
-  with zero typing; a link whose thumbnail cannot be fetched still
-  renders a clean card (never a broken image); grid is square-cropped
-  and scrollable with 50+ cards.
+### S3 — Close the loop (REVIEW)
+- Schema v3 part 1: `day_reviews`, `streak_state`, `shield_events`,
+  `sync_meta`/`sync_ops` scaffold, sync identity columns
+  (`sync_id`/`updated_hlc`/`deleted_at_hlc`) on syncable tables,
+  `plan_templates` habit fields (starter/anchor/track/core flag),
+  `goals.track`. Day Close flow (≤2 min, every step skippable);
+  dual scores (Done formula v1 + Self, never merged); Streak
+  Shields engine (two counting signals only: core plan done OR
+  Day Close done); if–then line in the morning plan; habit fields
+  in the routine editor.
+- **Acceptance:** Day Close completable in ≤2 min with all steps
+  skippable; streak unit tests cover shield spend, weekly cap
+  (derived per evaluated date's ISO week), refill, timezone-walk
+  monotonicity, night-owl attribution, late-close shield refund;
+  score formula versioned + tested incl. empty-plan and >8-item
+  cap cases; migration v2→v3 preserves S2 data.
 
-### S4 — HTML quiz workspace (QUIZ)
-- Import `.html` files (file picker + share intent); files stored in
-  app storage; play in in-app WebView, fully offline; attempt/score
-  tracking only if D-004 says yes.
-- **Acceptance:** an imported single-file HTML quiz plays start to
-  finish with no network; deleting the item deletes its file;
-  quizzes survive app restart.
+### S4 — Topics & Library (LEARN-data)
+- `topics`/`sources` tables; Library folder (owner-picked,
+  relative paths); share-intent capture landing as topics
+  (reels/links are topic triggers — the old S3 LINK scope, moved
+  here per D-010); link_card rework (card → topic trigger);
+  PDF/TXT import + reading cards + mark-a-point cloze; backup
+  export/import (zip, VACUUM INTO snapshot).
+- **Acceptance:** share a reel → topic in inbox in ≤2 taps;
+  born-digital PDF imports with text; a marked point becomes a
+  cloze card; scanned PDF is flagged, not garbled; backup → wipe →
+  restore round-trips in tests.
 
-### S5 — Goals & polish (GOAL / SET)
-- Goal progress (manual % or linked checklists); streaks for daily
-  plan; global search across items; theme polish.
-- **Acceptance:** goal progress reflects its linked items; search finds
-  items by title/note across all workspaces.
+### S5 — Learn engine (LEARN)
+- `questions` + scheduler (simplified SM-2) + immutable
+  `review_log`; quiz-pack format + importer (strict validation,
+  image-point verify); session feed (finite 12–20 cards:
+  mcq/flashcard/cloze/image-point/scenario + ordering + capped
+  branching role-play); end-of-session enjoyment rating; Learn
+  becomes the 4th nav destination; HTML quiz player as the
+  legacy route on Android (old S4 QUIZ scope).
+- **Acceptance:** a generated sample pack imports cleanly and
+  plays a full session offline; scheduler unit tests (lapse, EF
+  floor, cap, due ordering); a missed card resurfaces in-session
+  and at 1 day; enjoyment rating asked only for sessions of ≥5
+  cards, before session stats are shown.
 
-### S6 — Safety net (SET)
-- Export/import: one backup file containing DB + imported files;
-  Android home-screen widget showing today's plan.
-- **Acceptance:** export → reinstall → import restores workspaces,
-  items, and quiz files identically; widget shows today's unticked
-  items and refreshes on day change.
+### S6 — Progress & Sunday (PROGRESS)
+- Journey Path progress screen + dual-score charts + calendar
+  drill-down; Sunday weekly summary card + archive; reminders
+  (opt-in toggles, inexact scheduling); Customize Home gains the
+  Day Close banner control.
+- **Acceptance:** Journey renders 90 days of synthetic records
+  smoothly on device; Sunday summary computes correctly for a
+  synthetic week incl. a shield day and a score-divergence week;
+  reminders default off and fire inexact within the chosen hour
+  on device.
+
+### S7 — Two devices (SYNC Stage A + DESKTOP)
+- Linux desktop build (sqflite_common_ffi, wide layouts,
+  keyboard in Learn); Syncthing-Fork setup for the Library
+  folder; "Sync now" data packages (op-log export/import,
+  idempotent, conflict copies instead of silent loss); Sync
+  screen with per-device status. Snapshot restore follows the
+  D-011 guard (auto pre-restore backup + explicit
+  replaces-everything confirmation over a non-empty DB).
+- **Acceptance:** the same backup restores identically on the
+  laptop build; a week of synthetic ops syncs phone→laptop with
+  zero loss/duplication (two-DB integration test); a
+  same-note-both-sides edit produces a conflict copy, not a
+  loss; the laptop opens the phone's Library sources via
+  relative paths.
+
+### S8 — Sync Stage B + polish (SYNC-B)
+- mDNS discovery (bonsoir) + QR pairing + pinned-TLS op exchange
+  (laptop serves); direct-IP fallback; then the polish backlog
+  (Constellation year view, Android home-screen widget — if the
+  owner wants them).
+- **Acceptance:** fresh pairing completes via QR in <1 min; sync
+  succeeds with mDNS disabled (fallback path); a changed laptop
+  certificate triggers a hard re-pair stop; sync with the laptop
+  off fails gracefully with zero data change.
 
 Later stages are defined when reached — this plan is edited, not
 rewritten (changes logged in DECISIONS.md).
@@ -126,8 +178,11 @@ rewritten (changes logged in DECISIONS.md).
 ## 6. Feature IDs (the mapping keys)
 
 `CORE` app shell · `WS` workspaces · `PRJ` projects · `ITEM` item model
-& registry · `TODAY` daily plan · `LINK` reel/link cards · `QUIZ` HTML
-quizzes · `GOAL` goals & streaks · `SET` settings, backup, widget.
+& registry · `TODAY` daily plan · `REVIEW` Day Close, dual scores,
+streak shields · `LEARN` topics, sources, questions, sessions ·
+`LINK` reel/link cards · `QUIZ` HTML quizzes · `GOAL` goals ·
+`PROGRESS` Journey screen, charts, weekly summary · `SYNC` LAN sync
+(phone ↔ laptop) · `SET` settings, backup, widget.
 Full rows live in `docs/FEATURE_MAP.md`.
 
 ## 7. Definition of Done (any change, any stage)

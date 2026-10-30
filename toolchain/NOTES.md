@@ -53,3 +53,38 @@ original install.
    otherwise) — see test/widget_test.dart.
 5. /tmp is a 512 MB tmpfs — do not put Gradle homes or big
    extractions there.
+6. **LLVM/clang (added 2026-10-30, S4)**: `pdfrx_engine`'s
+   `pdfium_dart` dependency has a native-assets build hook that
+   compiles a small C gate library via `native_toolchain_c`; for a
+   Linux→Linux same-arch build it accepts ONLY clang (+ llvm-ar +
+   lld) — gcc is not offered. This VM has gcc but no clang, and apt
+   is unusable (the egress proxy returns 407 for the Debian
+   archive). Fix: prebuilt LLVM 20.1.8 unpacked at `~/tools/llvm`
+   (from the llvm-project GitHub release
+   `LLVM-20.1.8-Linux-X64.tar.xz`, 2,021,269,412 bytes — verify the
+   byte count before extracting; a truncated download silently
+   produced a tree whose `bin/clang` symlink dangled). `env.sh`
+   prepends `~/tools/llvm/bin` to PATH. First `flutter test` run
+   also downloads the PDFium binary (bblanchon/pdfium-binaries via
+   GitHub) once into the pub cache.
+
+7. **Linux desktop build attempt (2026-10-30, S7)**: scaffolding
+   (`flutter create --platforms=linux`) is in the repo. The build
+   itself stops at CMake configuration in this VM: ninja was
+   missing (fixed — a static ninja 1.12.1 binary now lives in
+   `~/tools/ninja`, curl-fetched from the ninja-build releases,
+   NOT on env.sh's PATH yet) and, decisively, the GTK3
+   *development* files (headers, `gtk+-3.0.pc`, linker symlinks)
+   are absent — only the GTK runtime libraries are installed —
+   and `apt-get download libgtk-3-dev` has no candidate here
+   (the apt lists cover installed packages only). So: analyze +
+   full host tests (which exercise the same FFI database path
+   the Linux build uses) are the VM-level verification; the GUI
+   build runs on the owner's Arch laptop via
+   `toolchain/build_linux_on_laptop.sh` (one pacman line:
+   `gtk3 ninja cmake pkgconf clang sqlite`). Also observed: the
+   generated Linux plugin registrant contains only
+   file_selector_linux, flutter_timezone, url_launcher_linux
+   (+ jni FFI) — flutter_local_notifications does not register
+   on Linux in this build, so desktop reminders are inert by
+   construction (matches the §R8.6 caveat, stronger form).

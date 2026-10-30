@@ -3,6 +3,579 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-30 — Partial S8 excised before the S3–S7 push (owner-directed)
+
+- S8 is owner-gated; a briefly-started S8 run was stopped and its partial,
+  unreviewed work was removed from the tree so this push carries only the
+  verified S3–S7 state: `lib/features/sync/lan/` (7 files) and the two LAN
+  test files were moved out, and the S8-only dependencies (pointycastle,
+  bonsoir, qr_flutter) were removed from pubspec.yaml. `sync_store.dart`
+  was inspected — it contains no LAN references and was left unchanged.
+- The S8 draft is stashed at `~/workspace/daily-life-app-s8-partial/`
+  (with a README) for the future gated S8; its first task will be to audit
+  the stash against the then-current tree.
+- Post-excision verification: `flutter analyze` — No issues found;
+  `flutter test` — 483/483 (the exact post-S7 counts).
+
+## 2026-10-30 — S7 review round 2: the full independent report, fixed (schema v7)
+
+- The independent reviewer's COMPLETE report arrived after the
+  S7 entry below was written. Its headline "0 MUST" summary was
+  wrong — the report carried **4 probe-verified MUST-FIX** and
+  7 SHOULD-FIX findings (the tree had changed mid-review,
+  closing its S1–S3; M1–M4 stood). All fixed in this round;
+  the S7 entry below stands as the record of the first pass,
+  and this entry corrects its review accounting.
+- **M1 (critical):** export advanced `sync_base`, so when both
+  devices exported before either imported, peer ops were
+  misread as fast-forwards — edits silently swapped, zero
+  conflicts, permanent divergence. Fix: schema **v7** adds
+  `sync_exported` (last-sent state); the base advances only on
+  wholesale import outcomes (D-033). Corollary found by the
+  pre-existing edit-edit test: the op-stamp reuse baseline is
+  now the last SENT stamp (the export recording's stamp echo
+  otherwise froze re-exports at their first stamp).
+- **M2:** `syncEntityOrder` now truly parents-first
+  (`projects` before `topics`; first-sync topics were being
+  quarantined as missing-parent); Held dialog explains each
+  hold by its actual reason (a missing-parent hold is not a
+  clock problem, and the old copy's remedy could never work).
+- **M3:** `packs`/`questions` adopt identity by natural key
+  (`pack_id`; `pack_id`+`pack_qid`) — independent quiz-pack
+  imports on both devices no longer poison packages via
+  UNIQUE(pack_id); per-op SAVEPOINT backstop quarantines any
+  unforeseen apply failure (`apply-error`) instead of
+  aborting the package forever; database errors surface as
+  SyncException.
+- **M4:** parent deletes no longer cascade over locally
+  diverged/unsynced descendants — held as
+  `delete-with-unsynced-children` conflicts, subtree kept.
+- **SHOULD-FIX:** S1 day_reviews `self_note` conflict copies;
+  S2 stale-package guard (older package after newer one can
+  no longer roll a row back; counted as `stale`); S3 folder
+  import tolerates + names bad files (`failedFiles`); S4
+  declared entry sizes checked before decompression; S5 HLC
+  stamps format-validated (garbage stamps bypassed quarantine
+  and won LWW); S6 desktop database moved to the
+  application-support directory (FFI default is CWD-relative —
+  launching from another directory opened a different, empty
+  database); S7 Library-folder picker now probes writability
+  before persisting + bootstrap falls back to the default
+  Library if a persisted root becomes unwritable (Android
+  scoped-storage writability itself remains owner-side
+  verification — SYNC_SETUP §1). NOTEs: N5 comments corrected;
+  N6 section-test waits bumped (its flakiness was also the
+  source of the earlier `_load()` guard, which covers N7).
+- **Tests: 8 new** (M1 concurrent-export, M2 topics
+  first-sync, M3 pack adoption, M4 cascade guard, S1-review
+  self-note, S2 stale, S3 poisoned folder, S5 malformed
+  stamp); migration test extended to v7. **Final:
+  `flutter analyze` clean, `flutter test` 483/483** (455
+  baseline + 20 S7 + 8 round-2). Schema is now **v7**.
+- Still unverified (owner-side, unchanged): real two-device
+  exchange over Syncthing, the Linux GUI build/run on the Arch
+  laptop, the Android Library-folder pick under scoped
+  storage. Push still HELD; S8 still gated.
+
+## 2026-10-30 — S7 built, reviewed, fixed: Two devices (SYNC Stage A + DESKTOP)
+
+- **Sub-step A — Linux desktop.** `linux/` scaffolding added
+  (Android untouched); `sqflite_common_ffi` promoted to a runtime
+  dependency and wired by platform (`lib/core/platform_init.dart`
+  — FFI factory on desktop, native on Android);
+  `AppDatabase` unchanged otherwise. Desktop adaptations:
+  share-intent gated to Android in main (no desktop
+  implementation exists; capture entry points never fire);
+  HTML quizzes open in the system browser on desktop (§R8.4
+  fallback); reminder toggles kept with an honest desktop note
+  (the generated Linux registrant doesn't include
+  flutter_local_notifications — desktop reminders are inert,
+  D-030); session screen gained keyboard support (Enter/Space
+  continue, 1–5 enjoyment); Sync section gained the
+  Library-folder picker (nothing could set `library_root`
+  before — Stage A folder sync was unreachable on the phone
+  without it). **Verification level (D-030):** the GUI build
+  cannot complete in this VM — GTK3 dev files absent, apt has
+  no candidate (ninja 1.12.1 was curl-fetched to ~/tools/ninja;
+  CMake then stops at the gtk+-3.0 pkg-config check). Verified
+  here instead: analyze clean + the whole suite green on the
+  FFI factory, the same DB path the Linux build runs. Owner
+  runs `toolchain/build_linux_on_laptop.sh` (one pacman line)
+  for the GUI build. Setup incl. Syncthing-Fork + Avahi (S8)
+  checklist: `docs/SYNC_SETUP.md`.
+- **Sub-step B — sync package engine** (`lib/features/sync/`).
+  Schema v6 (additive only): `sync_base`, `sync_peers`,
+  `sync_quarantine`, `sync_conflicts`. Change detection is a
+  state diff vs `sync_base` (D-029 — no store writes sync_ops;
+  retrofitting all S1–S6 stores was rejected). Packages:
+  `Library/sync/pkg-<device>-<seq>.zip`, manifest + ops digest
+  verified, temp-then-rename writes. Import: one transaction,
+  3-way merge, FKs as parent sync_ids, day_reviews/day_plans by
+  date, deterministic plan-item ids (`rt-…`/`co-…`, TodayStore),
+  done-toggle LWW without copies, conflict copies for every
+  other loss (and conflict rows themselves sync), tombstones,
+  future-dated quarantine (>1 day, by HLC and by date),
+  receiver HLC clamping, derived data never synced (streak
+  re-evaluates after import). Two design corrections came out
+  of testing, both divergence-class: op stamps carry the row's
+  EDIT stamp where a store stamps one (export-time stamps made
+  the later exporter beat the later editor), and a local merge
+  win never advances `sync_base` (the winner must still
+  travel). `day_plans.created_at` left the payload for the same
+  reason `is_counted` was already out.
+- **Sub-step C/D — UI + Repair.** Settings → Sync shows device
+  id, last export/import per peer, Sync now (export + folder
+  check), package import, Conflicts and Held lists, Library
+  folder control, and Repair = the S4 snapshot restore under
+  the D-011 guards (store-level, re-tested here). After any
+  restore the app adopts the database with a fresh sync
+  identity (D-032).
+- **Review loop.** Independent reviewer (no S7 code): 0 MUST,
+  4 SHOULD, all fixed — S1 quarantined packages no longer
+  advance the local HLC state; S2 post-restore sync adoption
+  (D-032); S3 plan-item adoption now keys on the full natural
+  slot (plan+template+position, exactly one match); S4 the
+  folder-drop exchange path is now integration-tested. Plus a
+  full-suite flake the reviewer-era runs exposed: SyncSection's
+  status reload could query a closing database during restore
+  re-bootstrap — now guarded (status is decorative, failure
+  keeps last state). NOTE-level: Repair dialog now advises
+  Sync-now-first (N5); sync-screen goldens (N7) deferred —
+  alchemist remains unadopted project-wide; the widget test
+  covers the section's states.
+- **Tests (TESTING §9/S7).** Baseline 455 → **475/475, analyze
+  clean** (final full run; earlier failures recorded in the
+  re-verification entry below are all resolved: migration_v5
+  pin → schemaVersion-relative, html_quiz expectation → the
+  new desktop fallback, the two load-flaky sync tests → the
+  base/stamp corrections + the `_load` guard). New suite
+  `test/features/sync/` (20): v6 migration, first-sync full
+  package, incremental + idempotent re-import, both-sides edit
+  conflict + copy propagation, day_reviews per-date merge
+  (scores by HLC, point preserved, null never erases),
+  tombstone propagation, future-HLC and future-date quarantine
+  + re-import after clock fix, horizon boundary exactly +1 day
+  vs +1 ms and HLC counter 9-vs-10 (mutation spot-checks),
+  tampered/truncated package atomicity, missing-parent hold
+  and later apply, deterministic morning dedupe + toggle sync,
+  seeded model-based two-device convergence (40 randomised
+  steps, dumps equal, both exports empty), folder-drop
+  exchange, HLC-state quarantine isolation, restored-device
+  adoption, Repair D-011 guards, Library symlink-escape
+  refusal, SyncSection widget smoke. Mocktail/property_testing
+  not adopted (D-031).
+- **Unverified (owner-side, stated plainly):** the Linux GUI
+  binary (build on the Arch laptop, then confirm the same
+  backup restores identically there — PLAN S7 acceptance), a
+  real phone↔laptop package exchange over the home LAN incl.
+  Syncthing-Fork carrying the Library, on-device share/PDF
+  behaviour unchanged from S4/S5 status. MobSF per-stage APK
+  scan (TESTING §9/S7) not run — no new APK was built in this
+  stage. S8 does not start without the owner's explicit go
+  (instruction recorded above).
+
+## 2026-10-30 — Owner instruction (main chat): push HELD; finish S7; S8 gated
+- The push stays held (owner confirmed after the not-ready verdict
+  below).
+- S7 is to be completed ("clear the S7") — including fixing the
+  findings from the pre-push re-verification below (stale
+  migration_v5 version pin, html_quiz platform-message failure,
+  flaky sync tests).
+- **S8 must NOT start until the owner explicitly says so.** This
+  supersedes the standing autonomous S3→S8 go-ahead for S8 only;
+  the go-ahead remains in force through S7's completion.
+
+## 2026-10-30 — Pre-push re-verification (main chat): NOT ready — 4 failures on the current tree
+- Owner asked for a readiness confirmation before the S3–S6 push.
+  Independent re-run on the exact tree: `flutter analyze` clean;
+  `flutter test` **467 passed / 4 failed** (471 total — the tree is
+  S6-complete PLUS in-progress S7 sync work, not a clean S6 cut).
+- Deterministic failures (fail in full run AND in isolation):
+  1. `test/features/learn/migration_v5_test.dart:87-88` — stale
+     version pin: asserts `schemaVersion == 5`; S6 raised it to 6.
+     Test-maintenance miss, data-survival assertions not implicated.
+  2. `test/features/items/html_quiz_detail_test.dart` — expects the
+     text "HTML quizzes play in the Android app." on a non-Android
+     host; 0 found. Stale test OR a real desktop-behaviour change —
+     needs a look (matters for S7's Linux build either way).
+- Flaky under full-suite load (failed in full run, passed isolated):
+  two `sync_store_test.dart` tests (S7 WIP) — day_reviews HLC merge;
+  two-device morning dedupe.
+- Everything else about the push is ready: manifest 156 files,
+  1.3 MiB, all UTF-8; remote divergence clean (PROGRESS_LOG strict
+  superset, 0 remote-only lines). But the CI workflow runs the test
+  suite before building, so pushing this tree would very likely
+  produce a red run and no APK. Push held pending owner decision:
+  fix/stabilise these tests first, or wait for the S7 checkpoint.
+
+## 2026-10-30 — S6 built, reviewed (at close-out), fixed: Progress & Sunday (PROGRESS, SET reminders)
+
+- Built per RESEARCH-2026-10-30 §R10.2/§R3/§R5.4/§R5.6/§R8.1:
+  Progress becomes the 5th nav destination (D-021 final order
+  Today · Learn · Progress · Spaces · Goals). Journey Path hero
+  (Concept 1, §R3): stones for counted days only — classified
+  strictly from the S3 streak fold's outputs via
+  `ReviewStore.currentFold` (red-team #17: no second derivation
+  of counted-ness anywhere in PROGRESS); stone fill = Done,
+  inlay dot = Self, cracked-outline stone for shield days
+  (distance does not advance), dotted bridges over missed days,
+  milestones at 7/30/66/100/365 counted days, totals/best in
+  the header (never reset). Numbers view: dual-score chart +
+  enjoyment trend as hand-rolled painters (D-028), plain
+  calendar with day drill-down. Sunday weekly summary (§R5.4):
+  pure `summarizeWeek` over the Mon–Sun week — counted X/7,
+  shield days stated neutrally, Done and Self averages computed
+  and displayed SEPARATELY (never merged; divergence named in
+  words only), enjoyment median + most-enjoyed topic/format,
+  major points, habits by track, forward line (Sunday's
+  unticked one-offs + if–then); shown on Today Sunday ≥18:00,
+  archived in Progress; no summary table (recomputed, §R6).
+  Reminders (§R5.6/§R8.1): two opt-in toggles, OFF by default,
+  `inexactAllowWhileIdle` only, no exact-alarm permission
+  anywhere, permission requested only on toggle-on, toggle-off
+  cancels, tap payloads route to Today / Day Close, ≥7-day
+  absence self-watch suggests turning them off. **No schema
+  change — still v5** (reminders are `app_settings` keys; see
+  DATA_MODEL S6 note).
+- Review history: the build's own review was interrupted
+  before completing, so this close-out re-ran the independent
+  review from scratch (reviewer had written none of the S6
+  code) plus a coordinator pass over every S6 file.
+  **Result: 0 MUST / 7 SHOULD / 9 NOTE.** The three hard rules
+  were verified clean with file:line evidence: counted-ness
+  comes only from the fold; no Done+Self blended value exists
+  anywhere (the divergence check and the chart's ×10 drawing
+  coordinate are comparisons/rendering only, §R5.2-sanctioned);
+  reminders are inexact-only with defaults OFF.
+- Fix loop (all SHOULDs fixed, each regression-tested):
+  S1 docs currency (this entry; FEATURE_MAP rows + note;
+  DATA_MODEL S6 note) · S2 dangling D-028 recorded in
+  DECISIONS · S3 Progress/summary error states — was an
+  infinite spinner; now a message + retry (2 widget tests) ·
+  S4 fold evaluated ~6× per screen load → memoised once per
+  store instance/day + calendar future hoisted out of `build`
+  (counting-store test pins exactly 1 fold per load) · S5
+  Journey painter windowed to the visible slot range (was:
+  whole history painted per repaint) · S6
+  `WeeklySummary.isEmpty` erased habit-only / cards-only
+  weeks as "nothing recorded" → habits + cardsReviewed now
+  count as activity (pure tests; mutation spot-check: removing
+  the habits clause fails the new test — mutant killed) · S7
+  DST-week boundary test added (EU fall-back week; verified
+  under `TZ=Europe/Berlin` where the week spans 169h and the
+  Sunday-23:30 session stays in its week). NOTE fixes folded
+  in: N3 Journey `Semantics` summary label · N4 unscored
+  counted stones are outline-only (was an invented 45% fill;
+  `journeyStoneFill` pinned by test) · N7 enjoyment trend
+  excludes future-dated sessions · N9 in-progress week reads
+  "so far" in the summary + card.
+- TESTING §9 S6 adoption record: boundary matrix ✓ (month/
+  year boundaries from the build; DST week added at close-out;
+  summary "generated exactly once" holds by construction —
+  pure recompute, determinism-tested) · large-fixture: 365-day
+  Journey render widget test ✓ (host), device frame budget
+  unverified · security: reminder opt-in/reversible flow
+  host-tested with a fake gateway ✓ · **goldens DEFERRED**
+  (alchemist still not adopted project-wide — same open item
+  as S3–S5; painters are covered by model + widget tests
+  meanwhile).
+- Known limitations (review NOTEs, recorded not fixed): N1
+  chart draws Self ×10 as a drawing coordinate on the shared
+  axis (documented in-code; no combined value exists) · N2
+  milestones are number gates — no owner "why" text (needs
+  storage + owner input) · N5 "mastered" counts questions
+  reviewed this week whose CURRENT interval ≥21d (the true
+  "reached 21d this week" event is not stored in review_log)
+  · N6 habit history follows the template: deleting a template
+  drops its track's past rows from summaries, and the carried
+  line is empty for a week whose Sunday plan was never
+  generated · N8 the main.dart tap-routing handler and
+  SettingsScreen have no widget tests (controller + router
+  are unit-tested) · ReviewStore.currentFold scans signals
+  twice internally (S3 code; the S6 memo bounds it to once
+  per screen load).
+- Verified: baseline re-run before the review — analyze
+  clean, 444/444; after fixes — **analyze clean, 455/455**
+  (11 new tests). Unverified (owner/device): notification
+  delivery + timing on a real phone (inexact alarms, OEM
+  behaviour), the permission prompt flow on-device, Journey
+  visual feel and 60 fps over long histories on a mid phone,
+  Sunday card in real use. Nothing pushed.
+
+## 2026-10-30 — S5 built, reviewed, fixed: Learn engine (LEARN, QUIZ)
+
+- Built per RESEARCH-2026-10-30 §R10.2 under D-010's standing
+  go-ahead, in verified sub-steps (data layer → importer →
+  composer/engine → cards → screens/nav → HTML-quiz player),
+  each landed green before the next started. Schema **v5**
+  (migrations 1–4 untouched): `questions`, `review_log`
+  (immutable, append-only by API shape), `learn_sessions`,
+  `packs` registry (D-020); `marked_points.question_id` links
+  minted cloze (D-014 payoff); all new tables born with sync
+  identity (§R6.3).
+- LEARN engine (`lib/features/learn/`): pure SM-2-simplified
+  scheduler (§R4.3: 1d→3d→×EF, cap 180d, EF floor 1.3, no
+  first-lapse EF cut) with glados property tests; payload
+  validation for 7 question types (`mcq`, `flashcard`,
+  `cloze`, `image_point`, `ordering`, `scenario` capped
+  branching with graph-integrity checks, `mythfact` D-022);
+  session composer (55/20/25 buckets D-023, warm-up/hardest-
+  last ordering, ≤2 back-to-back type/topic, ~40% format
+  cap) + SessionRun (answers persist scheduler + log
+  immediately; a miss resurfaces once, 5–8 cards later —
+  except boss sessions, which are one-pass, D-025); cards
+  for every type with immediate explanatory feedback and
+  report-this-question suspend; image-point grading in
+  shorter-side units over a letterbox-safe surface (§R8.5).
+- Quiz packs (`nimo.quizpack` v1 — full contract in
+  DATA_MODEL): strict importer — zip hygiene from the raw
+  central directory, 50 MB pack / 10 MB media caps, mime
+  allow-list + magic bytes + sha256, header dimension caps
+  (D-027), per-question skip+report, pack-level rejects
+  write nothing; image_point imports suspended behind the
+  in-app tap-verify step (§R4.1); re-import semantics
+  (same version no-op, higher updates content in place,
+  scheduler state preserved, dropped questions suspended
+  not deleted). A `packs/` + `media/<pack.id>/` Library
+  layout; pack source rows under the target topic.
+- Formats (§R4B top 5 — ALL shipped, no slip): scroll-feed
+  episodes with arc wrapper + teach-back end-card (episode
+  sessions), Myth-vs-Fact battles, tap-on-image pointing,
+  capped branching conversation role-play (chat UI, scored
+  as one item), boss level (hardest-first composition,
+  one unscored hint per D-025) + beat-yesterday end-screen
+  comparison vs his own recent medians. Enjoyment rating:
+  frozen labels, asked only when ≥5 cards answered, only
+  on natural completion, always before stats (D-024).
+- Navigation: Learn becomes the 4th destination in a
+  data-driven shell (D-021: final Today · Learn · Progress ·
+  Spaces · Goals; S6 inserts Progress with no restructure).
+  Today launches a review session in 1 tap (Start button on
+  the Hub Learn card); Learn landing is session-first
+  (§R2.3) with due/new counts, Continue-arc cards, pack
+  import, and the image-verify queue. Topic detail gained
+  "Build cloze cards" (mint) + pack import.
+- REVIEW wiring: the Done Score's +2/+2 learning block is
+  live — ReviewStore derives "a finished session ended on
+  this local date" inside closeDay/refreshDoneScoreIfClosed
+  (D-024). The streak fold is untouched: a session-only day
+  is NOT counted, proven by test (red-team #1).
+- QUIZ: `html_quiz` item type — import into the Library,
+  Android WebView player behind a pure navigation policy
+  (only file:// inside the quiz's own folder; hardened
+  settings per TESTING §7); non-Android shows the plain
+  fallback message (§R8.4). Play-only per D-004.
+- Review loop: independent review (SHIP-AFTER-FIXES)
+  verified checks 2/3/4 outright (scheduler, two-signals,
+  enjoyment gating) and found **2 MUST + 10 SHOULD**, all
+  fixed in-stage: M1 pack/media ids that fold under
+  filename sanitisation could overwrite another pack's
+  files (now rejected at validation); M2 a pack update
+  changing an image_point target bypassed the verify gate
+  (now re-gated); phase-2 import errors now honour the
+  PackException contract; retired questions revive when a
+  later pack version re-adds them; boss sessions are
+  one-pass; the session screen routes system-back through
+  finish/abandon (PopScope) so a completed session can't
+  silently lose its score contribution; image dimension
+  caps at import (D-027); scenario validation bails early
+  on oversized graphs; the boss gate no longer double-
+  counts new ⊆ due; the composer's tail-triple hole is
+  repaired. Mutation spot-checks (TESTING §10.2): 7
+  mutants across scheduler/importer/composer/scenario/
+  score-wiring — 5 killed immediately; the 2 survivors
+  (media size cap, scenario end-reachability) were hollow
+  tests, now rewritten to isolate their guard and both
+  mutants verified killed.
+- TESTING §9/S5 checklist: build ✓; importer adversarial
+  suite ✓ (schema/zip-slip/oversize/coords/unknown types,
+  atomic rejects); SM-2 property tests ✓; review-log
+  append-only by API shape ✓; session state machine can't
+  skip the enjoyment rule ✓ (widget tests incl. back-pop
+  paths); goldens — DEFERRED with the same reason as
+  S3/S4 (alchemist CI/local-golden split is its own task);
+  WebView hardening ✓ item-by-item at the settings/policy
+  level (hostile-quiz containment is on-device only —
+  the policy unit tests cover the navigation rules);
+  Patrol — not adopted (needs a device/emulator; none in
+  this VM); MASVS-CODE re-checked in review ✓ (dimension
+  caps added from it, D-027).
+- Verified (host): `flutter analyze` clean; `flutter test`
+  **398/398** (162 baseline + 236 new across the stage),
+  independently re-run by the coordinator after the fix
+  loop, with both formerly-surviving mutants re-checked
+  dead. Sample-pack end-to-end test: the generated Arabic
+  Greetings pack (13 questions, 6 types playable + gated
+  image_point) imports cleanly and plays a full episode
+  session offline; a miss resurfaces in-session and lands
+  at 1 day.
+- NOT verified (owner, on device): session feel/timing
+  and the ≤2-tap friction budget in the hand; HTML quiz
+  playback inside the WebView; image-point verify drag on
+  a real photo; RTL rendering of Arabic cards on device.
+  Known limitations carried forward: zip entry COUNT is
+  uncapped (sizes are capped); a scenario card can loop
+  forever on an escapable cycle (validation guarantees an
+  exit exists, not that it's taken); re-importing a pack
+  into a different topic leaves pre-existing questions on
+  the old topic; S5 not pushed (push stays owner-gated).
+
+## 2026-10-30 — S4 built, reviewed, fixed: Topics & Library (LEARN-data, LINK, SET-backup)
+- Built per RESEARCH-2026-10-30 §R10.2 under D-010's standing
+  go-ahead. Schema **v4** (migrations 1–3 untouched): `topics`,
+  `sources`, `marked_points` with sync identity columns (§R6.3);
+  `day_reviews` rebuilt so `major_point_topic_id` is a real FK
+  (`REFERENCES topics(id) ON DELETE SET NULL`, dangling v3 ids
+  nulled by a CASE guard in the copy); Inbox project seeded
+  idempotently in the default workspace (pointer in
+  `app_settings`); Hub Home reads the Inbox count WITHOUT
+  seeding (looking at the app must not create a workspace).
+- LEARN-data (`lib/features/learn/`): topics/sources CRUD +
+  status flow; Library folder (§R6.4 layout, relative paths
+  only, **every write temp-then-rename** per red-team #8);
+  untrusted filenames sanitised (`file_names.dart`: both slash
+  kinds, whitelist, no dot-only names); share-intent capture via
+  `receive_sharing_intent` (cold + warm, one-field confirm
+  sheet, §R9.5); PDF via `pdfrx` + TXT native reading cards;
+  extraction classified honestly (ok / partial /
+  scanned_no_text / failed — a scanned PDF says so, OCR stays
+  out); **mark-a-point** (D-014 table, D-017 rules) stored
+  cloze-ready for S5. Day Close's major-point step can pick a
+  topic (S3's N7 closed).
+- LINK: link cards are topic triggers (card + topic + link
+  source in one creation); D-003 thumbnails layered — user
+  image (payload provenance `thumbnail_source`, S4 review fix)
+  → og:image auto-fetch (capped, any failure = fallback) →
+  designed fallback card; thumbnail cache reads are
+  containment-checked like Library paths.
+- SET: backup export/import (§R6.5) — zip of VACUUM INTO
+  snapshot + manifest + Library tree; restore implements the
+  **D-011 guard** (D-016): pre-restore backup always, explicit
+  replaces-everything confirmation over a non-empty DB
+  (counting `day_plans` too — review fix), staged snapshot
+  verified (integrity + FK check + version) before a
+  rollback-capable swap; zip-slip and zip-bomb defences;
+  future schema/format refused. Android backup-exclusion rules
+  NOT touched (owner-gated, unchanged from S3's open items).
+- Verified: `flutter analyze` clean; `flutter test` **162/162**
+  (baseline 82 → +80). Includes: v3→v4 real-file migration
+  (S3 data verbatim + FK behaviour + dangling-id hardening);
+  backup round-trip on real files; D-011 refusal/confirmation
+  at store level; torn-write + concurrent-reader atomicity;
+  mocked share-intent channel (cold + warm); mark-a-point from
+  a TXT fixture end to end. Manual mutation spot-checks
+  (TESTING.md §10.2): 5 mutants on restoreBackup / writeAtomic /
+  sanitizeFileName — guard flip, dropped pre-restore backup,
+  skipped snapshot verification, in-place write, backslash
+  split dropped — **5/5 killed** (the in-place-write mutant is
+  killed by a new concurrent-readers-never-see-a-torn-file
+  test written for exactly that purpose).
+- Independent review (reviewer wrote none of the code): verdict
+  SHIP-AFTER-FIXES — 4 MUST, 8 SHOULD, 6 NOTE. All MUSTs and
+  SHOULDs fixed in-stage, each with a regression test where
+  host-testable: plan-only DBs bypassed the D-011 guard (M1);
+  a failed restore left the app bound to a closed database —
+  re-bootstrap is now in a `finally` (M2); a vanished shared
+  file was "saved" as an empty topic with a success message —
+  now a loud `CaptureException`, nothing created (M3); one
+  failed share permanently jammed the share queue — the drain
+  now isolates failures and always releases (M4). SHOULDs:
+  rollback-capable DB swap + sidecars moved with the swap;
+  UI passes its real confirmation through; thumbnail
+  `fileFor` containment + 10 MB attach cap; corrupt sidecar
+  can no longer spin the reader forever (validated decode,
+  catch-all degrade, screen error state); §R4.5 fallback
+  encoding deferred knowingly (D-018); auto-fetch can no
+  longer overwrite a user thumbnail (D-003); topic deletion
+  removes its Library files; zip/entry size caps. NOTEs
+  actioned: migration CASE guard, manifest format_version
+  check, snapshot FK check, HLC read-modify-write wrapped in
+  a transaction, Day Close close-failure recovery, type-
+  tolerant payload reads in the item screens; sidecar names
+  carry the source id (collision-proof). Recorded limitation:
+  Library path resolution is lexical (no symlink following) —
+  revisit before S7 sync (DATA_MODEL).
+- TESTING.md adoption this stage: **adopted** — §9 S4
+  checklist (migration real-file test, adversarial import
+  suite incl. traversal/oversize/torn-write, share-intent
+  channel mocks, backup guard at store level); §10.2 manual
+  mutation spot-checks (above); integration_test smoke harness
+  added (device run is the owner's — cannot run in this VM).
+  **Deferred with reason** — alchemist goldens for the new
+  screens (same CI/local-golden task as S3's deferral).
+  **Owner-side open items** — unchanged from S3: CI security
+  scans (workflow YAML the connector cannot write) and Android
+  backup-exclusion rules (owner-gated).
+- Environment note: `pdfrx_engine`'s native-assets hook needs
+  clang on this VM; LLVM 20.1.8 was installed to `~/tools/llvm`
+  (apt is proxy-blocked) — see `toolchain/NOTES.md` #6.
+- **Unverified (device-only, stated plainly):** on-device share
+  intent (cold start from another app, SEND_MULTIPLE), real
+  pdfrx PDF rendering and real pdfrx_engine text extraction
+  (host tests use the fake-extractor seam), the
+  integration_test smoke run, and the S4 APK itself (built via
+  GitHub Actions after the owner pushes; S4 is NOT pushed —
+  local only, like S3).
+
+## 2026-10-30 — S3 built, reviewed, fixed: Close the Loop (REVIEW)
+- Built per RESEARCH-2026-10-30 §R10.2 under D-010's standing
+  go-ahead. Schema **v3** (migrations 1–2 untouched): `day_reviews`,
+  `streak_state` (seeded single row), `shield_events`, `sync_meta`,
+  `sync_ops` scaffold; `plan_templates` += starter/anchor/track/
+  counts_core (habit fields, §R5.5); `day_plan_items` +=
+  counts_core snapshot (D-013); `goals` += track; sync identity
+  columns + unique indexes on all syncable tables (§R6.3), with an
+  open-time NULL backfill until S7 assigns identity at insert.
+- REVIEW (`lib/features/review/`): Day Close flow (Recap → Major
+  point → Self Score → Reveal; every step skippable; 5 taps with
+  everything skipped; yesterday closable in the late window until
+  today's first tick); Done Score formula v1 (weights 1 up to 8
+  items, ½ beyond, learning block +2/+2 reserved for S5,
+  empty-plan + closed = 60) and Self Score stored/shown separately,
+  never merged; Streak Shields as a pure fold over exactly two
+  signals (core plan done via snapshotted flags, or Day Close) —
+  grant at 7 (D-012), ≤2 held, ≤2 per ISO week derived per date,
+  refill 1/7 protected days, late close refunds via re-fold.
+  Hub Home gained the Day Close banner + if–then line; routine
+  editor gained the habit-details dialog.
+- Verified: `flutter analyze` clean; `flutter test` **82/82**
+  (baseline 23). Includes: v2→v3 real-file migration test with S2
+  data; streak/score named boundary cases + glados property tests;
+  night-owl closable-window tests; end-to-end late-close refund;
+  backwards-clock monotonicity; Day Close widget flow (all skips,
+  leak tracking on). Manual mutation spot-checks (TESTING.md
+  §10.2): 8 builder mutants — 4 survived the first pass (weekly
+  cap, refill threshold, 80% threshold, one tautological
+  empty-plan assertion) → killing tests added → 8/8 killed;
+  reviewer ran 3 more (all killed); post-fix snapshot-bypass and
+  80% mutants re-killed.
+- Independent review (reviewer did not write the code): verdict
+  SHIP-AFTER-FIXES. MUST M1 — toggling counts_core/deleting a
+  template retroactively rewrote streak history — fixed by the
+  D-013 snapshot + regression test. SHOULDs fixed: D-012 records
+  the at-7 grant (S1); banner offers "Close today instead" during
+  the late window (S2); Hub plan edits refresh a closed day's
+  Done Score (S3); HLC gained direct tests (S4). NOTEs: closeDay
+  is now a true UPSERT and `is_counted` is written only by
+  evaluate (N2); shield_events get fresh sync_ids per evaluate —
+  S7 must treat them as derived/non-synced or stabilise identity
+  (N1); future-clock folds self-heal (N6); `major_point_topic_id`
+  becomes settable when topics land in S4 (N7).
+- TESTING.md adoption this stage: **adopted** — glados property
+  tests (streak walk + score); leak tracking in the Day Close and
+  Hub Home widget tests (dev dep `leak_tracker_flutter_testing`).
+  **Deferred with reason** — very_good_analysis (no mid-stage lint
+  swap; staged follow-up per TESTING.md §3.1 rollout note);
+  alchemist goldens (CI/local golden split is its own task).
+  **Owner-side open items** — CI security scans (OSV-Scanner,
+  gitleaks, Dependabot: workflow YAML the connector cannot write)
+  and Android backup-exclusion rules (§7's #1 storage risk; they
+  change device-transfer behaviour, so they need the owner's
+  explicit go-ahead, not a silent change).
+- Open: on-device verification of S3 (the VM cannot build APKs;
+  S2's on-device check is also still open). S3 is NOT pushed —
+  the push is a separate owner-gated step, as with S2.
+
 ## 2026-10-30 — S2 pushed to GitHub as one snapshot commit
 - Owner approved the push in the main chat. Pre-push checks run in
   the main chat: manifest rebuilt (54 files, 194 KiB, all UTF-8;
@@ -77,6 +650,19 @@ what was verified (and how), what remains open.
   replaced with a real project README.
 - Awaiting: owner's push → workflow run → APK artifact download →
   on-device S1 check (install, create data, kill/reopen app).
+
+## 2026-10-30 — Overnight research delivered (R1–R10 + R4B, quality pass + red-team)
+- Owner-commissioned research completed and delivered early at the
+  owner's request: `~/workspace/goals/daily-life-android-app/files/RESEARCH-2026-10-30.md`
+  (2,234 lines). Covers product science, UI, progress visuals
+  (recommends Journey Path), learning engine + fun-first formats,
+  daily-loop mechanics, schema v3, staged sync, platform checks,
+  flaw/conflict audits, feature list v2 and a re-sequenced S3–S8
+  stage plan superseding old S3–S6 (pending owner approval).
+- Quality pass corrected real errors (incl. a wrong-paper citation);
+  red-team review: 3 MUST-FIX (2 fixed in place; snapshot
+  "Repair sync" data-loss guard left as an owner decision),
+  8 SHOULD-FIX, 7 NOTE.
 
 ## 2026-10-30 — D-008 decided: Plate B Midnight; features discussion opened
 - Owner viewed the three plates in a viewable chat preview (the

@@ -3,14 +3,25 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../items/link_card/thumbnail_service.dart';
+import '../learn/learn_services.dart';
 import '../projects/projects_screen.dart';
 import '../shared_ui.dart';
 import '../store.dart';
 
 class WorkspacesScreen extends StatefulWidget {
-  const WorkspacesScreen({super.key, required this.store});
+  const WorkspacesScreen({
+    super.key,
+    required this.store,
+    this.learn,
+    this.thumbnails,
+  });
 
   final Store store;
+
+  /// S4 wiring, forwarded to project/item screens (optional).
+  final LearnServices? learn;
+  final ThumbnailService? thumbnails;
 
   @override
   State<WorkspacesScreen> createState() => _WorkspacesScreenState();
@@ -106,7 +117,12 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (_) =>
-                        ProjectsScreen(store: widget.store, workspace: ws),
+                        ProjectsScreen(
+                          store: widget.store,
+                          workspace: ws,
+                          learn: widget.learn,
+                          thumbnails: widget.thumbnails,
+                        ),
                   ),
                 ),
               );

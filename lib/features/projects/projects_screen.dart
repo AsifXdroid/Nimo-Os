@@ -4,14 +4,26 @@ library;
 import 'package:flutter/material.dart';
 
 import '../items/items_screen.dart';
+import '../items/link_card/thumbnail_service.dart';
+import '../learn/learn_services.dart';
 import '../shared_ui.dart';
 import '../store.dart';
 
 class ProjectsScreen extends StatefulWidget {
-  const ProjectsScreen({super.key, required this.store, required this.workspace});
+  const ProjectsScreen({
+    super.key,
+    required this.store,
+    required this.workspace,
+    this.learn,
+    this.thumbnails,
+  });
 
   final Store store;
   final Workspace workspace;
+
+  /// S4 wiring, forwarded to the items screen (optional).
+  final LearnServices? learn;
+  final ThumbnailService? thumbnails;
 
   @override
   State<ProjectsScreen> createState() => _ProjectsScreenState();
@@ -88,8 +100,12 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) =>
-                        ItemsScreen(store: widget.store, project: prj),
+                    builder: (_) => ItemsScreen(
+                      store: widget.store,
+                      project: prj,
+                      learn: widget.learn,
+                      thumbnails: widget.thumbnails,
+                    ),
                   ),
                 ),
               );

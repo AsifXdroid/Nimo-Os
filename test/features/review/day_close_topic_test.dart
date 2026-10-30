@@ -139,7 +139,8 @@ void main() {
 
       // Step 1 → 2 (major point).
       await tester.tap(find.text('Next'));
-      expect(await pollFor(find.text("The day's major point")), isTrue);
+      expect(await pollFor(find.text('Name one thing worth remembering.')),
+          isTrue);
       await tester.enterText(
           find.byType(TextField).first, 'Verb forms clicked');
       // Open the topic dropdown and pick the topic.

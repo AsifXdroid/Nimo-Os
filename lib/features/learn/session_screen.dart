@@ -18,6 +18,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../review/review_store.dart';
 import '../store.dart';
@@ -571,16 +572,24 @@ class _SessionScreenState extends State<SessionScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(Gap.md, Gap.md, Gap.md, 0),
+          padding: const EdgeInsets.fromLTRB(
+              Space.page, Gap.md, Space.page, 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Card $cappedNumber of ${run.totalPlanned}',
-                style: theme.textTheme.labelLarge,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Card $cappedNumber of ${run.totalPlanned}',
+                      style: theme.textTheme.labelLarge,
+                    ),
+                  ),
+                  NeoTag('${run.totalPlanned} cards'),
+                ],
               ),
               const SizedBox(height: Gap.sm),
-              LinearProgressIndicator(value: progress),
+              NeoTrack(value: progress),
             ],
           ),
         ),
@@ -747,9 +756,24 @@ class _SessionScreenState extends State<SessionScreen> {
     final theme = Theme.of(context);
     final picked = _enjoyment;
     return ListView(
-      padding: const EdgeInsets.all(Gap.md),
+      padding: const EdgeInsets.fromLTRB(
+          Space.page, Gap.md, Space.page, Gap.lg),
       children: [
-        Text('How much did you enjoy that?', style: theme.textTheme.titleLarge),
+        const NeoPageTitle(
+          eyebrow: 'Session complete',
+          heading: 'A little more understanding.',
+          sub: 'What matters is how it felt, not how long it took.',
+        ),
+        const SizedBox(height: Gap.lg),
+        Text('How much did you enjoy that?',
+            style: theme.textTheme.titleLarge),
+        const SizedBox(height: Gap.sm),
+        Text(
+          'Your enjoyment is the learning success metric. This '
+          'does not change scheduling or extend your streak.',
+          style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant),
+        ),
         const SizedBox(height: Gap.md),
         Wrap(
           spacing: Gap.sm,
@@ -820,11 +844,14 @@ class _SessionScreenState extends State<SessionScreen> {
     final history = _history;
     final teaser = _pack?.arc?['teaser'] as String?;
     return ListView(
-      padding: const EdgeInsets.all(Gap.md),
+      padding: const EdgeInsets.fromLTRB(
+          Space.page, Gap.md, Space.page, Gap.lg),
       children: [
+        NeoEyebrow(isBoss ? 'The boss level' : 'A little more understanding'),
+        const SizedBox(height: Space.s3),
         Text(
           isBoss ? 'Boss level complete' : 'Session complete',
-          style: theme.textTheme.headlineSmall,
+          style: theme.textTheme.headlineLarge,
         ),
         if (isBoss && accuracy < 50) ...[
           const SizedBox(height: Gap.sm),

@@ -19,6 +19,7 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../learn/library_store.dart';
 import '../settings/backup_store.dart';
@@ -356,28 +357,34 @@ class _SyncSectionState extends State<SyncSection> {
         const SizedBox(height: Gap.md),
         if (s == null)
           const Center(child: CircularProgressIndicator())
-        else ...[
-          Text(
-            'This device: ${s.deviceId.substring(0, 8)}…',
-            style: theme.textTheme.bodyMedium,
-          ),
-          Text(
-            'Last export: ${_fmtTime(s.lastExportAt)}'
-            '${s.lastExportFile == null ? '' : ' (${s.lastExportFile})'}',
-            style: theme.textTheme.bodySmall,
-          ),
-          for (final peer in s.peers)
-            Text(
-              'Last import from ${peer.deviceId.substring(0, 8)}…: '
-              '${_fmtTime(peer.lastImportAt)}',
-              style: theme.textTheme.bodySmall,
+        else
+          NeoWell(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'This device: ${s.deviceId.substring(0, 8)}…',
+                  style: theme.textTheme.bodyMedium,
+                ),
+                Text(
+                  'Last export: ${_fmtTime(s.lastExportAt)}'
+                  '${s.lastExportFile == null ? '' : ' (${s.lastExportFile})'}',
+                  style: theme.textTheme.bodySmall,
+                ),
+                for (final peer in s.peers)
+                  Text(
+                    'Last import from ${peer.deviceId.substring(0, 8)}…: '
+                    '${_fmtTime(peer.lastImportAt)}',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                if (s.peers.isEmpty)
+                  Text(
+                    'Nothing imported from another device yet.',
+                    style: theme.textTheme.bodySmall,
+                  ),
+              ],
             ),
-          if (s.peers.isEmpty)
-            Text(
-              'Nothing imported from another device yet.',
-              style: theme.textTheme.bodySmall,
-            ),
-        ],
+          ),
         if (widget.onSetLibraryRoot != null) ...[
           const SizedBox(height: Gap.md),
           Text(

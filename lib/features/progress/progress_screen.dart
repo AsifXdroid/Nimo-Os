@@ -11,6 +11,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../review/review_store.dart';
 import '../today/today_store.dart';
@@ -19,6 +20,11 @@ import 'journey.dart';
 import 'progress_store.dart';
 import 'weekly_summary.dart';
 import 'weekly_summary_screen.dart';
+
+const _monthNames = [
+  'January', 'February', 'March', 'April', 'May', 'June', 'July',
+  'August', 'September', 'October', 'November', 'December',
+];
 
 class _ProgressData {
   const _ProgressData({
@@ -124,7 +130,6 @@ class _ProgressScreenState extends State<ProgressScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Progress')),
       body: FutureBuilder<_ProgressData>(
         future: _data,
         builder: (context, snapshot) {
@@ -159,11 +164,24 @@ class _ProgressScreenState extends State<ProgressScreen> {
           final data = snapshot.data!;
           final model = buildJourney(data.journey, today: DateTime.now());
           return ListView(
-            padding: const EdgeInsets.fromLTRB(Space.page, Gap.md, Space.page, Gap.lg),
+            padding: const EdgeInsets.fromLTRB(
+                Space.page, Gap.md, Space.page, Gap.lg),
             children: [
+              const NeoPageTitle(
+                eyebrow: 'The long view',
+                heading: 'Look how far you’ve come.',
+                sub: 'A record of showing up, not a measure of your worth.',
+              ),
+              const SizedBox(height: Gap.lg),
               _streakHeader(context, data.streak),
-              const SizedBox(height: Gap.md),
+              const SizedBox(height: Gap.lg),
               _journeyCard(context, data, model),
+              const SizedBox(height: Gap.md),
+              const NeoNotice(
+                'Learning sessions and opening Nimo do not independently '
+                'extend your streak. Only core completion or Day Close '
+                'qualifies.',
+              ),
               const SizedBox(height: Gap.md),
               WeekSummaryCard(
                 summary: data.weekSummary,
@@ -213,15 +231,12 @@ class _ProgressScreenState extends State<ProgressScreen> {
   Widget _journeyCard(
       BuildContext context, _ProgressData data, JourneyModel model) {
     final theme = Theme.of(context);
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(Gap.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Your journey', style: theme.textTheme.titleMedium),
-            const SizedBox(height: Gap.sm),
+    return NeoPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const NeoSectionHead(title: 'Your journey path'),
+          const SizedBox(height: Gap.sm),
             if (model.isFresh)
               Padding(
                 padding: const EdgeInsets.only(bottom: Gap.sm),
@@ -260,8 +275,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                     'distance travelled: ${model.totalDistance} counted days'),
               ],
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -275,26 +289,21 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   Widget _numbersCard(BuildContext context, _ProgressData data) {
     final theme = Theme.of(context);
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(Gap.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('The numbers', style: theme.textTheme.titleMedium),
-            const SizedBox(height: Gap.sm),
-            Text('Scores — last 30 days',
-                style: theme.textTheme.labelLarge),
-            const SizedBox(height: Gap.sm),
-            DualScoreChart(days: data.chartDays),
-            const SizedBox(height: Gap.md),
-            Text('Learning enjoyment — last 90 days',
-                style: theme.textTheme.labelLarge),
-            const SizedBox(height: Gap.sm),
-            EnjoymentChart(points: data.enjoyment),
-          ],
-        ),
+    return NeoPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const NeoSectionHead(title: 'Two perspectives, kept separate'),
+          const SizedBox(height: Gap.sm),
+          Text('Scores — last 30 days', style: theme.textTheme.labelLarge),
+          const SizedBox(height: Gap.sm),
+          DualScoreChart(days: data.chartDays),
+          const SizedBox(height: Gap.md),
+          Text('Learning enjoyment — last 90 days',
+              style: theme.textTheme.labelLarge),
+          const SizedBox(height: Gap.sm),
+          EnjoymentChart(points: data.enjoyment),
+        ],
       ),
     );
   }
@@ -302,18 +311,16 @@ class _ProgressScreenState extends State<ProgressScreen> {
   Widget _calendarCard(BuildContext context) {
     final theme = Theme.of(context);
     final month = _monthCursor;
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(Gap.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text('Calendar', style: theme.textTheme.titleMedium),
-                ),
+    return NeoPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text('${_monthNames[month.month - 1]}, in moments',
+                    style: theme.textTheme.titleMedium),
+              ),
                 IconButton(
                   icon: const Icon(Icons.chevron_left),
                   tooltip: 'Previous month',
@@ -360,8 +367,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                 );
               },
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -373,33 +379,35 @@ class _ProgressScreenState extends State<ProgressScreen> {
       for (final m in data.archive)
         if (m != currentMonday) m,
     ];
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(Gap.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Past weekly summaries',
-                style: theme.textTheme.titleMedium),
-            const SizedBox(height: Gap.sm),
-            if (past.isEmpty)
-              Text(
+    return NeoPanel(
+      padding: const EdgeInsets.symmetric(
+          horizontal: Space.s6, vertical: Space.s2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: Space.s4, bottom: Space.s2),
+            child: NeoSectionHead(title: 'Past weekly summaries'),
+          ),
+          if (past.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: Space.s4),
+              child: Text(
                 'Summaries appear here as weeks pass — each Sunday '
                 'evening, this week\'s summary joins the archive.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-            for (final monday in past)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(weekRangeLabel(monday)),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _openSummary(monday),
-              ),
-          ],
-        ),
+            ),
+          for (final monday in past)
+            NeoListRow(
+              icon: Icons.calendar_view_week_outlined,
+              title: weekRangeLabel(monday),
+              last: monday == past.last,
+              onTap: () => _openSummary(monday),
+            ),
+        ],
       ),
     );
   }
@@ -529,12 +537,9 @@ class _DayDetail extends StatelessWidget {
           children: [
             SizedBox(width: 52, child: Text(label)),
             Expanded(
-              child: LinearProgressIndicator(
+              child: NeoTrack(
                 value: value == null ? 0 : value / max,
                 color: color,
-                backgroundColor: scheme.surfaceContainerHighest,
-                minHeight: 8,
-                borderRadius: BorderRadius.circular(4),
               ),
             ),
             const SizedBox(width: Gap.sm),

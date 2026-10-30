@@ -10,6 +10,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import 'grading.dart';
 import 'image_geometry.dart';
@@ -70,15 +71,25 @@ class _ImageVerifyListScreenState extends State<ImageVerifyListScreen> {
                   ),
                 )
               : ListView(
+                  padding: const EdgeInsets.fromLTRB(
+                      Space.page, Gap.md, Space.page, Gap.lg),
                   children: [
-                    for (final q in _pending)
-                      ListTile(
-                        leading: const Icon(Icons.image_search_outlined),
-                        title: Text(q.payload['prompt'] as String? ?? ''),
-                        subtitle: Text(q.packId ?? ''),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => _open(q),
+                    NeoPanel(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: Space.s6, vertical: Space.s2),
+                      child: Column(
+                        children: [
+                          for (final q in _pending)
+                            NeoListRow(
+                              icon: Icons.image_search_outlined,
+                              title: q.payload['prompt'] as String? ?? '',
+                              sub: q.packId ?? '',
+                              last: q == _pending.last,
+                              onTap: () => _open(q),
+                            ),
+                        ],
                       ),
+                    ),
                   ],
                 ),
     );

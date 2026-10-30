@@ -8,6 +8,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../review/review_store.dart';
 import '../store.dart';
@@ -24,11 +25,16 @@ class LearnScreen extends StatefulWidget {
     required this.learn,
     required this.reviewStore,
     required this.store,
+    this.onOpenTopics,
   });
 
   final LearnServices learn;
   final ReviewStore reviewStore;
   final Store store;
+
+  /// Opens the Topics & Library screen (Neo Learn's "All
+  /// topics →" action); wired by the shell, optional for tests.
+  final void Function()? onOpenTopics;
 
   @override
   State<LearnScreen> createState() => _LearnScreenState();
@@ -116,23 +122,39 @@ class _LearnScreenState extends State<LearnScreen> {
         if (p.arc != null) p,
     ];
     return Scaffold(
-      appBar: AppBar(title: const Text('Learn')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(Space.page, Gap.md, Space.page, Gap.lg),
+        padding: const EdgeInsets.fromLTRB(
+            Space.page, Gap.md, Space.page, Gap.lg),
         children: [
-          _startCard(context),
+          const NeoPageTitle(
+            eyebrow: 'Curiosity, kept alive',
+            heading: 'Learn something that stays.',
+            sub: 'Your sources. Your pace. A world of little discoveries.',
+          ),
+          const SizedBox(height: Gap.lg),
+          _pulsePanel(context),
           if (arcPacks.isNotEmpty) ...[
             const SizedBox(height: Gap.lg),
-            Text('Continue', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: Gap.sm),
+            const NeoSectionHead(title: 'Continue exploring'),
+            const SizedBox(height: Space.s3),
             for (final pack in arcPacks) _continueCard(context, pack),
           ],
           const SizedBox(height: Gap.lg),
-          Text('Packs', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: Gap.sm),
+          const NeoSectionHead(title: 'Your packs'),
+          const SizedBox(height: Space.s3),
           if (_packs.isEmpty)
-            Text('No packs yet.', style: Theme.of(context).textTheme.bodySmall),
-          for (final pack in _packs) _packRow(context, pack),
+            Text('No packs yet — import one to begin.',
+                style: Theme.of(context).textTheme.bodyMedium)
+          else
+            NeoPanel(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: Space.s6, vertical: Space.s2),
+              child: Column(
+                children: [
+                  for (final pack in _packs) _packRow(context, pack),
+                ],
+              ),
+            ),
           const SizedBox(height: Gap.md),
           OutlinedButton.icon(
             onPressed: _importPack,
@@ -148,36 +170,74 @@ class _LearnScreenState extends State<LearnScreen> {
     );
   }
 
-  Widget _startCard(BuildContext context) {
+  /// The learning pulse panel (D-037, Neo Learn): three quiet
+  /// numbers — due, new, packs — then the one primary action.
+  /// Enjoyment is named as the metric in the hint, as the
+  /// prototype does; the trend itself lives in Progress, where
+  /// the session data is aggregated.
+  Widget _pulsePanel(BuildContext context) {
     final theme = Theme.of(context);
     final total = _due + _new;
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(Gap.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Due for review: $_due', style: theme.textTheme.titleMedium),
-            const SizedBox(height: Gap.sm),
-            Text('New cards: $_new', style: theme.textTheme.bodyLarge),
-            if (total == 0) ...[
-              const SizedBox(height: Gap.sm),
+    Widget cell(String number, String label) => Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                'Import a pack or mark points while reading to '
-                'create cards.',
-                style: theme.textTheme.bodySmall,
+                number,
+                style: const TextStyle(
+                  fontSize: 30,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -1,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+              Text(
+                label,
+                style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant),
               ),
             ],
-            const SizedBox(height: Gap.md),
-            FilledButton(
-              onPressed: total == 0
-                  ? null
-                  : () => _openSession(SessionKind.review),
-              child: const Text('Start session'),
+          ),
+        );
+    return NeoPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          NeoSectionHead(
+            title: 'Your learning pulse',
+            actionLabel:
+                widget.onOpenTopics == null ? null : 'All topics →',
+            onAction: widget.onOpenTopics,
+          ),
+          const SizedBox(height: Space.s5),
+          Row(
+            children: [
+              cell('$_due', 'due to revisit'),
+              cell('$_new', 'new to explore'),
+              cell('${_packs.length}', 'packs in your library'),
+            ],
+          ),
+          const SizedBox(height: Space.s5),
+          FilledButton(
+            onPressed:
+                total == 0 ? null : () => _openSession(SessionKind.review),
+            child: const Text('Begin a short session →'),
+          ),
+          const SizedBox(height: Space.s3),
+          Text(
+            'Measured in enjoyment, not minutes.',
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          if (total == 0) ...[
+            const SizedBox(height: Space.s3),
+            Text(
+              'Import a pack or mark points while reading to '
+              'create cards.',
+              style: theme.textTheme.bodySmall,
             ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -189,10 +249,9 @@ class _LearnScreenState extends State<LearnScreen> {
     final episodeTitle = arc['episodeTitle'] as String? ?? '';
     final teaser = arc['teaser'] as String?;
     final bossReady = (_packDueCounts[pack.packId] ?? 0) >= 5;
-    return Card(
-      margin: const EdgeInsets.only(bottom: Gap.sm),
-      child: Padding(
-        padding: const EdgeInsets.all(Gap.md),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Space.s3),
+      child: NeoPanel(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -239,34 +298,30 @@ class _LearnScreenState extends State<LearnScreen> {
   }
 
   Widget _packRow(BuildContext context, PackRecord pack) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: Gap.sm),
-      child: ListTile(
-        title: Text(pack.title),
-        subtitle: Text('v${pack.version} · ${pack.questionCount} questions'),
-        trailing: pack.arc == null
-            ? OutlinedButton(
-                onPressed: () =>
-                    _openSession(SessionKind.review, packId: pack.packId),
-                child: const Text('Play'),
-              )
-            : null,
-      ),
+    return NeoListRow(
+      icon: Icons.style_outlined,
+      title: pack.title,
+      sub: 'v${pack.version} · ${pack.questionCount} questions',
+      last: pack == _packs.last,
+      trailing: pack.arc == null
+          ? OutlinedButton(
+              onPressed: () =>
+                  _openSession(SessionKind.review, packId: pack.packId),
+              child: const Text('Play'),
+            )
+          : const SizedBox.shrink(),
     );
   }
 
   Widget _verifyCard(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      margin: EdgeInsets.zero,
-      child: ListTile(
-        leading: Icon(
-          Icons.image_search_outlined,
-          color: theme.colorScheme.primary,
-        ),
-        title: Text('${_verifyPending.length} image targets to check'),
-        trailing: const Icon(Icons.chevron_right),
+    return NeoPanel(
+      padding: const EdgeInsets.symmetric(
+          horizontal: Space.s6, vertical: Space.s2),
+      child: NeoListRow(
+        icon: Icons.image_search_outlined,
+        title: '${_verifyPending.length} image targets to check',
         onTap: _openVerifyList,
+        last: true,
       ),
     );
   }

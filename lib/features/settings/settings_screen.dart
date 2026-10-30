@@ -17,6 +17,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../core/brand.dart';
+import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import 'backup_section.dart';
 import 'reminders.dart';
@@ -130,38 +131,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(Space.page, Gap.md, Space.page, Gap.lg),
         children: [
+          const NeoPageTitle(
+            eyebrow: 'Your Nimo',
+            heading: 'A space that feels like yours.',
+            sub: 'Offline by design. No account. No cloud.',
+          ),
+          const SizedBox(height: Gap.lg),
           if (widget.themeChoice != null &&
               widget.onThemeChanged != null) ...[
-            Text('Appearance', style: theme.textTheme.titleMedium),
-            const SizedBox(height: Gap.sm),
-            Text(
-              'The Neo design, in dark or light. Dark is Nimo\'s '
-              'home; light is there whenever you want it.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+            NeoPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Appearance', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: Gap.sm),
+                  Text(
+                    'The Neo design, in dark or light. Dark is Nimo\'s '
+                    'home; light is there whenever you want it.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: Gap.sm),
+                  SegmentedButton<AppThemeChoice>(
+                    segments: const [
+                      ButtonSegment(
+                        value: AppThemeChoice.dark,
+                        icon: Icon(Icons.dark_mode_outlined),
+                        label: Text('Dark'),
+                      ),
+                      ButtonSegment(
+                        value: AppThemeChoice.light,
+                        icon: Icon(Icons.light_mode_outlined),
+                        label: Text('Light'),
+                      ),
+                    ],
+                    selected: {widget.themeChoice!},
+                    onSelectionChanged: (sel) =>
+                        widget.onThemeChanged!(sel.first),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: Gap.sm),
-            SegmentedButton<AppThemeChoice>(
-              segments: const [
-                ButtonSegment(
-                  value: AppThemeChoice.dark,
-                  icon: Icon(Icons.dark_mode_outlined),
-                  label: Text('Dark'),
-                ),
-                ButtonSegment(
-                  value: AppThemeChoice.light,
-                  icon: Icon(Icons.light_mode_outlined),
-                  label: Text('Light'),
-                ),
-              ],
-              selected: {widget.themeChoice!},
-              onSelectionChanged: (sel) =>
-                  widget.onThemeChanged!(sel.first),
             ),
             const SizedBox(height: Gap.lg),
           ],
-          Text('Reminders', style: theme.textTheme.titleMedium),
+          const NeoSectionHead(title: 'Gentle reminders'),
           const SizedBox(height: Gap.sm),
           Text(
             'Gentle nudges, off by default. They are scheduled '
@@ -227,11 +241,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
           ],
           const SizedBox(height: Gap.lg),
-          Text('Backup', style: theme.textTheme.titleMedium),
+          const NeoSectionHead(title: 'Your data, in your hands'),
           const SizedBox(height: Gap.sm),
           widget.backupSection,
           const SizedBox(height: Gap.lg),
-          Text('Sync', style: theme.textTheme.titleMedium),
+          const NeoSectionHead(title: 'Sync'),
           const SizedBox(height: Gap.sm),
           if (widget.syncSection != null)
             widget.syncSection!
@@ -243,6 +257,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           const SizedBox(height: Gap.lg),
+          NeoPanel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const NeoGlyph(icon: Icons.lock_outline),
+                const SizedBox(height: Space.s4),
+                Text(
+                  'A quieter kind of app.',
+                  style: theme.textTheme.titleMedium,
+                ),
+                const SizedBox(height: Space.s2),
+                Text(
+                  'Your personal growth shouldn’t be someone '
+                  'else’s data.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: Gap.lg),
           const Divider(),
           const SizedBox(height: Gap.md),
           const NimoBrandFooter(),
@@ -253,46 +289,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _suggestionCard(BuildContext context) {
-    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(top: Gap.md),
-      child: Card(
-        margin: EdgeInsets.zero,
-        color: theme.colorScheme.secondaryContainer,
-        child: Padding(
-          padding: const EdgeInsets.all(Gap.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const NeoNotice(
+            'You hadn’t opened Nimo in over a week while reminders '
+            'were on. If they’re not helping, turning them off is '
+            'the kind option.',
+          ),
+          const SizedBox(height: Gap.sm),
+          Row(
             children: [
-              Text(
-                'You hadn\'t opened Nimo in over a week while '
-                'reminders were on. If they\'re not helping, '
-                'turning them off is the kind option.',
-                style: theme.textTheme.bodyMedium,
+              FilledButton(
+                onPressed: () async {
+                  await widget.reminders.turnAllOff();
+                  await _load();
+                },
+                child: const Text('Turn reminders off'),
               ),
-              const SizedBox(height: Gap.sm),
-              Row(
-                children: [
-                  FilledButton(
-                    onPressed: () async {
-                      await widget.reminders.turnAllOff();
-                      await _load();
-                    },
-                    child: const Text('Turn reminders off'),
-                  ),
-                  const SizedBox(width: Gap.sm),
-                  TextButton(
-                    onPressed: () async {
-                      await widget.reminders.dismissSuggestion();
-                      await _load();
-                    },
-                    child: const Text('Keep them'),
-                  ),
-                ],
+              const SizedBox(width: Gap.sm),
+              TextButton(
+                onPressed: () async {
+                  await widget.reminders.dismissSuggestion();
+                  await _load();
+                },
+                child: const Text('Keep them'),
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }

@@ -4,6 +4,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../shared_ui.dart';
 import 'goals_store.dart';
@@ -40,11 +41,6 @@ class _GoalsScreenState extends State<GoalsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Goals')),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _add,
-        child: const Icon(Icons.add),
-      ),
       body: FutureBuilder<List<Goal>>(
         future: _goals,
         builder: (context, snapshot) {
@@ -52,27 +48,75 @@ class _GoalsScreenState extends State<GoalsScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           final list = snapshot.data!;
-          if (list.isEmpty) {
-            return const Center(
-              child: Text('No goals yet.\nTap + to add a short-term goal.',
-                  textAlign: TextAlign.center),
-            );
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(Space.page, Gap.md, Space.page, Gap.lg),
-            itemCount: list.length,
-            itemBuilder: (context, i) => GoalCard(
-              goal: list[i],
-              onStep: (delta) async {
-                await widget.goalsStore.step(list[i], delta);
-                setState(_reload);
-              },
-              onDelete: () async {
-                if (!await confirmDelete(context, 'goal')) return;
-                await widget.goalsStore.deleteGoal(list[i].id);
-                setState(_reload);
-              },
-            ),
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(
+                Space.page, Gap.md, Space.page, Gap.lg),
+            children: [
+              const NeoPageTitle(
+                eyebrow: 'A direction, not a deadline',
+                heading: 'Keep becoming.',
+                sub: 'Small actions are how a goal becomes part of '
+                    'your life.',
+              ),
+              const SizedBox(height: Gap.lg),
+              NeoSectionHead(
+                title: 'In motion',
+                actionLabel: '+ Add goal',
+                onAction: _add,
+              ),
+              const SizedBox(height: Space.s3),
+              if (list.isEmpty)
+                Text(
+                  'No goals yet — give your intention a direction.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              for (final goal in list)
+                GoalCard(
+                  goal: goal,
+                  onStep: (delta) async {
+                    await widget.goalsStore.step(goal, delta);
+                    setState(_reload);
+                  },
+                  onDelete: () async {
+                    if (!await confirmDelete(context, 'goal')) return;
+                    await widget.goalsStore.deleteGoal(goal.id);
+                    setState(_reload);
+                  },
+                ),
+              const SizedBox(height: Gap.md),
+              NeoPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const NeoGlyph(icon: Icons.eco_outlined),
+                    const SizedBox(height: Space.s4),
+                    Text(
+                      'Progress at your own pace.',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: Space.s2),
+                    Text(
+                      'Your goals are a direction, not a daily '
+                      'verdict. Update them when you have taken a '
+                      'meaningful step.',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant),
+                    ),
+                    const SizedBox(height: Space.s3),
+                    Text(
+                      'Manual progress. Learning does not '
+                      'automatically advance a goal.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -96,18 +140,28 @@ class GoalCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final unit = goal.unit.isEmpty ? '' : ' ${goal.unit}';
-    return Card(
-      margin: const EdgeInsets.only(bottom: Gap.sm),
-      child: Padding(
-        padding: const EdgeInsets.all(Gap.md),
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Space.s5),
+      child: NeoRaisedSm(
+        radius: RadiusToken.card,
+        padding: const EdgeInsets.all(Space.s6),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
+                const NeoGlyph(icon: Icons.flag_outlined),
+                const SizedBox(width: Space.s4),
                 Expanded(
-                  child: Text(goal.title, style: theme.textTheme.titleMedium),
+                  child: Text(goal.title,
+                      style: theme.textTheme.titleSmall
+                          ?.copyWith(fontSize: 16)),
+                ),
+                Text(
+                  '${(goal.fraction * 100).round()}%',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(color: scheme.primary),
                 ),
                 if (onDelete != null)
                   IconButton(
@@ -117,26 +171,39 @@ class GoalCard extends StatelessWidget {
                   ),
               ],
             ),
-            const SizedBox(height: Gap.sm),
-            LinearProgressIndicator(value: goal.fraction),
-            const SizedBox(height: Gap.sm),
+            const SizedBox(height: Space.s5),
+            NeoTrack(value: goal.fraction),
+            const SizedBox(height: Space.s4),
             Row(
               children: [
-                IconButton(
-                  icon: const Icon(Icons.remove),
-                  tooltip: 'Decrease',
-                  onPressed: () => onStep(-1),
-                ),
                 Expanded(
                   child: Text(
-                    '${goal.current} of ${goal.target}$unit',
-                    style: theme.textTheme.bodyMedium,
+                    goal.unit.isEmpty
+                        ? 'steps completed'
+                        : '${goal.unit} completed',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: scheme.onSurfaceVariant),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.add),
+                NeoStepperButton(
+                  icon: Icons.remove,
+                  tooltip: 'Decrease',
+                  onTap: goal.current <= 0 ? null : () => onStep(-1),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Space.s4),
+                  child: Text(
+                    '${goal.current} / ${goal.target}',
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                NeoStepperButton(
+                  icon: Icons.add,
                   tooltip: 'Increase',
-                  onPressed: () => onStep(1),
+                  onTap: goal.current >= goal.target
+                      ? null
+                      : () => onStep(1),
                 ),
               ],
             ),

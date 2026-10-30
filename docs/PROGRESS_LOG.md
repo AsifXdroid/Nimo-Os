@@ -3,6 +3,38 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-30 — D-037: Neo screens rebuilt, one by one (main chat)
+- Owner correction (22:26 IST): D-036 was a token/theme layer
+  over unchanged layouts, not the Neo UI implementation asked
+  for. Owner instruction (22:33 IST): "Build them one by one
+  and then push it." Full record: DECISIONS.md D-037.
+- New component kit `lib/core/neo_ui.dart` (raised panels/wells
+  from the prototype files' shadow values, page titles, section
+  heads, tracks, checks, notices, score wells, steppers).
+- Every screen rebuilt to the prototype's composition and
+  copy: Today, Learn, Topics, Topic detail, Progress, Weekly,
+  Spaces (workbench + project accordions), Projects, Items,
+  Item detail, Goals, Settings; sub-screens dressed: Routine,
+  Day Close, Session, Reading, PDF (theme only), image verify,
+  share sheet, sync/backup sections.
+- Interpretation calls recorded in D-037: teal stays the
+  functional accent in both themes (Route A; the approved
+  assumption the owner never countermanded); surfaces follow
+  the two files (neumorphic light / outline-drop dark); the
+  learning card keeps the prototype's plum #62536F; Done Score
+  stays /100 against the prototype's /10; Learn pulse shows
+  packs count (no enjoyment-average API exists); goal steppers
+  disable at bounds.
+- Verified here: `flutter analyze` clean; `flutter test`
+  **492/492** (expectations updated only where D-037 copy
+  changed: Day Close heading/labels, Learn pulse labels,
+  journey heading, widget-test anchors). No dependency/Gradle
+  changes.
+- Open: on-device look/feel check of the rebuilt screens in
+  both themes (owner), incl. whether the neumorphic light
+  surfaces and the approximated inset wells read well on a
+  real device.
+
 ## 2026-10-30 — D-036: Neo UI (dark + light) + static logo implemented (main chat)
 - Owner-approved via repeat-back (21:56 IST): implement the Neo
   UI and the D-035 static logo in the real app; motion explicitly

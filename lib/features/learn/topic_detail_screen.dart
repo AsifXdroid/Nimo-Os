@@ -11,6 +11,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../shared_ui.dart';
 import '../store.dart';
@@ -276,12 +277,15 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
       body: !_loaded
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(Gap.md),
+              padding: const EdgeInsets.fromLTRB(
+                  Space.page, Gap.md, Space.page, Gap.lg),
               children: [
+                const NeoEyebrow('Topic'),
+                const SizedBox(height: Space.s3),
                 InkWell(
                   onTap: _rename,
                   child: Text(_topic.title,
-                      style: theme.textTheme.headlineSmall),
+                      style: theme.textTheme.headlineLarge),
                 ),
                 const SizedBox(height: Gap.md),
                 Row(
@@ -309,28 +313,44 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
                 ),
                 if (_topic.triggerUrl != null) ...[
                   const SizedBox(height: Gap.md),
-                  Text('Sparked by', style: theme.textTheme.titleSmall),
-                  InkWell(
-                    onTap: () {
-                      final uri = Uri.tryParse(_topic.triggerUrl!);
-                      if (uri != null) launchUrl(uri);
-                    },
-                    child: Text(
-                      _topic.triggerUrl!,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.primary,
-                        decoration: TextDecoration.underline,
-                      ),
+                  NeoPanel(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: Space.s6, vertical: Space.s2),
+                    child: NeoListRow(
+                      icon: Icons.link,
+                      title: 'Sparked by',
+                      sub: _topic.triggerUrl!,
+                      last: true,
+                      onTap: () {
+                        final uri = Uri.tryParse(_topic.triggerUrl!);
+                        if (uri != null) launchUrl(uri);
+                      },
                     ),
+                  ),
+                  const SizedBox(height: Space.s3),
+                  const NeoNotice(
+                    'A reel can spark a topic. Attach a real learning '
+                    'source to explore it more deeply.',
                   ),
                 ],
                 const SizedBox(height: Gap.lg),
-                Text('Sources', style: theme.textTheme.titleMedium),
-                const SizedBox(height: Gap.sm),
+                const NeoSectionHead(title: 'Sources'),
+                const SizedBox(height: Space.s3),
                 if (_sources.isEmpty)
                   Text('No sources yet — import the real material.',
-                      style: theme.textTheme.bodySmall),
-                for (final s in _sources) _sourceRow(context, s),
+                      style: theme.textTheme.bodyMedium)
+                else
+                  NeoPanel(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: Space.s6, vertical: Space.s2),
+                    child: Column(
+                      children: [
+                        for (final s in _sources)
+                          _sourceRow(context, s,
+                              last: s == _sources.last),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: Gap.md),
                 Wrap(
                   spacing: Gap.sm,
@@ -353,27 +373,36 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
                   ],
                 ),
                 const SizedBox(height: Gap.lg),
-                Text('Marked points (${_points.length})',
-                    style: theme.textTheme.titleMedium),
-                const SizedBox(height: Gap.sm),
+                NeoSectionHead(title: 'Marked points (${_points.length})'),
+                const SizedBox(height: Space.s3),
                 if (_points.isEmpty)
                   Text(
                     'None yet. Open a source, read a card, and mark '
                     'the sentence that matters — it becomes a cloze '
                     'card in Learn.',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                for (final pt in _points)
-                  ListTile(
-                    dense: true,
-                    title: Text(pt.clozeText),
-                    subtitle: Text(pt.sentence),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: () async {
-                        await widget.learn.store.deleteMarkedPoint(pt.id);
-                        _load();
-                      },
+                    style: theme.textTheme.bodyMedium,
+                  )
+                else
+                  NeoPanel(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: Space.s6, vertical: Space.s2),
+                    child: Column(
+                      children: [
+                        for (final pt in _points)
+                          NeoListRow(
+                            title: '“${pt.sentence}”',
+                            sub: 'Cloze card: ${pt.clozeText}',
+                            last: pt == _points.last,
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () async {
+                                await widget.learn.store
+                                    .deleteMarkedPoint(pt.id);
+                                _load();
+                              },
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 if (_unminted > 0) ...[
@@ -394,7 +423,7 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
     );
   }
 
-  Widget _sourceRow(BuildContext context, Source s) {
+  Widget _sourceRow(BuildContext context, Source s, {bool last = false}) {
     final icon = switch (s.kind) {
       SourceKind.pdf => Icons.picture_as_pdf_outlined,
       SourceKind.txt => Icons.text_snippet_outlined,
@@ -410,10 +439,11 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
         ExtractionStatus.describe(s.extractionStatus),
       _ => s.fileRelPath ?? '',
     };
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(s.title),
-      subtitle: Text(subtitle),
+    return NeoListRow(
+      icon: icon,
+      title: s.title,
+      sub: subtitle,
+      last: last,
       trailing: IconButton(
         icon: const Icon(Icons.delete_outline),
         onPressed: () => _deleteSource(s),

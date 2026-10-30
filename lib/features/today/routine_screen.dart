@@ -5,6 +5,8 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/neo_ui.dart';
+import '../../core/theme.dart';
 import '../shared_ui.dart';
 import 'today_store.dart';
 
@@ -18,7 +20,7 @@ class RoutineScreen extends StatefulWidget {
 }
 
 class _RoutineScreenState extends State<RoutineScreen> {
-  late Future<List<PlanTemplate>> _templates;
+  late Future<({List<PlanTemplate> templates, String ifThen})> _data;
 
   @override
   void initState() {
@@ -27,7 +29,27 @@ class _RoutineScreenState extends State<RoutineScreen> {
   }
 
   void _reload() {
-    _templates = widget.todayStore.templates();
+    _data = _load();
+  }
+
+  Future<({List<PlanTemplate> templates, String ifThen})> _load() async {
+    return (
+      templates: await widget.todayStore.templates(),
+      ifThen: await widget.todayStore.ifThenLine(),
+    );
+  }
+
+  Future<void> _editIfThen(String current) async {
+    final text = await promptText(
+      context,
+      title: 'Your if–then line',
+      label: 'If …, then I will …',
+      initial: current,
+      maxLines: 2,
+    );
+    if (text == null) return;
+    await widget.todayStore.setIfThenLine(text);
+    setState(_reload);
   }
 
   Future<void> _add() async {
@@ -156,67 +178,157 @@ class _RoutineScreenState extends State<RoutineScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Routine template')),
       floatingActionButton: FloatingActionButton(
         onPressed: _add,
         child: const Icon(Icons.add),
       ),
-      body: FutureBuilder<List<PlanTemplate>>(
-        future: _templates,
+      body: FutureBuilder<({List<PlanTemplate> templates, String ifThen})>(
+        future: _data,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
-          final list = snapshot.data!;
-          if (list.isEmpty) {
-            return const Center(
-              child: Text(
-                  'No routine items yet.\nTap + to add one — it will '
+          final data = snapshot.data!;
+          final list = data.templates;
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(
+                Space.page, Gap.md, Space.page, Gap.lg),
+            children: [
+              const NeoPageTitle(
+                eyebrow: 'Your daily template',
+                heading: 'Keep the rhythm realistic.',
+                sub: 'A small plan is easier to return to. '
+                    'Changes apply from tomorrow.',
+              ),
+              const SizedBox(height: Gap.lg),
+              if (list.isEmpty)
+                Text(
+                  'No routine items yet. Tap + to add one — it will '
                   'appear in every new day\'s plan.',
-                  textAlign: TextAlign.center),
-            );
-          }
-          return ListView.builder(
-            itemCount: list.length,
-            itemBuilder: (context, i) {
-              final t = list[i];
-              return ListTile(
-                title: Text(t.title),
-                subtitle: _habitSummary(t) == null
-                    ? null
-                    : Text(_habitSummary(t)!),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
+                  style: theme.textTheme.bodyMedium,
+                )
+              else
+                NeoPanel(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: Space.s6, vertical: Space.s2),
+                  child: Column(
+                    children: [
+                      for (final t in list)
+                        _templateRow(context, t, last: t == list.last),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: Gap.lg),
+              NeoPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Switch(
-                      value: t.isActive,
-                      onChanged: (v) async {
-                        await widget.todayStore.setTemplateActive(t.id, v);
-                        setState(_reload);
-                      },
+                    Text('A tiny habit prompt',
+                        style: theme.textTheme.titleMedium),
+                    const SizedBox(height: Gap.sm),
+                    Text(
+                      'Connect something new to something you '
+                      'already do.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.spa_outlined),
-                      tooltip: 'Habit details',
-                      onPressed: () => _habitDetails(t),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined),
-                      tooltip: 'Rename',
-                      onPressed: () => _rename(t),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      tooltip: 'Delete',
-                      onPressed: () => _delete(t),
+                    const SizedBox(height: Gap.md),
+                    InkWell(
+                      onTap: () => _editIfThen(data.ifThen),
+                      child: Row(
+                        children: [
+                          Icon(Icons.bolt_outlined,
+                              size: 18,
+                              color: theme.colorScheme.primary),
+                          const SizedBox(width: Space.s3),
+                          Expanded(
+                            child: Text(
+                              data.ifThen.isEmpty
+                                  ? 'Set your if–then line: '
+                                      '"If …, then I will …"'
+                                  : data.ifThen,
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                          ),
+                          const Icon(Icons.edit_outlined, size: 16),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-              );
-            },
+              ),
+              const SizedBox(height: 72), // FAB clearance
+            ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _templateRow(BuildContext context, PlanTemplate t,
+      {bool last = false}) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final summary = _habitSummary(t);
+    return Container(
+      decoration: last
+          ? null
+          : BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: scheme.outlineVariant),
+              ),
+            ),
+      padding: const EdgeInsets.symmetric(vertical: Space.s3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  t.title,
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+              Switch(
+                value: t.isActive,
+                onChanged: (v) async {
+                  await widget.todayStore.setTemplateActive(t.id, v);
+                  setState(_reload);
+                },
+              ),
+            ],
+          ),
+          if (summary != null)
+            Text(
+              summary,
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.spa_outlined, size: 20),
+                tooltip: 'Habit details',
+                onPressed: () => _habitDetails(t),
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit_outlined, size: 20),
+                tooltip: 'Rename',
+                onPressed: () => _rename(t),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, size: 20),
+                tooltip: 'Delete',
+                onPressed: () => _delete(t),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

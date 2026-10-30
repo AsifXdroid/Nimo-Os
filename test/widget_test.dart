@@ -97,7 +97,7 @@ void main() {
       // Tapping Progress shows the Journey screen (fresh-user
       // empty state on this empty database).
       await tester.tap(progressDest);
-      expect(await pollFor(find.text('Your journey')), isTrue);
+      expect(await pollFor(find.text('Your journey path')), isTrue);
 
       // Back to Today for the Learn flow below.
       await tester.tap(find.text('Today'));
@@ -110,12 +110,12 @@ void main() {
 
       // Tapping Learn shows the LearnScreen landing.
       await tester.tap(learnDest);
-      expect(await pollFor(find.text('Import a pack')), isTrue);
-      expect(await pollFor(find.textContaining('Due for review')), isTrue);
+      expect(await pollFor(find.text('Learn something that stays.')), isTrue);
+      expect(await pollFor(find.textContaining('due to revisit')), isTrue);
 
-      // Switch to the Spaces tab: the S1 Workspaces screen.
+      // Switch to the Spaces tab: the Neo workbench screen.
       await tester.tap(find.text('Spaces'));
-      expect(await pollFor(find.text('Workspaces')), isTrue);
+      expect(await pollFor(find.text('Spaces to think and make.')), isTrue);
       expect(await pollFor(find.textContaining('No workspaces yet')),
           isTrue);
     });

@@ -172,14 +172,18 @@ void main() {
           ),
         );
 
-        expect(await pollFor(find.text('New cards: 2')), isTrue);
-        expect(find.text('Due for review: 3'), findsOneWidget);
+        // D-037 Neo pulse panel: the counts render as the
+        // pulse numbers with their quiet labels.
+        expect(await pollFor(find.text('new to explore')), isTrue);
+        expect(find.text('3'), findsOneWidget);
+        expect(find.text('2'), findsOneWidget);
+        expect(find.text('due to revisit'), findsOneWidget);
 
         final start = tester.widget<FilledButton>(
-          find.widgetWithText(FilledButton, 'Start session'),
+          find.widgetWithText(FilledButton, 'Begin a short session →'),
         );
         expect(start.onPressed, isNotNull);
-        await tester.tap(find.text('Start session'));
+        await tester.tap(find.text('Begin a short session →'));
         expect(await pollFor(find.byType(SessionScreen)), isTrue);
         expect(await pollFor(find.text('Review session')), isTrue);
       } finally {

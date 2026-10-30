@@ -14,6 +14,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import 'learn_services.dart';
 import 'learn_store.dart';
@@ -197,7 +198,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
       children: [
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.all(Gap.md),
+            padding: const EdgeInsets.fromLTRB(
+                Space.page, Gap.md, Space.page, Gap.lg),
             children: [
               Text(
                 'Card ${_index + 1} of ${_chunks.length}'
@@ -206,9 +208,13 @@ class _ReadingScreenState extends State<ReadingScreen> {
                     ?.copyWith(color: theme.colorScheme.primary),
               ),
               const SizedBox(height: Gap.md),
-              SelectableText(chunk.text, style: theme.textTheme.bodyLarge),
+              // The reader paper: the chunk sits on a raised
+              // Neo panel, like the prototype's `.reader-paper`.
+              NeoPanel(
+                child: SelectableText(chunk.text,
+                    style: theme.textTheme.bodyLarge),
+              ),
               const SizedBox(height: Gap.lg),
-              const Divider(),
               if (_markOnCard != null)
                 _existingMark(context, _markOnCard!)
               else
@@ -250,14 +256,11 @@ class _ReadingScreenState extends State<ReadingScreen> {
         Text('Marked point on this card',
             style: theme.textTheme.titleSmall),
         const SizedBox(height: Gap.sm),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(Gap.md),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(16),
+        NeoWell(
+          child: SizedBox(
+            width: double.infinity,
+            child: Text(mark.clozeText, style: theme.textTheme.bodyMedium),
           ),
-          child: Text(mark.clozeText, style: theme.textTheme.bodyMedium),
         ),
         Align(
           alignment: Alignment.centerRight,

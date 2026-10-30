@@ -11,6 +11,8 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/neo_ui.dart';
+import '../../core/theme.dart';
 import '../learn/learn_services.dart';
 import '../learn/learn_store.dart';
 import '../learn/topic_detail_screen.dart';
@@ -257,54 +259,79 @@ class _ItemsScreenState extends State<ItemsScreen> {
           }
           final list = snapshot.data!;
           return ListView(
+            padding: const EdgeInsets.fromLTRB(
+                Space.page, Gap.md, Space.page, Gap.lg),
             children: [
               if (widget.learn != null) ...[
-                ListTile(
-                  title: Text('Topics',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.add),
-                    tooltip: 'New topic',
-                    onPressed: _addTopic,
-                  ),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: NeoSectionHead(title: 'Topics'),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add),
+                      tooltip: 'New topic',
+                      onPressed: _addTopic,
+                    ),
+                  ],
                 ),
+                const SizedBox(height: Space.s3),
                 if (_topics.isEmpty)
-                  const ListTile(
-                    title: Text('No topics in this project yet.'),
-                  ),
-                for (final t in _topics)
-                  ListTile(
-                    leading: const Icon(Icons.lightbulb_outline),
-                    title: Text(t.title),
-                    subtitle: Text(t.status),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => TopicDetailScreen(
-                            store: widget.store,
-                            learn: widget.learn!,
-                            topic: t,
+                  Text('No topics in this project yet.',
+                      style: Theme.of(context).textTheme.bodyMedium)
+                else
+                  NeoPanel(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: Space.s6, vertical: Space.s2),
+                    child: Column(
+                      children: [
+                        for (final t in _topics)
+                          NeoListRow(
+                            icon: Icons.lightbulb_outline,
+                            title: t.title,
+                            sub: t.status,
+                            last: t == _topics.last,
+                            onTap: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => TopicDetailScreen(
+                                    store: widget.store,
+                                    learn: widget.learn!,
+                                    topic: t,
+                                  ),
+                                ),
+                              );
+                              _loadTopics();
+                            },
                           ),
-                        ),
-                      );
-                      _loadTopics();
-                    },
+                      ],
+                    ),
                   ),
-                const Divider(),
+                const SizedBox(height: Gap.lg),
+                const NeoSectionHead(title: 'Items'),
+                const SizedBox(height: Space.s3),
               ],
               if (list.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(24),
                   child: Text(
-                    'No items yet.\nTap + to add a note, checklist, '
-                    'or link card.',
+                    'A clear starting point.\nNo items yet — tap + '
+                    'to add a note, checklist, or link card.',
                     textAlign: TextAlign.center,
                   ),
                 )
               else
-                for (final item in list) _itemRow(context, item),
+                NeoPanel(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: Space.s6, vertical: Space.s2),
+                  child: Column(
+                    children: [
+                      for (final item in list)
+                        _itemRow(context, item, last: item == list.last),
+                    ],
+                  ),
+                ),
             ],
           );
         },
@@ -312,16 +339,17 @@ class _ItemsScreenState extends State<ItemsScreen> {
     );
   }
 
-  Widget _itemRow(BuildContext context, Item item) {
+  Widget _itemRow(BuildContext context, Item item, {bool last = false}) {
     final def = itemTypeDef(item.type);
-    return ListTile(
+    return NeoListRow(
       leading: item.type == ItemType.linkCard
           ? _linkThumb(item)
-          : Icon(def.icon),
-      title: Text(item.title),
-      subtitle: Text(item.type == ItemType.linkCard
+          : NeoGlyph(icon: def.icon),
+      title: item.title,
+      sub: item.type == ItemType.linkCard
           ? (_payloadString(item, 'url') ?? def.label)
-          : def.label),
+          : def.label,
+      last: last,
       trailing: IconButton(
         icon: const Icon(Icons.delete_outline),
         onPressed: () => _delete(item),

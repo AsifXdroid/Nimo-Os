@@ -6,6 +6,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import 'capture_service.dart';
 
@@ -61,17 +62,31 @@ class _ShareConfirmSheetState extends State<_ShareConfirmSheet> {
     final theme = Theme.of(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(
+        Space.page,
         Gap.md,
-        Gap.md,
-        Gap.md,
+        Space.page,
         Gap.md + MediaQuery.viewInsetsOf(context).bottom,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Save to Nimo', style: theme.textTheme.titleMedium),
-          const SizedBox(height: Gap.sm),
+          Row(
+            children: [
+              const NeoGlyph(icon: Icons.inbox_outlined, size: 40),
+              const SizedBox(width: Space.s4),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const NeoEyebrow('Shared into Nimo'),
+                  const SizedBox(height: 2),
+                  Text('Save to Nimo',
+                      style: theme.textTheme.titleMedium),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: Gap.md),
           Text(_what, style: theme.textTheme.bodySmall),
           if (widget.capture.kind == CaptureKind.link &&
               widget.capture.text != null) ...[

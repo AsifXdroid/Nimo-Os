@@ -5,7 +5,7 @@
 /// The viewer's menus come from pdfrx's `material_ui` layer; the
 /// package ships a localization fallback, so it renders inside
 /// our Material app with just the background colour themed to
-/// the Midnight plate here.
+/// the Neo theme here.
 library;
 
 import 'package:flutter/material.dart';

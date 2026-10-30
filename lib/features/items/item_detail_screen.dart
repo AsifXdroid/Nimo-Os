@@ -9,6 +9,8 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/neo_ui.dart';
+import '../../core/theme.dart';
 import '../learn/learn_services.dart';
 import '../learn/topic_detail_screen.dart';
 import '../shared_ui.dart';
@@ -75,7 +77,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
   Widget _noteBody(Item item) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(
+          Space.page, Gap.md, Space.page, Gap.md),
       child: Column(
         children: [
           Expanded(
@@ -188,7 +191,6 @@ class _LinkCardBodyState extends State<_LinkCardBody> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final service = _service;
     // Type-tolerant payload reads (see items_screen.dart): a
     // mistyped value from a restored DB degrades, never crashes.
@@ -199,14 +201,15 @@ class _LinkCardBodyState extends State<_LinkCardBody> {
     final thumbFile = widget.thumbnails?.fileFor(thumbName);
     final topicId = (_item.payload?['topic_id'] as num?)?.toInt();
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(
+          Space.page, Gap.md, Space.page, Gap.lg),
       children: [
         // Square preview card (D-003): image when we have one,
         // designed fallback otherwise — never a broken glyph.
         AspectRatio(
           aspectRatio: 1,
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(RadiusToken.card),
             child: thumbFile != null
                 ? Image.file(
                     thumbFile,
@@ -271,11 +274,9 @@ class _LinkCardBodyState extends State<_LinkCardBody> {
           const LinearProgressIndicator(),
         ],
         const SizedBox(height: 16),
-        Text(
+        const NeoNotice(
           'This link is a topic trigger: the topic holds the real '
           'sources you attach for learning.',
-          style: theme.textTheme.bodySmall
-              ?.copyWith(color: scheme.onSurfaceVariant),
         ),
       ],
     );
@@ -316,13 +317,15 @@ class _HtmlQuizBody extends StatelessWidget {
     final fileName = htmlQuizFileName(payload);
     final library = learn?.library;
     return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.quiz_outlined, size: 48, color: theme.colorScheme.primary),
-          const SizedBox(height: 16),
-          Text(item.title, style: theme.textTheme.titleMedium),
+      padding: const EdgeInsets.fromLTRB(
+          Space.page, Gap.md, Space.page, Gap.lg),
+      child: NeoPanel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const NeoGlyph(icon: Icons.quiz_outlined, size: 48, iconSize: 24),
+            const SizedBox(height: 16),
+            Text(item.title, style: theme.textTheme.titleMedium),
           if (fileName.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(fileName, style: theme.textTheme.bodyMedium),
@@ -345,15 +348,16 @@ class _HtmlQuizBody extends StatelessWidget {
                   },
             child: const Text('Play quiz'),
           ),
-          if (library == null) ...[
-            const SizedBox(height: 12),
-            Text(
-              'Library is not available.',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-            ),
+            if (library == null) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Library is not available.',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -405,30 +409,49 @@ class _ChecklistBodyState extends State<_ChecklistBody> {
                 return const Center(child: Text('No entries yet.'));
               }
               return ListView.builder(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: Space.page, vertical: Gap.sm),
                 itemCount: list.length,
                 itemBuilder: (context, i) {
                   final e = list[i];
-                  return CheckboxListTile(
-                    value: e.isDone,
-                    title: Text(
-                      e.text,
-                      style: e.isDone
-                          ? const TextStyle(
-                              decoration: TextDecoration.lineThrough)
-                          : null,
-                    ),
-                    secondary: IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: () async {
-                        await widget.store.deleteChecklistEntry(e.id);
-                        setState(_reload);
-                      },
-                    ),
-                    onChanged: (v) async {
+                  final theme = Theme.of(context);
+                  return InkWell(
+                    onTap: () async {
                       await widget.store
-                          .setChecklistEntryDone(e.id, v ?? false);
+                          .setChecklistEntryDone(e.id, !e.isDone);
                       setState(_reload);
                     },
+                    child: Padding(
+                      padding:
+                          const EdgeInsets.symmetric(vertical: Space.s3),
+                      child: Row(
+                        children: [
+                          NeoCheck(done: e.isDone),
+                          const SizedBox(width: Space.s4),
+                          Expanded(
+                            child: Text(
+                              e.text,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                decoration: e.isDone
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                                color: e.isDone
+                                    ? theme.colorScheme.onSurfaceVariant
+                                    : null,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () async {
+                              await widget.store
+                                  .deleteChecklistEntry(e.id);
+                              setState(_reload);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
                   );
                 },
               );

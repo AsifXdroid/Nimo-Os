@@ -11,6 +11,7 @@ library;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../shared_ui.dart';
 import '../store.dart';
@@ -174,39 +175,77 @@ class _TopicsScreenState extends State<TopicsScreen> {
       body: !_loaded
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(Gap.md),
+              padding: const EdgeInsets.fromLTRB(
+                  Space.page, Gap.md, Space.page, Gap.lg),
               children: [
-                Text('Inbox (${_inbox.length})',
-                    style: theme.textTheme.titleMedium),
-                const SizedBox(height: Gap.sm),
+                const NeoPageTitle(
+                  eyebrow: 'Your knowledge map',
+                  heading: 'Topics',
+                  sub: 'Keep following the things that make you curious.',
+                ),
+                const SizedBox(height: Gap.lg),
+                NeoSectionHead(title: 'Inbox (${_inbox.length})'),
+                const SizedBox(height: Space.s3),
                 if (_inbox.isEmpty)
                   Text(
                     'Nothing waiting. Share a reel or link into Nimo '
                     'and it lands here as a topic.',
-                    style: theme.textTheme.bodySmall,
+                    style: theme.textTheme.bodyMedium,
+                  )
+                else
+                  NeoPanel(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: Space.s6, vertical: Space.s2),
+                    child: Column(
+                      children: [
+                        for (final t in _inbox)
+                          _topicRow(context, t, last: t == _inbox.last),
+                      ],
+                    ),
                   ),
-                for (final t in _inbox) _topicRow(context, t),
                 const SizedBox(height: Gap.lg),
-                Text('All topics', style: theme.textTheme.titleMedium),
-                const SizedBox(height: Gap.sm),
+                const NeoSectionHead(title: 'All topics'),
+                const SizedBox(height: Space.s3),
                 if (_others.isEmpty)
                   Text('No topics outside the Inbox yet.',
-                      style: theme.textTheme.bodySmall),
-                for (final t in _others) _topicRow(context, t),
+                      style: theme.textTheme.bodyMedium)
+                else
+                  NeoPanel(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: Space.s6, vertical: Space.s2),
+                    child: Column(
+                      children: [
+                        for (final t in _others)
+                          _topicRow(context, t, last: t == _others.last),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: Gap.lg),
-                Text('Library', style: theme.textTheme.titleMedium),
-                const SizedBox(height: Gap.sm),
-                Text(
-                  '${_stats.files} files · '
-                  '${(_stats.bytes / 1024).toStringAsFixed(0)} KB\n'
-                  '${widget.learn.library.rootPath}',
-                  style: theme.textTheme.bodySmall,
-                ),
-                const SizedBox(height: Gap.md),
-                OutlinedButton.icon(
-                  onPressed: _importDocument,
-                  icon: const Icon(Icons.upload_file_outlined),
-                  label: const Text('Import document'),
+                const NeoSectionHead(title: 'Your source library'),
+                const SizedBox(height: Space.s3),
+                NeoPanel(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${_stats.files} files · '
+                        '${(_stats.bytes / 1024).toStringAsFixed(0)} KB',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: Space.s2),
+                      Text(
+                        widget.learn.library.rootPath,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      const SizedBox(height: Gap.md),
+                      OutlinedButton.icon(
+                        onPressed: _importDocument,
+                        icon: const Icon(Icons.upload_file_outlined),
+                        label: const Text('Import document'),
+                      ),
+                    ],
+                  ),
                 ),
                 if (widget.backupSection != null) ...[
                   const SizedBox(height: Gap.lg),
@@ -220,20 +259,16 @@ class _TopicsScreenState extends State<TopicsScreen> {
     );
   }
 
-  Widget _topicRow(BuildContext context, Topic t) {
-    final theme = Theme.of(context);
-    return ListTile(
-      leading: Icon(
-        t.triggerUrl != null ? Icons.link : Icons.lightbulb_outline,
-        color: theme.colorScheme.primary,
-      ),
-      title: Text(t.title),
-      subtitle: Text([
+  Widget _topicRow(BuildContext context, Topic t, {bool last = false}) {
+    return NeoListRow(
+      icon: t.triggerUrl != null ? Icons.link : Icons.lightbulb_outline,
+      title: t.title,
+      sub: [
         _projectNames[t.projectId] ?? '',
         t.status,
         if (t.track != null) t.track!,
-      ].where((s) => s.isNotEmpty).join(' · ')),
-      trailing: const Icon(Icons.chevron_right),
+      ].where((s) => s.isNotEmpty).join(' · '),
+      last: last,
       onTap: () => _openTopic(t),
     );
   }

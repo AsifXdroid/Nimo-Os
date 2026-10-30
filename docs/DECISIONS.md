@@ -451,6 +451,88 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
     rendering in both themes, Settings switch callback);
     build-risk scan clean (no dependency/Gradle changes).
 
+- **D-037 (2026-10-30) — The Neo screens are actually built:
+  every screen rebuilt to the Neo prototype's composition,
+  components and copy, on top of D-036's token layer.** Owner
+  correction (2026-10-30 22:26 IST): D-036 shipped tokens,
+  colours, logo and margins over the UNCHANGED S2–S7 layouts —
+  that was not the "implement the new UI" the owner asked for.
+  Owner instruction (22:33 IST): "Build them one by one and
+  then push it." This entry records what the rebuild did and
+  the interpretation calls it required, so the owner can
+  reverse any of them cheaply.
+  - **Component kit (`lib/core/neo_ui.dart`, new):** raised
+    panels and raised-sm cards with per-brightness shadows
+    taken from the two prototype files' `--raised` /
+    `--raised-sm` values (light = true neumorphic dual shadow;
+    dark = soft black drop + faint highlight + 1px outline
+    ring); inset wells approximated with a top-left inner-shade
+    gradient + outline (Flutter has no native inner shadow);
+    page-title block (eyebrow + headline + sub), section heads
+    with quiet text actions, inset progress tracks, 29px
+    checkbox squares, tags, tint notices, glyph tiles, hairline
+    list rows, score wells, chips, round stepper buttons.
+  - **Screens rebuilt to the prototype's composition and
+    editorial copy:** Today (greeting intro + streak pill,
+    plan panel with Neo checks, plum learning card, score
+    wells, Day Close card, goal strips), Learn (page title +
+    learning-pulse panel), Topics + Topic detail, Progress
+    (Journey Path kept; the two-signals streak notice verbatim;
+    dual-score panel; calendar panel), Weekly summary, Spaces
+    (workbench: space cards, in-page project accordions,
+    recently-touched panel), Projects, Items, Item detail,
+    Goals (cards + steppers + direction-not-deadline aside),
+    Settings (titled panels + a quiet privacy panel). Sub-
+    screens dressed in the same language: Routine (incl. the
+    if–then prompt panel), Day Close (panels, score-well
+    reveal, never-averaged notice), Session (track + tag,
+    enjoyment screen, stats), Reading (raised reader paper),
+    PDF (engine untouched; theme only), image-verify list,
+    share-confirm sheet, sync status well.
+  - **Interpretation calls (owner did not answer the two
+    questions put to them at 22:26; each is reversible):**
+    1. **Accent: teal stays functional in BOTH themes.** The
+       approved D-036 repeat-back explicitly flagged the plum
+       assumption and was approved without requesting plum;
+       neither the 22:26 complaint nor the 22:33 instruction
+       mentions colour. Route A (D-035) stands. One theme
+       token flips this if the owner wants faithful plum.
+    2. **Surfaces follow the two prototype files** (neumorphic
+       light, outline-drop dark) — the 22:26 complaint
+       overrides the repeat-back's "flattened" line, which was
+       part of what went wrong in D-036.
+    3. **The learning card keeps the prototype's plum #62536F
+       in both themes** — both files keep it literally; it is
+       a content panel, not the functional accent.
+    4. **App data beats prototype where they conflict:** Done
+       Score stays 0–100 and Self Score 1–10 (score.dart
+       formula v1); the prototype's /10-for-both was NOT
+       adopted. Score wells take the scale as a suffix.
+    5. **Learn pulse third number is packs-in-library, not the
+       prototype's enjoyment average** — the engine store
+       exposes no enjoyment-average API; enjoyment trend lives
+       in Progress, where session data is aggregated.
+    6. **Goal steppers now disable at their bounds** (0 and
+       target); previously the buttons were always enabled and
+       the store clamped. Same outcomes, clearer affordance.
+  - **Copy changes that moved tests:** Day Close step 2 is now
+    "Name one thing worth remembering."; the reveal labels are
+    "Done score · auto" / "Self score · yours" with the Done
+    value rendered "N / 100"; Learn's pulse labels are "due to
+    revisit" / "new to explore"; Progress's journey card is
+    "Your journey path". Affected tests updated to match —
+    behaviour assertions unchanged.
+  - **Untouched, deliberately:** all stores, data model, sync
+    engine, session/Day Close flows and step order, the pdfrx
+    PDF engine, navigation (D-021), and the whole motion spec
+    (still paper-only, per the owner's exclusion).
+  - Verification: `flutter analyze` clean; full suite
+    **492/492** (no tests added or removed; expectations
+    updated for the copy above). No dependency or Gradle
+    changes, so the build-risk surface is unchanged from
+    D-036's green CI run.
+
 ## Open — awaiting owner
 
-- (none right now)
+- D-037's interpretation calls 1–2 (accent, surfaces) stand
+  until the owner says otherwise; both are cheap to reverse.

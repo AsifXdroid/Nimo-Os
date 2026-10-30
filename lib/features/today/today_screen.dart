@@ -10,6 +10,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../core/brand.dart';
+import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../goals/goals_store.dart';
 import '../items/item_detail_screen.dart';
@@ -378,35 +379,43 @@ class _TodayScreenState extends State<TodayScreen> {
           }
           final data = snapshot.data!;
           return ListView(
-            padding: const EdgeInsets.fromLTRB(Space.page, Gap.md, Space.page, Gap.lg),
+            padding: const EdgeInsets.fromLTRB(
+                Space.page, Gap.md, Space.page, Gap.lg),
             children: [
-              _header(context, now),
+              _intro(context, now, data),
               if (data.weekSummary != null) ...[
-                const SizedBox(height: Gap.md),
+                const SizedBox(height: Gap.lg),
                 _sundaySummaryCard(context, data.weekSummary!),
               ],
               if (data.sections[TodayStore.sectionWeekStrip] ?? true)
                 _weekStrip(context, data),
+              const SizedBox(height: Gap.md),
               _quickAddRow(context),
-              const SizedBox(height: Gap.md),
-              if (data.sections[TodayStore.sectionDayClose] ?? true) ...[
-                _dayCloseCard(context, data),
-                const SizedBox(height: Gap.md),
-              ],
-              _topicsCard(context, data),
-              const SizedBox(height: Gap.md),
-              _learnCard(context, data),
-              const SizedBox(height: Gap.md),
+              const SizedBox(height: Gap.lg),
               if (_showWeek)
                 _weekCard(context, data)
               else
                 _planCard(context, data),
-              if (data.sections[TodayStore.sectionPinned] ?? true)
+              const SizedBox(height: Gap.lg),
+              _learnSection(context, data),
+              const SizedBox(height: Gap.lg),
+              _scoresSection(context, data),
+              if (data.sections[TodayStore.sectionDayClose] ?? true) ...[
+                const SizedBox(height: Gap.lg),
+                _dayCloseSection(context, data),
+              ],
+              if (data.sections[TodayStore.sectionPinned] ?? true) ...[
+                const SizedBox(height: Gap.lg),
                 _pinnedSection(context, data),
-              if (data.sections[TodayStore.sectionRecent] ?? true)
+              ],
+              if (data.sections[TodayStore.sectionRecent] ?? true) ...[
+                const SizedBox(height: Gap.lg),
                 _recentSection(context, data),
-              if (data.sections[TodayStore.sectionGoals] ?? true)
+              ],
+              if (data.sections[TodayStore.sectionGoals] ?? true) ...[
+                const SizedBox(height: Gap.lg),
                 _goalsSection(context, data),
+              ],
               const SizedBox(height: Gap.sm),
               Center(
                 child: TextButton.icon(
@@ -422,33 +431,90 @@ class _TodayScreenState extends State<TodayScreen> {
     );
   }
 
-  Widget _header(BuildContext context, DateTime now) {
+  /// Neo intro block (D-037): date row, the eyebrow, the big
+  /// greeting, the quiet sub line, and the raised streak pill —
+  /// the prototype's Today `.intro`, derived for phone width.
+  Widget _intro(BuildContext context, DateTime now, _HubData data) {
     final theme = Theme.of(context);
-    return Row(
+    final scheme = theme.colorScheme;
+    final streak = data.streak;
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
+        Row(
+          children: [
+            Expanded(
+              child: Text(
                 _formatDate(now),
-                style: theme.textTheme.labelLarge
-                    ?.copyWith(color: theme.colorScheme.primary),
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: scheme.onSurfaceVariant),
               ),
-              Text(_greeting(now), style: theme.textTheme.headlineSmall),
-            ],
+            ),
+            const IconButton(
+              icon: Icon(Icons.search),
+              tooltip: 'Coming soon',
+              onPressed: null,
+            ),
+            IconButton(
+              icon: const Icon(Icons.settings_outlined),
+              tooltip:
+                  widget.onOpenSettings == null ? 'Coming soon' : 'Settings',
+              onPressed: widget.onOpenSettings,
+            ),
+          ],
+        ),
+        const SizedBox(height: Gap.sm),
+        const NeoEyebrow('A little intention goes a long way'),
+        const SizedBox(height: Space.s3),
+        Text(_greeting(now), style: theme.textTheme.displayMedium),
+        const SizedBox(height: Space.s2),
+        Text(
+          'Make room for what matters. One small step at a time.',
+          style: theme.textTheme.bodyMedium
+              ?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: Gap.md),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: NeoRaisedSm(
+            padding: const EdgeInsets.symmetric(
+                horizontal: Space.s5, vertical: Space.s3),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.local_fire_department_outlined,
+                    size: 23, color: scheme.primary),
+                const SizedBox(width: Space.s3),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      streak.currentStreak > 0
+                          ? '${streak.currentStreak} day streak'
+                          : 'Start your streak today',
+                      style: theme.textTheme.bodyMedium
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      'One day at a time',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+                if (streak.shieldsHeld > 0) ...[
+                  const SizedBox(width: Space.s3),
+                  for (var i = 0; i < streak.shieldsHeld; i++)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 2),
+                      child: Icon(Icons.shield_outlined,
+                          size: 18, color: scheme.tertiary),
+                    ),
+                ],
+              ],
+            ),
           ),
-        ),
-        const IconButton(
-          icon: Icon(Icons.search),
-          tooltip: 'Coming soon',
-          onPressed: null,
-        ),
-        IconButton(
-          icon: const Icon(Icons.settings_outlined),
-          tooltip: widget.onOpenSettings == null ? 'Coming soon' : 'Settings',
-          onPressed: widget.onOpenSettings,
         ),
       ],
     );
@@ -459,23 +525,21 @@ class _TodayScreenState extends State<TodayScreen> {
   /// is not needed because it simply stops being due on Monday,
   /// and the full summary lives in Progress afterwards.
   Widget _sundaySummaryCard(BuildContext context, WeeklySummary summary) {
-    final theme = Theme.of(context);
-    return Card(
-      margin: EdgeInsets.zero,
-      color: theme.colorScheme.secondaryContainer,
-      child: ListTile(
-        leading: Icon(Icons.auto_stories_outlined,
-            color: theme.colorScheme.primary),
-        title: const Text('Your week, wrapped up'),
-        subtitle: Text(summary.isEmpty
+    return NeoPanel(
+      padding: const EdgeInsets.symmetric(
+          horizontal: Space.s6, vertical: Space.s2),
+      onTap: widget.onOpenWeeklySummary == null
+          ? null
+          : () => widget.onOpenWeeklySummary!(summary.monday),
+      child: NeoListRow(
+        icon: Icons.auto_stories_outlined,
+        title: 'Your week, wrapped up',
+        sub: summary.isEmpty
             ? 'A quiet week — see the summary in Progress.'
             : 'You showed up ${summary.daysCounted} of 7 days'
                 '${summary.shieldDays > 0 ? ' · ${summary.shieldDays} shield day${summary.shieldDays == 1 ? '' : 's'}' : ''}'
-                '${summary.majorPoints.isNotEmpty ? ' · ${summary.majorPoints.length} major point${summary.majorPoints.length == 1 ? '' : 's'} captured' : ''}'),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: widget.onOpenWeeklySummary == null
-            ? null
-            : () => widget.onOpenWeeklySummary!(summary.monday),
+                '${summary.majorPoints.isNotEmpty ? ' · ${summary.majorPoints.length} major point${summary.majorPoints.length == 1 ? '' : 's'} captured' : ''}',
+        last: true,
       ),
     );
   }
@@ -536,21 +600,21 @@ class _TodayScreenState extends State<TodayScreen> {
   }
 
   Widget _quickAddRow(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     Widget button(IconData icon, String label, VoidCallback onTap) =>
         Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 3),
-            child: OutlinedButton(
-              onPressed: onTap,
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: Gap.sm),
-              ),
+            child: NeoRaisedSm(
+              padding: const EdgeInsets.symmetric(vertical: Space.s3),
+              onTap: onTap,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, size: 20),
+                  Icon(icon, size: 20, color: scheme.primary),
                   const SizedBox(height: 2),
-                  Text(label, style: Theme.of(context).textTheme.labelSmall),
+                  Text(label,
+                      style: Theme.of(context).textTheme.labelSmall),
                 ],
               ),
             ),
@@ -603,22 +667,143 @@ class _TodayScreenState extends State<TodayScreen> {
     setState(_reload);
   }
 
-  /// Topics & Library card (LEARN, S4): the doorway to topics,
-  /// sources and backup. The Inbox count is shown as plain text
-  /// ("3 waiting") — information, not a badge (§R9.5).
-  Widget _topicsCard(BuildContext context, _HubData data) {
+  /// Learn section (D-037, Neo "A moment to learn"): the plum
+  /// learning card, the quiet Inbox line, and the Topics &
+  /// Library doorway row. The Inbox count stays plain text —
+  /// information, not a badge (§R9.5).
+  Widget _learnSection(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
-    return Card(
-      margin: EdgeInsets.zero,
-      child: ListTile(
-        leading: Icon(Icons.library_books_outlined,
-            color: theme.colorScheme.primary),
-        title: const Text('Topics & Library'),
-        subtitle: Text(data.inboxCount == 0
-            ? 'Inbox is clear'
-            : 'Inbox · ${data.inboxCount} waiting'),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: widget.onOpenTopics,
+    final scheme = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        NeoSectionHead(
+          title: 'A moment to learn',
+          actionLabel: 'Your library →',
+          onAction: widget.onOpenTopics,
+        ),
+        const SizedBox(height: Space.s3),
+        _learningCard(context, data),
+        const SizedBox(height: Space.s4),
+        InkWell(
+          onTap: widget.onOpenTopics,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Space.s1),
+            child: Row(
+              children: [
+                Icon(Icons.auto_awesome_outlined,
+                    size: 16, color: scheme.primary),
+                const SizedBox(width: Space.s3),
+                Expanded(
+                  child: Text(
+                    data.inboxCount == 0
+                        ? 'Your Inbox is clear — nothing waiting for a home.'
+                        : '${data.inboxCount} waiting in your Inbox. '
+                            'No rush, though.',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: scheme.onSurfaceVariant),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: Space.s4),
+        NeoPanel(
+          padding: const EdgeInsets.symmetric(
+              horizontal: Space.s6, vertical: Space.s2),
+          child: NeoListRow(
+            icon: Icons.library_books_outlined,
+            title: 'Topics & Library',
+            sub: 'Topics, sources and marked points',
+            onTap: widget.onOpenTopics,
+            last: true,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The learning card itself: the one plum surface, kept
+  /// literally from both prototype files (#62536F). The round
+  /// arrow starts a session directly (the ≤2-tap path); tapping
+  /// the card goes to the Learn tab.
+  Widget _learningCard(BuildContext context, _HubData data) {
+    final total = data.dueCount + data.newCount;
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF62536F),
+        borderRadius: BorderRadius.circular(RadiusToken.card),
+        boxShadow: neoRaisedShadows(context),
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(RadiusToken.card),
+          onTap: widget.onOpenLearn,
+          child: Padding(
+            padding: const EdgeInsets.all(Space.s6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const NeoEyebrow(
+                  'Pick up where you left off',
+                  color: Color(0xFFE0D8E6),
+                ),
+                const SizedBox(height: Space.s5),
+                Text(
+                  total == 0
+                      ? 'Import a pack to start learning.'
+                      : 'Your next session is ready.',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: -0.6,
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: Space.s2),
+                Text(
+                  total == 0
+                      ? 'Bring a PDF, text file, link or learning pack.'
+                      : '${data.dueCount} cards due to revisit · '
+                          '${data.newCount} new to explore.',
+                  style: const TextStyle(
+                      color: Color(0xFFE0D8E6), fontSize: 13),
+                ),
+                const SizedBox(height: Space.s6),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Measured in enjoyment, not minutes.',
+                        style: TextStyle(
+                            color: Color(0xFFE0D8E6), fontSize: 12),
+                      ),
+                    ),
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Color(0xFFEDE7F1),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_forward,
+                            color: Color(0xFF62536F)),
+                        tooltip: 'Start a session',
+                        onPressed: total > 0
+                            ? _openLearnSession
+                            : widget.onOpenLearn,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -641,137 +826,177 @@ class _TodayScreenState extends State<TodayScreen> {
     setState(_reload);
   }
 
-  /// Learn card (LEARN engine, S5): due/new counts and the direct
-  /// Start path. Tapping the card itself goes to the Learn tab.
-  Widget _learnCard(BuildContext context, _HubData data) {
+  /// "Quiet progress" (D-037): today's two scores in their inset
+  /// wells — always side by side, never merged. Before Day Close
+  /// both read as a quiet dash, exactly like the prototype.
+  Widget _scoresSection(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
-    final total = data.dueCount + data.newCount;
-    return Card(
-      margin: EdgeInsets.zero,
-      child: ListTile(
-        leading: Icon(Icons.school_outlined,
-            color: theme.colorScheme.primary),
-        title: const Text('Learn'),
-        subtitle: Text(total == 0
-            ? 'Import a pack to start learning'
-            : '${data.dueCount} due · ${data.newCount} new'),
-        trailing: total > 0
-            ? FilledButton(
-                onPressed: _openLearnSession,
-                child: const Text('Start'),
-              )
-            : const Icon(Icons.chevron_right),
-        onTap: widget.onOpenLearn,
-      ),
-    );
-  }
-
-  /// Day Close banner (REVIEW, S3): streak + shields, today's dual
-  /// scores once closed, otherwise the close action — targeting
-  /// yesterday instead while the late-close window is open.
-  Widget _dayCloseCard(BuildContext context, _HubData data) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final streak = data.streak;
     final review = data.todayReview;
-    final doneCount = data.items.where((i) => i.done).length;
     final closed = review != null && review.isClosed;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(Gap.md),
-        child: Column(
+    final streak = data.streak;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const NeoSectionHead(title: 'Quiet progress'),
+        const SizedBox(height: Space.s3),
+        Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(Icons.local_fire_department_outlined,
-                    color: scheme.primary),
-                const SizedBox(width: Gap.sm),
-                Expanded(
-                  child: Text(
-                    streak.currentStreak > 0
-                        ? '${streak.currentStreak}-day streak'
-                        : 'No streak yet — today counts',
-                    style: theme.textTheme.titleMedium,
-                  ),
-                ),
-                for (var i = 0; i < streak.shieldsHeld; i++)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 2),
-                    child: Icon(Icons.shield_outlined,
-                        size: 18, color: scheme.tertiary),
-                  ),
-              ],
-            ),
-            if (streak.shieldsHeld > 0 && !streak.shieldsIntroShown) ...[
-              const SizedBox(height: Gap.sm),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      "You've earned protection: a shield covers a "
-                      'missed day, so one bad day never ends the '
-                      'streak (max 2 shield-days a week).',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 16),
-                    tooltip: 'Got it',
-                    onPressed: () async {
-                      await widget.reviewStore.markShieldsIntroShown();
-                      setState(_reload);
-                    },
-                  ),
-                ],
+            Expanded(
+              child: NeoScoreWell(
+                label: 'Done score · auto',
+                value: closed && review.doneScore != null
+                    ? '${review.doneScore}'
+                    : '—',
+                sub: 'Based on your core plan',
+                suffix: ' / 100',
               ),
-            ],
-            const SizedBox(height: Gap.sm),
-            if (data.closeTarget.isLate)
-              Text("Yesterday isn't closed yet — you can still close it.",
-                  style: theme.textTheme.bodyMedium)
-            else if (closed)
-              Text(
-                'Today closed · Done ${review.doneScore ?? '—'}'
-                ' · Mine ${review.selfScore ?? '—'}'
-                '${review.selfScore != null ? ' / 10' : ''}',
-                style: theme.textTheme.bodyMedium,
-              )
-            else
-              Text('$doneCount of ${data.items.length} done today',
-                  style: theme.textTheme.bodyMedium),
-            const SizedBox(height: Gap.sm),
-            Row(
-              children: [
-                // Review S2: while the late window is open the
-                // primary action closes yesterday — but today's
-                // close must never be blocked behind it.
-                if (data.closeTarget.isLate)
-                  TextButton(
-                    onPressed: () => _openDayClose(
-                      data,
-                      date: DateTime.now(),
-                      isLate: false,
-                    ),
-                    child: const Text('Close today instead'),
-                  ),
-                const Spacer(),
-                FilledButton.tonal(
-                  onPressed: () => _openDayClose(data),
-                  child: Text(
-                    data.closeTarget.isLate
-                        ? 'Close yesterday'
-                        : closed
-                            ? 'Review today'
-                            : 'Close the day',
-                  ),
-                ),
-              ],
+            ),
+            const SizedBox(width: Space.s5),
+            Expanded(
+              child: NeoScoreWell(
+                label: 'Self score · yours',
+                value: closed && review.selfScore != null
+                    ? '${review.selfScore}'
+                    : '—',
+                sub: closed ? 'Your own reflection' : 'Add yours at Day Close',
+                accentValue: true,
+              ),
             ),
           ],
         ),
-      ),
+        if (streak.shieldsHeld > 0) ...[
+          const SizedBox(height: Space.s4),
+          Row(
+            children: [
+              Icon(Icons.shield_outlined,
+                  size: 18, color: theme.colorScheme.tertiary),
+              const SizedBox(width: Space.s2),
+              Expanded(
+                child: Text(
+                  '${streak.shieldsHeld} Streak Shield'
+                  '${streak.shieldsHeld == 1 ? '' : 's'} available · '
+                  'a little room for life.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ),
+            ],
+          ),
+        ],
+        if (streak.shieldsHeld > 0 && !streak.shieldsIntroShown) ...[
+          const SizedBox(height: Space.s4),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Expanded(
+                child: NeoNotice(
+                  "You've earned protection: a shield covers a missed "
+                  'day, so one bad day never ends the streak '
+                  '(max 2 shield-days a week).',
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 16),
+                tooltip: 'Got it',
+                onPressed: () async {
+                  await widget.reviewStore.markShieldsIntroShown();
+                  setState(_reload);
+                },
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// "Before the day ends" (D-037): the Day Close card — moon
+  /// glyph, a gentle line, and the close action, targeting
+  /// yesterday instead while the late-close window is open.
+  Widget _dayCloseSection(BuildContext context, _HubData data) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final review = data.todayReview;
+    final closed = review != null && review.isClosed;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const NeoSectionHead(title: 'Before the day ends'),
+        const SizedBox(height: Space.s3),
+        NeoRaisedSm(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: scheme.primary.withValues(alpha: 0.14),
+                ),
+                child: Icon(Icons.nightlight_outlined,
+                    size: 22, color: scheme.primary),
+              ),
+              const SizedBox(width: Space.s5),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      closed
+                          ? 'A day, gently closed.'
+                          : 'Leave the day a little lighter.',
+                      style: theme.textTheme.titleSmall
+                          ?.copyWith(fontSize: 16),
+                    ),
+                    const SizedBox(height: Space.s1),
+                    Text(
+                      data.closeTarget.isLate
+                          ? "Yesterday isn't closed yet — you can "
+                              'still close it.'
+                          : closed
+                              ? 'Your reflection is here when you need it.'
+                              : 'A two-minute check-in. Just for you.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: Space.s2),
+                    Wrap(
+                      spacing: Space.s2,
+                      children: [
+                        TextButton(
+                          onPressed: () => _openDayClose(data),
+                          child: Text(
+                            data.closeTarget.isLate
+                                ? 'Close yesterday →'
+                                : closed
+                                    ? 'Revisit reflection →'
+                                    : 'Begin Day Close →',
+                          ),
+                        ),
+                        // Review S2: while the late window is open
+                        // the primary action closes yesterday —
+                        // but today's close must never be blocked
+                        // behind it.
+                        if (data.closeTarget.isLate)
+                          TextButton(
+                            onPressed: () => _openDayClose(
+                              data,
+                              date: DateTime.now(),
+                              isLate: false,
+                            ),
+                            child: const Text('Close today instead'),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -779,115 +1004,123 @@ class _TodayScreenState extends State<TodayScreen> {
     final theme = Theme.of(context);
     final items = data.items;
     final done = items.where((e) => e.done).length;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(Gap.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text("Today's plan",
-                      style: theme.textTheme.titleMedium),
+    return NeoPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          NeoSectionHead(
+            title: "Today's plan",
+            actionLabel: 'Edit routine →',
+            onAction: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      RoutineScreen(todayStore: widget.todayStore),
                 ),
-                Text('$done of ${items.length} done',
-                    style: theme.textTheme.bodySmall),
+              );
+              setState(_reload);
+            },
+          ),
+          const SizedBox(height: Space.s3),
+          Row(
+            children: [
+              Expanded(
+                child: NeoTrack(
+                    value: items.isEmpty ? 0 : done / items.length),
+              ),
+              const SizedBox(width: Space.s4),
+              Text('$done of ${items.length} done',
+                  style: theme.textTheme.bodySmall),
+            ],
+          ),
+          const SizedBox(height: Space.s4),
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: false, label: Text('Today')),
+                ButtonSegment(value: true, label: Text('This week')),
               ],
+              selected: {_showWeek},
+              onSelectionChanged: (s) =>
+                  setState(() => _showWeek = s.first),
             ),
-            const SizedBox(height: Gap.sm),
-            SizedBox(
-              width: double.infinity,
-              child: SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment(value: false, label: Text('Today')),
-                  ButtonSegment(value: true, label: Text('This week')),
-                ],
-                selected: {_showWeek},
-                onSelectionChanged: (s) =>
-                    setState(() => _showWeek = s.first),
-              ),
-            ),
-            const SizedBox(height: Gap.sm),
-            LinearProgressIndicator(
-                value: items.isEmpty ? 0 : done / items.length),
-            const SizedBox(height: Gap.sm),
-            InkWell(
-              onTap: () => _editIfThen(data),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    Icon(Icons.bolt_outlined,
-                        size: 18, color: theme.colorScheme.tertiary),
-                    const SizedBox(width: Gap.sm),
-                    Expanded(
-                      child: Text(
-                        data.ifThen.isEmpty
-                            ? 'Set your if–then line: '
-                                '"If …, then I will …"'
-                            : data.ifThen,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: data.ifThen.isEmpty
-                              ? theme.colorScheme.onSurfaceVariant
-                              : null,
-                        ),
-                      ),
-                    ),
-                    const Icon(Icons.edit_outlined, size: 16),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: Gap.sm),
-            if (items.isEmpty)
-              Text('Nothing planned yet. Add a task below, or build '
+          ),
+          const SizedBox(height: Space.s2),
+          if (items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: Space.s4),
+              child: Text(
+                  'Nothing planned yet. Add a task below, or build '
                   'your routine template.',
                   style: theme.textTheme.bodyMedium),
-            for (final item in items) _planRow(context, item),
-            const Divider(),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _addController,
-                    decoration: const InputDecoration(
-                      hintText: 'Add a task for today…',
-                      border: InputBorder.none,
-                    ),
-                    onSubmitted: _addOneOff,
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.add),
-                  tooltip: 'Add task',
-                  onPressed: () => _addOneOff(_addController.text),
-                ),
-              ],
             ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          RoutineScreen(todayStore: widget.todayStore),
-                    ),
-                  );
-                  setState(_reload);
-                },
-                child: const Text('Edit routine template →'),
+          for (var i = 0; i < items.length; i++)
+            _planRow(context, items[i], last: i == items.length - 1),
+          const SizedBox(height: Space.s4),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _addController,
+                  decoration: const InputDecoration(
+                    hintText: 'Add a task for today…',
+                    border: InputBorder.none,
+                  ),
+                  onSubmitted: _addOneOff,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add),
+                tooltip: 'Add task',
+                onPressed: () => _addOneOff(_addController.text),
+              ),
+            ],
+          ),
+          Container(
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(color: theme.colorScheme.outlineVariant),
               ),
             ),
-          ],
-        ),
+            margin: const EdgeInsets.only(top: Space.s4),
+            padding: const EdgeInsets.only(top: Space.s4),
+            child: InkWell(
+              onTap: () => _editIfThen(data),
+              child: Row(
+                children: [
+                  Icon(Icons.bolt_outlined,
+                      size: 18, color: theme.colorScheme.primary),
+                  const SizedBox(width: Space.s3),
+                  Expanded(
+                    child: Text(
+                      data.ifThen.isEmpty
+                          ? 'Set your if–then line: '
+                              '"If …, then I will …"'
+                          : data.ifThen,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: data.ifThen.isEmpty
+                            ? theme.colorScheme.onSurfaceVariant
+                            : null,
+                      ),
+                    ),
+                  ),
+                  const Icon(Icons.edit_outlined, size: 16),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _planRow(BuildContext context, DayPlanItem item) {
+  /// One plan row in Neo form (`.task`): the square NeoCheck,
+  /// title with a quiet classification line under it, a CARRIED
+  /// tag when the item rolled over, and delete for one-offs.
+  Widget _planRow(BuildContext context, DayPlanItem item,
+      {bool last = false}) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return InkWell(
@@ -896,39 +1129,44 @@ class _TodayScreenState extends State<TodayScreen> {
         await _afterPlanEdit();
         setState(_reload);
       },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(
-          children: [
-            Container(
-              width: 26,
-              height: 26,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: scheme.primary, width: 2),
-                color: item.done ? scheme.primary : null,
-              ),
-              child: item.done
-                  ? Icon(Icons.check, size: 16, color: scheme.onPrimary)
-                  : null,
-            ),
-            const SizedBox(width: Gap.sm),
-            Expanded(
-              child: Text(
-                item.title,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  decoration:
-                      item.done ? TextDecoration.lineThrough : null,
-                  color: item.done ? scheme.onSurfaceVariant : null,
+      child: Container(
+        decoration: last
+            ? null
+            : BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: scheme.outlineVariant),
                 ),
               ),
+        padding: const EdgeInsets.symmetric(vertical: Space.s4),
+        child: Row(
+          children: [
+            NeoCheck(done: item.done),
+            const SizedBox(width: Space.s4),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      decoration:
+                          item.done ? TextDecoration.lineThrough : null,
+                      color: item.done ? scheme.onSurfaceVariant : null,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    item.isRoutine
+                        ? (item.countsCore ? 'Routine · Core' : 'Routine')
+                        : 'One-off',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: scheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
             ),
-            if (item.isRoutine)
-              _badge(context, 'ROUTINE', scheme.secondaryContainer,
-                  scheme.onSecondaryContainer)
-            else if (item.carried)
-              _badge(context, 'CARRIED', scheme.tertiaryContainer,
-                  scheme.onTertiaryContainer),
+            if (item.carried) const NeoTag('CARRIED', tint: true),
             if (!item.isRoutine)
               IconButton(
                 icon: const Icon(Icons.close, size: 18),
@@ -945,97 +1183,62 @@ class _TodayScreenState extends State<TodayScreen> {
     );
   }
 
-  Widget _badge(
-      BuildContext context, String text, Color bg, Color fg) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(text,
-          style: Theme.of(context)
-              .textTheme
-              .labelSmall
-              ?.copyWith(color: fg, fontWeight: FontWeight.bold)),
-    );
-  }
-
   Widget _weekCard(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(Gap.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child:
-                      Text('This week', style: theme.textTheme.titleMedium),
-                ),
+    return NeoPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('This week', style: theme.textTheme.titleMedium),
+          const SizedBox(height: Space.s4),
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: false, label: Text('Today')),
+                ButtonSegment(value: true, label: Text('This week')),
               ],
+              selected: {_showWeek},
+              onSelectionChanged: (s) =>
+                  setState(() => _showWeek = s.first),
             ),
-            const SizedBox(height: Gap.sm),
-            SizedBox(
-              width: double.infinity,
-              child: SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment(value: false, label: Text('Today')),
-                  ButtonSegment(value: true, label: Text('This week')),
-                ],
-                selected: {_showWeek},
-                onSelectionChanged: (s) =>
-                    setState(() => _showWeek = s.first),
+          ),
+          const SizedBox(height: Gap.sm),
+          if (data.weekPending.isEmpty)
+            Text('Nothing pending this week.',
+                style: theme.textTheme.bodyMedium),
+          for (final day in data.weekPending) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: Gap.sm, bottom: 4),
+              child: Text(
+                '${_formatDate(day.date)} · ${day.items.length} pending',
+                style: theme.textTheme.titleSmall,
               ),
             ),
-            const SizedBox(height: Gap.sm),
-            if (data.weekPending.isEmpty)
-              Text('Nothing pending this week.',
-                  style: theme.textTheme.bodyMedium),
-            for (final day in data.weekPending) ...[
+            for (final item in day.items)
               Padding(
-                padding: const EdgeInsets.only(top: Gap.sm, bottom: 4),
-                child: Text(
-                  '${_formatDate(day.date)} · ${day.items.length} pending',
-                  style: theme.textTheme.titleSmall,
+                padding: const EdgeInsets.only(left: Gap.md, bottom: 2),
+                child: Row(
+                  children: [
+                    const Text('• '),
+                    Expanded(child: Text(item.title)),
+                    if (item.carried) const NeoTag('CARRIED', tint: true),
+                  ],
                 ),
               ),
-              for (final item in day.items)
-                Padding(
-                  padding: const EdgeInsets.only(left: Gap.md, bottom: 2),
-                  child: Row(
-                    children: [
-                      const Text('• '),
-                      Expanded(child: Text(item.title)),
-                      if (item.carried)
-                        _badge(
-                            context,
-                            'CARRIED',
-                            theme.colorScheme.tertiaryContainer,
-                            theme.colorScheme.onTertiaryContainer),
-                    ],
-                  ),
-                ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }
-
-  Widget _sectionHeader(BuildContext context, String title) => Padding(
-        padding: const EdgeInsets.only(top: Gap.md, bottom: Gap.sm),
-        child: Text(title, style: Theme.of(context).textTheme.titleSmall),
-      );
 
   Widget _pinnedSection(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader(context, 'Pinned spaces'),
+        const NeoSectionHead(title: 'Pinned spaces'),
+        const SizedBox(height: Space.s3),
         if (data.pinned.isEmpty)
           Text('Pin a workspace from the Spaces tab to see it here.',
               style: theme.textTheme.bodyMedium)
@@ -1049,39 +1252,32 @@ class _TodayScreenState extends State<TodayScreen> {
             childAspectRatio: 0.95,
             children: [
               for (final p in data.pinned)
-                Card(
-                  margin: EdgeInsets.zero,
-                  child: InkWell(
-                    onTap: () => widget.onOpenWorkspace(p.workspace),
-                    child: Padding(
-                      padding: const EdgeInsets.all(Gap.sm),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          CircleAvatar(
-                            radius: 14,
-                            backgroundColor:
-                                theme.colorScheme.primaryContainer,
-                            child: Text(
-                              p.workspace.name.isEmpty
-                                  ? '?'
-                                  : p.workspace.name[0].toUpperCase(),
-                              style: TextStyle(
-                                  color:
-                                      theme.colorScheme.onPrimaryContainer,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          const SizedBox(height: Gap.sm),
-                          Text(p.workspace.name,
-                              style: theme.textTheme.bodyMedium,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis),
-                          Text('${p.itemCount} items',
-                              style: theme.textTheme.bodySmall),
-                        ],
+                NeoRaisedSm(
+                  padding: const EdgeInsets.all(Space.s3),
+                  onTap: () => widget.onOpenWorkspace(p.workspace),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CircleAvatar(
+                        radius: 14,
+                        backgroundColor: theme.colorScheme.primaryContainer,
+                        child: Text(
+                          p.workspace.name.isEmpty
+                              ? '?'
+                              : p.workspace.name[0].toUpperCase(),
+                          style: TextStyle(
+                              color: theme.colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.bold),
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: Gap.sm),
+                      Text(p.workspace.name,
+                          style: theme.textTheme.bodyMedium,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis),
+                      Text('${p.itemCount} items',
+                          style: theme.textTheme.bodySmall),
+                    ],
                   ),
                 ),
             ],
@@ -1095,21 +1291,23 @@ class _TodayScreenState extends State<TodayScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader(context, 'Recent items'),
+        const NeoSectionHead(title: 'Recently touched'),
+        const SizedBox(height: Space.s3),
         if (data.recent.isEmpty)
           Text('Nothing yet — items you create will show up here.',
               style: theme.textTheme.bodyMedium)
         else
-          Card(
-            margin: EdgeInsets.zero,
+          NeoPanel(
+            padding: const EdgeInsets.symmetric(
+                horizontal: Space.s6, vertical: Space.s2),
             child: Column(
               children: [
                 for (final r in data.recent)
-                  ListTile(
-                    leading: Icon(itemTypeDef(r.item.type).icon),
-                    title: Text(r.item.title),
-                    subtitle:
-                        Text('${r.workspaceName} · ${r.projectName}'),
+                  NeoListRow(
+                    icon: itemTypeDef(r.item.type).icon,
+                    title: r.item.title,
+                    sub: '${r.workspaceName} · ${r.projectName}',
+                    last: r == data.recent.last,
                     onTap: () async {
                       await Navigator.push(
                         context,
@@ -1134,46 +1332,69 @@ class _TodayScreenState extends State<TodayScreen> {
 
   Widget _goalsSection(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader(context, 'Short-term goals'),
+        const NeoSectionHead(title: 'A direction, not a deadline'),
+        const SizedBox(height: Space.s3),
         if (data.goals.isEmpty)
           Text('No goals yet. Use Quick add → Goal to create one.',
               style: theme.textTheme.bodyMedium)
         else
           for (final goal in data.goals)
-            Card(
-              margin: const EdgeInsets.only(bottom: Gap.sm),
-              child: Padding(
-                padding: const EdgeInsets.all(Gap.md),
+            Padding(
+              padding: const EdgeInsets.only(bottom: Space.s3),
+              child: NeoRaisedSm(
+                padding: const EdgeInsets.all(Space.s5),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(goal.title, style: theme.textTheme.titleSmall),
-                    const SizedBox(height: Gap.sm),
-                    LinearProgressIndicator(value: goal.fraction),
                     Row(
                       children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove),
+                        const NeoGlyph(
+                            icon: Icons.flag_outlined,
+                            size: 36,
+                            iconSize: 18),
+                        const SizedBox(width: Space.s4),
+                        Expanded(
+                          child: Text(goal.title,
+                              style: theme.textTheme.titleSmall),
+                        ),
+                        Text(
+                          '${(goal.fraction * 100).round()}%',
+                          style: theme.textTheme.titleSmall
+                              ?.copyWith(color: scheme.primary),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: Space.s4),
+                    NeoTrack(value: goal.fraction),
+                    const SizedBox(height: Space.s3),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${goal.current} of ${goal.target}'
+                            '${goal.unit.isEmpty ? '' : ' ${goal.unit}'}'
+                            ' explored',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant),
+                          ),
+                        ),
+                        NeoStepperButton(
+                          icon: Icons.remove,
                           tooltip: 'Decrease',
-                          onPressed: () async {
+                          onTap: () async {
                             await widget.goalsStore.step(goal, -1);
                             setState(_reload);
                           },
                         ),
-                        Expanded(
-                          child: Text(
-                            '${goal.current} of ${goal.target}'
-                            '${goal.unit.isEmpty ? '' : ' ${goal.unit}'}',
-                            style: theme.textTheme.bodySmall,
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.add),
+                        const SizedBox(width: Space.s3),
+                        NeoStepperButton(
+                          icon: Icons.add,
                           tooltip: 'Increase',
-                          onPressed: () async {
+                          onTap: () async {
                             await widget.goalsStore.step(goal, 1);
                             setState(_reload);
                           },

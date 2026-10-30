@@ -3,6 +3,8 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/neo_ui.dart';
+import '../../core/theme.dart';
 import '../items/items_screen.dart';
 import '../items/link_card/thumbnail_service.dart';
 import '../learn/learn_services.dart';
@@ -82,34 +84,46 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
           final list = snapshot.data!;
           if (list.isEmpty) {
             return const Center(
-              child: Text('No projects yet.\nTap + to create one.',
+              child: Text(
+                  'A clear starting point.\nNo projects yet — '
+                  'tap + to create one.',
                   textAlign: TextAlign.center),
             );
           }
-          return ListView.builder(
-            itemCount: list.length,
-            itemBuilder: (context, i) {
-              final prj = list[i];
-              return ListTile(
-                leading: const Icon(Icons.folder_open_outlined),
-                title: Text(prj.name),
-                trailing: IconButton(
-                  icon: const Icon(Icons.more_vert),
-                  onPressed: () => _menu(prj),
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(
+                Space.page, Gap.md, Space.page, Gap.lg),
+            children: [
+              NeoPanel(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: Space.s6, vertical: Space.s2),
+                child: Column(
+                  children: [
+                    for (final prj in list)
+                      NeoListRow(
+                        icon: Icons.folder_open_outlined,
+                        title: prj.name,
+                        last: prj == list.last,
+                        trailing: IconButton(
+                          icon: const Icon(Icons.more_vert),
+                          onPressed: () => _menu(prj),
+                        ),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ItemsScreen(
+                              store: widget.store,
+                              project: prj,
+                              learn: widget.learn,
+                              thumbnails: widget.thumbnails,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ItemsScreen(
-                      store: widget.store,
-                      project: prj,
-                      learn: widget.learn,
-                      thumbnails: widget.thumbnails,
-                    ),
-                  ),
-                ),
-              );
-            },
+              ),
+            ],
           );
         },
       ),

@@ -132,18 +132,18 @@ abstract final class AppTheme {
     ).copyWith(
       primary: primary,
       onPrimary: dark ? const Color(0xFF06251F) : Colors.white,
-      surface: dark ? const Color(0xFF10141D) : const Color(0xFFF0EFF2),
+      surface: dark ? const Color(0xFF10141C) : const Color(0xFFF0EFF2),
       onSurface: dark ? const Color(0xFFE8ECF4) : const Color(0xFF302D38),
       onSurfaceVariant:
           dark ? const Color(0xFF9AA5B8) : const Color(0xFF696471),
       surfaceContainerLowest:
-          dark ? const Color(0xFF0B0E14) : const Color(0xFFE9E8ED),
+          dark ? const Color(0xFF07090D) : const Color(0xFFE9E8ED),
       surfaceContainerLow:
           dark ? const Color(0xFF131824) : const Color(0xFFE9E8ED),
       surfaceContainer:
-          dark ? const Color(0xFF171E2E) : const Color(0xFFF5F4F6),
+          dark ? const Color(0xFF171E2E) : const Color(0xFFF0EFF2),
       surfaceContainerHigh:
-          dark ? const Color(0xFF1C2436) : const Color(0xFFFFFFFF),
+          dark ? const Color(0xFF171C28) : const Color(0xFFF5F4F6),
       outline: dark ? const Color(0xFF232A3A) : const Color(0xFFDBD8E0),
       outlineVariant:
           dark ? const Color(0xFF1D2434) : const Color(0xFFE3E0E8),
@@ -166,10 +166,30 @@ abstract final class AppTheme {
       labelSmall: base.textTheme.labelSmall?.copyWith(fontSize: 12),
       titleLarge: base.textTheme.titleLarge
           ?.copyWith(fontSize: 22, fontWeight: FontWeight.w700),
+      // Neo section heads are 18 / w600 / −0.35 (`.section-head`).
+      titleMedium: base.textTheme.titleMedium?.copyWith(
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.35,
+      ),
       headlineMedium: base.textTheme.headlineMedium?.copyWith(
         fontSize: 28,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.5,
+      ),
+      // Neo page titles (`.page-title h1` = --title 30) and the
+      // Today greeting (--display 36).
+      headlineLarge: base.textTheme.headlineLarge?.copyWith(
+        fontSize: 30,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -1.0,
+        height: 1.22,
+      ),
+      displayMedium: base.textTheme.displayMedium?.copyWith(
+        fontSize: 36,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -1.25,
+        height: 1.22,
       ),
     );
     final cardShape = RoundedRectangleBorder(

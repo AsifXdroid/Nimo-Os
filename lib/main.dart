@@ -610,6 +610,7 @@ class _AppShellState extends State<AppShell> {
           learn: widget.learn,
           reviewStore: widget.reviewStore,
           store: widget.store,
+          onOpenTopics: _openTopics,
         ),
         'progress' => ProgressScreen(
           progressStore: _progress,

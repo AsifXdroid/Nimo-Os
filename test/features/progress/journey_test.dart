@@ -165,7 +165,7 @@ void main() {
       for (var i = 0; i < 30; i++) {
         await Future<void>.delayed(const Duration(milliseconds: 100));
         await tester.pump();
-        if (find.text('Your journey').evaluate().isNotEmpty) return;
+        if (find.text('Your journey path').evaluate().isNotEmpty) return;
       }
       fail('Progress screen did not load');
     }

@@ -14,6 +14,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../learn/learn_store.dart';
 import '../today/today_store.dart';
@@ -161,10 +162,15 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                LinearProgressIndicator(value: (_step + 1) / 4),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                      Space.page, Gap.sm, Space.page, 0),
+                  child: NeoTrack(value: (_step + 1) / 4),
+                ),
                 Expanded(
                   child: ListView(
-                    padding: const EdgeInsets.all(Gap.md),
+                    padding: const EdgeInsets.fromLTRB(
+                        Space.page, Gap.md, Space.page, Gap.lg),
                     children: [
                       switch (_step) {
                         0 => _recapStep(context),
@@ -229,53 +235,48 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
   Widget _recapStep(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('What actually happened?', style: theme.textTheme.titleMedium),
-        const SizedBox(height: Gap.sm),
-        Text('Tick what got done — this is the quick review.',
-            style: theme.textTheme.bodySmall),
-        const SizedBox(height: Gap.md),
-        if (_items.isEmpty)
-          Text('No plan items for this day.', style: theme.textTheme.bodyMedium)
-        else
-          for (final item in _items)
-            InkWell(
-              onTap: () => _toggle(item),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 26,
-                      height: 26,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: scheme.primary, width: 2),
-                        color: item.done ? scheme.primary : null,
-                      ),
-                      child: item.done
-                          ? Icon(Icons.check,
-                              size: 16, color: scheme.onPrimary)
-                          : null,
-                    ),
-                    const SizedBox(width: Gap.sm),
-                    Expanded(
-                      child: Text(
-                        item.title,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          decoration:
-                              item.done ? TextDecoration.lineThrough : null,
-                          color: item.done ? scheme.onSurfaceVariant : null,
+    return NeoPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('What actually happened?',
+              style: theme.textTheme.titleMedium),
+          const SizedBox(height: Gap.sm),
+          Text('Tick what got done — this is the quick review.',
+              style: theme.textTheme.bodySmall),
+          const SizedBox(height: Gap.md),
+          if (_items.isEmpty)
+            Text('No plan items for this day.',
+                style: theme.textTheme.bodyMedium)
+          else
+            for (final item in _items)
+              InkWell(
+                onTap: () => _toggle(item),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: Space.s3),
+                  child: Row(
+                    children: [
+                      NeoCheck(done: item.done),
+                      const SizedBox(width: Space.s4),
+                      Expanded(
+                        child: Text(
+                          item.title,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w500,
+                            decoration: item.done
+                                ? TextDecoration.lineThrough
+                                : null,
+                            color:
+                                item.done ? scheme.onSurfaceVariant : null,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -284,9 +285,12 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("The day's major point", style: theme.textTheme.titleMedium),
+        Text('Name one thing worth remembering.',
+            style: theme.textTheme.titleMedium),
         const SizedBox(height: Gap.sm),
-        Text('One line: the biggest thing you learned or got done today.',
+        Text(
+            'The day\'s major point — one line: the biggest thing '
+            'you learned or got done today.',
             style: theme.textTheme.bodySmall),
         const SizedBox(height: Gap.md),
         TextField(
@@ -330,6 +334,11 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
       children: [
         Text('How did the day feel?', style: theme.textTheme.titleMedium),
         const SizedBox(height: Gap.sm),
+        Text(
+            'Your Self Score belongs to you. It isn\'t calculated '
+            'from your tasks.',
+            style: theme.textTheme.bodySmall),
+        const SizedBox(height: Gap.sm),
         Text('1 = a lost day · 5 = an okay day · 10 = the best kind of day',
             style: theme.textTheme.bodySmall),
         const SizedBox(height: Gap.md),
@@ -360,50 +369,43 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
 
   Widget _revealStep(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final saved = _saved;
     if (saved == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    Widget scoreBox(String label, String value, Color color) {
-      return Expanded(
-        child: Container(
-          padding: const EdgeInsets.all(Gap.md),
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            children: [
-              Text(label,
-                  style: theme.textTheme.labelLarge?.copyWith(color: color)),
-              const SizedBox(height: Gap.sm),
-              Text(value, style: theme.textTheme.headlineMedium),
-            ],
-          ),
-        ),
-      );
-    }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Day closed', style: theme.textTheme.titleMedium),
         const SizedBox(height: Gap.md),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            scoreBox('DONE', '${saved.doneScore ?? '—'}', scheme.primary),
-            const SizedBox(width: Gap.sm),
-            scoreBox('MINE',
-                saved.selfScore == null ? '—' : '${saved.selfScore} / 10',
-                scheme.tertiary),
+            Expanded(
+              child: NeoScoreWell(
+                label: 'Done score · auto',
+                value: '${saved.doneScore ?? '—'}',
+                sub: 'Based on your core plan',
+                suffix: ' / 100',
+              ),
+            ),
+            const SizedBox(width: Space.s5),
+            Expanded(
+              child: NeoScoreWell(
+                label: 'Self score · yours',
+                value: saved.selfScore == null
+                    ? '—'
+                    : '${saved.selfScore}',
+                sub: 'Your own reflection',
+                accentValue: true,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: Gap.md),
-        Text(
-          'Done = what got done. Mine = how it felt. '
-          'They answer different questions.',
-          style: theme.textTheme.bodySmall,
+        const NeoNotice(
+          'Done Score reflects core plan completion. Self Score '
+          'reflects how you feel. They are never averaged.',
         ),
         if (saved.majorPoint != null) ...[
           const SizedBox(height: Gap.md),

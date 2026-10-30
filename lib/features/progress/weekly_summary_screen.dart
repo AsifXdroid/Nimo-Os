@@ -9,6 +9,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import 'progress_store.dart';
 import 'weekly_summary.dart';
@@ -111,11 +112,15 @@ class WeeklySummaryView extends StatelessWidget {
 
     if (s.isEmpty) {
       return ListView(
-        padding: const EdgeInsets.all(Gap.md),
+        padding: const EdgeInsets.fromLTRB(
+            Space.page, Gap.md, Space.page, Gap.lg),
         children: [
-          Text('Week of ${_fmtDate(s.monday)} – ${_fmtDate(s.sunday)}',
-              style: theme.textTheme.titleMedium),
-          const SizedBox(height: Gap.md),
+          NeoPageTitle(
+            eyebrow: 'Sunday reflection',
+            heading: 'A week, well lived.',
+            sub: 'Week of ${_fmtDate(s.monday)} – ${_fmtDate(s.sunday)}',
+          ),
+          const SizedBox(height: Gap.lg),
           Text(
             'A quiet week — nothing recorded. The path is still '
             'here when you are.',
@@ -127,30 +132,28 @@ class WeeklySummaryView extends StatelessWidget {
 
     Widget section(String title, List<Widget> children) => Padding(
           padding: const EdgeInsets.only(bottom: Gap.md),
-          child: Card(
-            margin: EdgeInsets.zero,
-            child: Padding(
-              padding: const EdgeInsets.all(Gap.md),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: theme.textTheme.titleMedium),
-                  const SizedBox(height: Gap.sm),
-                  ...children,
-                ],
-              ),
+          child: NeoPanel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: theme.textTheme.titleMedium),
+                const SizedBox(height: Gap.sm),
+                ...children,
+              ],
             ),
           ),
         );
 
     return ListView(
-      padding: const EdgeInsets.all(Gap.md),
+      padding: const EdgeInsets.fromLTRB(
+          Space.page, Gap.md, Space.page, Gap.lg),
       children: [
-        Text(
-          'Week of ${_fmtDate(s.monday)} – ${_fmtDate(s.sunday)}',
-          style: theme.textTheme.headlineSmall,
+        NeoPageTitle(
+          eyebrow: 'Sunday reflection',
+          heading: 'A week, well lived.',
+          sub: 'Week of ${_fmtDate(s.monday)} – ${_fmtDate(s.sunday)}',
         ),
-        const SizedBox(height: Gap.md),
+        const SizedBox(height: Gap.lg),
         section('Your week', [
           Text(
             s.inProgress
@@ -315,23 +318,20 @@ class WeekSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final s = summary;
-    return Card(
-      margin: EdgeInsets.zero,
-      child: ListTile(
-        leading: Icon(Icons.calendar_view_week_outlined,
-            color: theme.colorScheme.primary),
-        title: const Text('This week'),
-        subtitle: Text(
-          s.isEmpty
-              ? 'Nothing recorded yet this week.'
-              : 'Showed up ${s.daysCounted} of 7 days'
-                  '${s.inProgress ? ' so far' : ''}'
-                  '${s.shieldDays > 0 ? ' · ${s.shieldDays} shield day${s.shieldDays == 1 ? '' : 's'}' : ''}'
-                  '${s.majorPoints.isNotEmpty ? ' · ${s.majorPoints.length} major point${s.majorPoints.length == 1 ? '' : 's'}' : ''}',
-        ),
-        trailing: const Icon(Icons.chevron_right),
+    return NeoPanel(
+      padding: const EdgeInsets.symmetric(
+          horizontal: Space.s6, vertical: Space.s2),
+      child: NeoListRow(
+        icon: Icons.calendar_view_week_outlined,
+        title: 'This week',
+        sub: s.isEmpty
+            ? 'Nothing recorded yet this week.'
+            : 'Showed up ${s.daysCounted} of 7 days'
+                '${s.inProgress ? ' so far' : ''}'
+                '${s.shieldDays > 0 ? ' · ${s.shieldDays} shield day${s.shieldDays == 1 ? '' : 's'}' : ''}'
+                '${s.majorPoints.isNotEmpty ? ' · ${s.majorPoints.length} major point${s.majorPoints.length == 1 ? '' : 's'}' : ''}',
+        last: true,
         onTap: onOpen,
       ),
     );

@@ -159,7 +159,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
           final data = snapshot.data!;
           final model = buildJourney(data.journey, today: DateTime.now());
           return ListView(
-            padding: const EdgeInsets.all(Gap.md),
+            padding: const EdgeInsets.fromLTRB(Space.page, Gap.md, Space.page, Gap.lg),
             children: [
               _streakHeader(context, data.streak),
               const SizedBox(height: Gap.md),

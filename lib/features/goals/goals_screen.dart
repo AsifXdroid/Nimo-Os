@@ -59,7 +59,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
             );
           }
           return ListView.builder(
-            padding: const EdgeInsets.all(Gap.md),
+            padding: const EdgeInsets.fromLTRB(Space.page, Gap.md, Space.page, Gap.lg),
             itemCount: list.length,
             itemBuilder: (context, i) => GoalCard(
               goal: list[i],

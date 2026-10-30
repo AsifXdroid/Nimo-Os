@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Monochrome layer for the
+     Android 13+ themed adaptive icon: Face Mark silhouette in ONE
+     colour with the eyes knocked out (even-odd). This is the layer
+     the brand board's greyscale "Mono" render cannot serve as.
+     The system tints this layer; keep fillColor a single opaque
+     colour. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M59.4,15.1c1.1,-6.5 6.5,-10.8 14,-10.8 1.1,7.6 -3.2,14 -9.7,16.2 -2.2,-1.1 -4.3,-3.2 -4.3,-5.4z M54,17.3c23.8,0 38.9,15.1 38.9,38.9 0,23.8 -17.3,36.7 -38.9,36.7S15.1,80 15.1,56.2c0,-23.8 15.1,-38.9 38.9,-38.9z M43.2,61.6m-4.8,0a4.8,6 0,1 0,9.5 0a4.8,6 0,1 0,-9.5 0 M64.8,61.6m-4.8,0a4.8,6 0,1 0,9.5 0a4.8,6 0,1 0,-9.5 0"
+        android:fillColor="#000000"
+        android:fillType="evenOdd" />
+</vector>

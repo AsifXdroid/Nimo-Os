@@ -94,6 +94,7 @@ Future<void> bootstrap() async {
 
   final reviewStore = ReviewStore(db, todayStore);
   final progressStore = ProgressStore(db, reviewStore, todayStore);
+  final themeChoice = await _themeChoice(db);
 
   // SET (S6): reminders — plugin gateway + tap router. App start
   // records the open (the §R5.6 self-watch) and re-applies the
@@ -117,6 +118,7 @@ Future<void> bootstrap() async {
       progressStore: progressStore,
       reminders: reminders,
       reminderRouter: reminderRouter,
+      initialThemeChoice: themeChoice,
       learn: learn,
       thumbnails: thumbnails,
       backup: backup,
@@ -165,6 +167,24 @@ Future<void> bootstrap() async {
   );
 }
 
+/// The persisted theme choice (D-036): `app_settings.theme_mode`
+/// ('dark' | 'light'), defaulting to dark — a read failure must
+/// never stop the app booting.
+Future<AppThemeChoice> _themeChoice(Database db) async {
+  try {
+    final rows = await db.query(
+      'app_settings',
+      where: 'key = ?',
+      whereArgs: [themeModeSettingKey],
+      limit: 1,
+    );
+    if (rows.isEmpty) return AppThemeChoice.dark;
+    return AppThemeChoice.fromStored(rows.first['value'] as String?);
+  } catch (_) {
+    return AppThemeChoice.dark;
+  }
+}
+
 /// The Library root: `app_settings.library_root` when the owner
 /// set one (a plain path — laptop-style, §R6.4), otherwise
 /// `<app documents>/Library`. All DB references stay relative to
@@ -188,7 +208,7 @@ Future<Directory> _libraryRoot(Database db, Directory docsDir) async {
   return Directory(p.join(docsDir.path, 'Library'));
 }
 
-class DailyLifeApp extends StatelessWidget {
+class DailyLifeApp extends StatefulWidget {
   const DailyLifeApp({
     super.key,
     required this.db,
@@ -204,7 +224,12 @@ class DailyLifeApp extends StatelessWidget {
     this.progressStore,
     this.reminders,
     this.reminderRouter,
+    this.initialThemeChoice = AppThemeChoice.dark,
   });
+
+  /// NEO (D-036): the theme choice read from app_settings at
+  /// bootstrap; the Settings switch updates + persists it.
+  final AppThemeChoice initialThemeChoice;
 
   final Database db;
   final Store store;
@@ -233,24 +258,53 @@ class DailyLifeApp extends StatelessWidget {
   onRestoreBackup;
 
   @override
+  State<DailyLifeApp> createState() => _DailyLifeAppState();
+}
+
+class _DailyLifeAppState extends State<DailyLifeApp> {
+  late AppThemeChoice _themeChoice = widget.initialThemeChoice;
+
+  /// NEO (D-036): switch the Neo theme and persist the choice in
+  /// app_settings (same store as library_root). Persistence is
+  /// best-effort — a failed write must not break the switch for
+  /// this session.
+  Future<void> _setThemeChoice(AppThemeChoice choice) async {
+    setState(() => _themeChoice = choice);
+    try {
+      await widget.db.insert('app_settings', {
+        'key': themeModeSettingKey,
+        'value': choice.stored,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    } catch (_) {
+      // Session-only switch; the next boot falls back to the
+      // last persisted (or default dark) choice.
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Daily Life',
-      theme: AppTheme.forPlate(AppPlate.midnight), // D-008: Plate B
+      title: 'Nimo',
+      // NEO (D-036): both Neo themes ship; dark is the default.
+      theme: AppTheme.neoLight(),
+      darkTheme: AppTheme.neoDark(),
+      themeMode: _themeChoice.themeMode,
       home: AppShell(
-        db: db,
-        store: store,
-        todayStore: todayStore,
-        goalsStore: goalsStore,
-        reviewStore: reviewStore,
-        progressStore: progressStore,
-        reminders: reminders,
-        reminderRouter: reminderRouter,
-        learn: learn,
-        thumbnails: thumbnails,
-        backup: backup,
-        shareService: shareService,
-        onRestoreBackup: onRestoreBackup,
+        db: widget.db,
+        store: widget.store,
+        todayStore: widget.todayStore,
+        goalsStore: widget.goalsStore,
+        reviewStore: widget.reviewStore,
+        progressStore: widget.progressStore,
+        reminders: widget.reminders,
+        reminderRouter: widget.reminderRouter,
+        learn: widget.learn,
+        thumbnails: widget.thumbnails,
+        backup: widget.backup,
+        shareService: widget.shareService,
+        onRestoreBackup: widget.onRestoreBackup,
+        themeChoice: _themeChoice,
+        onThemeChanged: _setThemeChoice,
       ),
     );
   }
@@ -293,6 +347,8 @@ class AppShell extends StatefulWidget {
     this.progressStore,
     this.reminders,
     this.reminderRouter,
+    this.themeChoice,
+    this.onThemeChanged,
   });
 
   final Database db;
@@ -307,6 +363,11 @@ class AppShell extends StatefulWidget {
   final ProgressStore? progressStore;
   final ReminderController? reminders;
   final ReminderTapRouter? reminderRouter;
+
+  /// NEO (D-036): theme switch wiring for Settings (optional so
+  /// tests can mount the shell without it).
+  final AppThemeChoice? themeChoice;
+  final ValueChanged<AppThemeChoice>? onThemeChanged;
   final Future<void> Function(File zip, {required bool replaceConfirmed})
   onRestoreBackup;
 
@@ -525,6 +586,8 @@ class _AppShellState extends State<AppShell> {
           reminders: _reminders,
           backupSection: _backupSection(),
           syncSection: _syncSection(),
+          themeChoice: widget.themeChoice,
+          onThemeChanged: widget.onThemeChanged,
         ),
       ),
     );

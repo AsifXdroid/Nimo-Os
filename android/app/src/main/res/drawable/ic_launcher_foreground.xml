@@ -1,22 +1,37 @@
-<!-- Launcher icon foreground (vector): a rounded square outline with a
-     check mark — the "today, done" glyph. Drawn inside the adaptive-icon
-     safe zone (centre 72 of the 108 viewport). See D-007. -->
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Nimo Face Mark as an Android
+     vector drawable (108dp adaptive-icon viewport; mark centred in
+     the 72dp safe zone, scaled x1.08 from the 100-unit SVG master).
+     In-app rendering of the same mark lives in lib/core/brand.dart. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- leaf -->
     <path
-        android:pathData="M40,26 h28 a14,14 0 0 1 14,14 v28 a14,14 0 0 1 -14,14 h-28 a14,14 0 0 1 -14,-14 v-28 a14,14 0 0 1 14,-14 z"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="5"
-        android:strokeLineCap="round"
-        android:fillColor="#00000000" />
+        android:pathData="M59.4,15.1c1.1,-6.5 6.5,-10.8 14,-10.8 1.1,7.6 -3.2,14 -9.7,16.2 -2.2,-1.1 -4.3,-3.2 -4.3,-5.4z"
+        android:fillColor="#8F84D6" />
+    <!-- hood -->
     <path
-        android:pathData="M41,55 L51.5,65.5 L68,45"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="7"
+        android:pathData="M54,17.3c23.8,0 38.9,15.1 38.9,38.9 0,23.8 -17.3,36.7 -38.9,36.7S15.1,80 15.1,56.2c0,-23.8 15.1,-38.9 38.9,-38.9z"
+        android:fillColor="#B9B0E8" />
+    <!-- face -->
+    <path
+        android:pathData="M54,63.7m-28.1,0a28.1,24.8 0,1 1,56.2 0a28.1,24.8 0,1 1,-56.2 0"
+        android:fillColor="#FBFAFF" />
+    <!-- eyes -->
+    <path
+        android:pathData="M43.2,61.6m-4.8,0a4.8,6 0,1 1,9.5 0a4.8,6 0,1 1,-9.5 0"
+        android:fillColor="#23203A" />
+    <path
+        android:pathData="M64.8,61.6m-4.8,0a4.8,6 0,1 1,9.5 0a4.8,6 0,1 1,-9.5 0"
+        android:fillColor="#23203A" />
+    <!-- smile -->
+    <path
+        android:pathData="M46.4,74.5q7.6,6.5 15.1,0"
+        android:strokeColor="#23203A"
+        android:strokeWidth="3.9"
         android:strokeLineCap="round"
-        android:strokeLineJoin="round"
         android:fillColor="#00000000" />
 </vector>

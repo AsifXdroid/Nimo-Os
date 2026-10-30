@@ -16,6 +16,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../core/brand.dart';
 import '../../core/theme.dart';
 import 'backup_section.dart';
 import 'reminders.dart';
@@ -26,6 +27,8 @@ class SettingsScreen extends StatefulWidget {
     required this.reminders,
     required this.backupSection,
     this.syncSection,
+    this.themeChoice,
+    this.onThemeChanged,
   });
 
   final ReminderController reminders;
@@ -36,6 +39,12 @@ class SettingsScreen extends StatefulWidget {
   /// The S7 sync section, wired by the shell (optional so tests
   /// can mount Settings without a sync store).
   final Widget? syncSection;
+
+  /// NEO (D-036): the Appearance switch — current choice + the
+  /// shell's persist-and-apply callback (optional, same pattern
+  /// as the sync section).
+  final AppThemeChoice? themeChoice;
+  final ValueChanged<AppThemeChoice>? onThemeChanged;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -119,8 +128,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
-        padding: const EdgeInsets.all(Gap.md),
+        padding: const EdgeInsets.fromLTRB(Space.page, Gap.md, Space.page, Gap.lg),
         children: [
+          if (widget.themeChoice != null &&
+              widget.onThemeChanged != null) ...[
+            Text('Appearance', style: theme.textTheme.titleMedium),
+            const SizedBox(height: Gap.sm),
+            Text(
+              'The Neo design, in dark or light. Dark is Nimo\'s '
+              'home; light is there whenever you want it.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: Gap.sm),
+            SegmentedButton<AppThemeChoice>(
+              segments: const [
+                ButtonSegment(
+                  value: AppThemeChoice.dark,
+                  icon: Icon(Icons.dark_mode_outlined),
+                  label: Text('Dark'),
+                ),
+                ButtonSegment(
+                  value: AppThemeChoice.light,
+                  icon: Icon(Icons.light_mode_outlined),
+                  label: Text('Light'),
+                ),
+              ],
+              selected: {widget.themeChoice!},
+              onSelectionChanged: (sel) =>
+                  widget.onThemeChanged!(sel.first),
+            ),
+            const SizedBox(height: Gap.lg),
+          ],
           Text('Reminders', style: theme.textTheme.titleMedium),
           const SizedBox(height: Gap.sm),
           Text(
@@ -202,6 +242,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
+          const SizedBox(height: Gap.lg),
+          const Divider(),
+          const SizedBox(height: Gap.md),
+          const NimoBrandFooter(),
+          const SizedBox(height: Gap.md),
         ],
       ),
     );

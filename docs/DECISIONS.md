@@ -371,6 +371,86 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
   arrives before Dart listens is buffered natively and flushed
   on listen, where the plugin dropped it.
 
+- **D-035 (2026-10-30) — Brand: Route A colours; the mascot is a
+  static logo, never a character.** The owner supplied a Nimo
+  brand board (lavender soft-3D mascot, wordmark, tagline
+  "a little better, every day") and decided: (1) **Route A** —
+  lavender/plum belongs to the brand only; teal stays the
+  functional UI accent; D-008 and the Neo-dark colour system are
+  NOT reopened. Lavender is never a button/progress/selection/
+  state colour. (2) The mascot is used as **one consistent static
+  logo** — header top-left, launcher icon, brand areas — with
+  **no expressions, poses, character states, contextual
+  reactions, Rive/Lottie, or mascot celebrations**. This
+  supersedes the motion spec rev. 1's expression mapping in
+  full. (3) The premium motion work (animated counts/bars, warm
+  Tier-2 feedback for session end + Day Close, Tier-3 goal
+  celebration, skeletons, ambient Today header) proceeds
+  **independently of the mascot**, built from colour, copy and
+  motion only, framework widgets only (no animation package).
+  Dark-surface rule: the board's plum wordmark is unreadable on
+  AMOLED, so in-app branding = Face Mark + "Nimo" in the theme's
+  on-surface colour; plum wordmark is for light surfaces only.
+  Assets prepared (not yet in the app): `files/logo-assets/` in
+  the goal workspace — board crops, flat vector Face Mark + Leaf,
+  monochrome silhouette for Android 13 themed icons, Android
+  vector drafts. The icon set lands via real git at
+  implementation (binary files, D-007). Full spec:
+  `MOTION_AND_MASCOT_SPEC-2026-10-30.md` rev. 2 in the goal
+  files.
+
+- **D-036 (2026-10-30) — The Neo UI is implemented, in dark AND
+  light; D-035's logo lands with it. Motion is NOT included.**
+  Owner-approved implementation (2026-10-30 21:56 IST) of the
+  redesign exploration's Candidate D direction, scoped by the
+  owner's repeat-back approval: Neo UI + static logo, motion
+  explicitly left out (the MOTION spec stays paper-only).
+  What shipped in code:
+  - **Theme system rebuilt in `lib/core/theme.dart`:** Neo
+    tokens as the single source — `Space` (4pt scale s1–s12 +
+    `page` margin 20 + touch 48), `RadiusToken` roles
+    (8/12/18/24/round), semantic colours per brightness. `Gap`
+    survives as aliases onto the Neo steps, so existing screens
+    read on the Neo grid without a rewrite. Two full themes:
+    `AppTheme.neoDark()` (Neo-dark, Midnight base — D-008's
+    dark-first choice becomes the default theme MODE) and
+    `AppTheme.neoLight()` (Neo light surfaces #EEEDF0 family).
+  - **Route A in both themes (per the approved assumption):**
+    teal is the functional primary in dark (#2DD4BF) and light
+    (deepened #0B7263 for contrast). Neo light's original plum
+    functional accent (#756181) is NOT used — lavender/plum is
+    brand-only, exactly as D-035 locked. Surfaces flattened
+    (card = radius 24 + 1px outline, elevation 0) per audit §D3.
+  - **Theme switch:** Settings → Appearance segmented Dark/Light,
+    persisted in `app_settings.theme_mode`, read at bootstrap,
+    applied via MaterialApp themeMode; default dark. No system
+    option (dark-first by decision).
+  - **Static logo:** `lib/core/brand.dart` draws the Face Mark
+    as vector shapes (CustomPainter — no raster asset, so it
+    travels the text-only snapshot route). Placements: Today
+    AppBar top-left (`NimoBrand`: mark + "Nimo" in on-surface
+    colour, per D-035 §1.3) and the Settings brand footer
+    (mark + wordmark + "a little better, every day").
+  - **Launcher icon:** D-007's check-mark vector replaced by the
+    Face Mark vector foreground; background #2F6B4F retired for
+    the brand's deep lavender-plum #38304F; a monochrome layer
+    (silhouette, eyes knocked out, even-odd) added for Android
+    13+ themed icons. App label is now "Nimo" (was
+    "daily_life_app"); MaterialApp title likewise.
+  - **Page-margin pass:** the five tab screens' + Settings' root
+    lists now use the Neo `page` margin (20) horizontally.
+  - **Untouched, deliberately:** all stores, data, sync, the
+    pdfrx reader internals, every screen's structure and copy
+    (except the Today AppBar brand), and the whole motion spec.
+    The redesign candidates A/B/C were NOT picked — Neo's design
+    language was implemented over the app's existing D-021
+    navigation and layouts, which Neo itself shares.
+  - Verification: analyze clean; full suite 492/492 (6 new
+    D-035/D-036 tests: theme colours/Route A in both modes,
+    shape/type discipline, choice persistence mapping, brand
+    rendering in both themes, Settings switch callback);
+    build-risk scan clean (no dependency/Gradle changes).
+
 ## Open — awaiting owner
 
 - (none right now)

@@ -9,6 +9,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/brand.dart';
 import '../../core/theme.dart';
 import '../goals/goals_store.dart';
 import '../items/item_detail_screen.dart';
@@ -366,7 +367,9 @@ class _TodayScreenState extends State<TodayScreen> {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     return Scaffold(
-      appBar: AppBar(title: const Text('Daily Life')),
+      // BRAND (D-035): the static Nimo logo lives top-left in the
+      // app's home header — same mark, same place, always.
+      appBar: AppBar(title: const NimoBrand()),
       body: FutureBuilder<_HubData>(
         future: _data,
         builder: (context, snapshot) {
@@ -375,7 +378,7 @@ class _TodayScreenState extends State<TodayScreen> {
           }
           final data = snapshot.data!;
           return ListView(
-            padding: const EdgeInsets.all(Gap.md),
+            padding: const EdgeInsets.fromLTRB(Space.page, Gap.md, Space.page, Gap.lg),
             children: [
               _header(context, now),
               if (data.weekSummary != null) ...[

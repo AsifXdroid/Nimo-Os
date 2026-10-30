@@ -5,7 +5,7 @@
          inexact on purpose (RESEARCH §R8.1). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <application
-        android:label="daily_life_app"
+        android:label="Nimo"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

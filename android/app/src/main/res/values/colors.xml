@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Launcher icon background; matches the app theme seed colour. -->
-    <color name="ic_launcher_background">#2F6B4F</color>
+    <!-- Launcher icon background: the brand's deep lavender-plum
+         (D-035 Route A — brand colour, icon only). Retires the
+         D-007 green, which matched neither palette. -->
+    <color name="ic_launcher_background">#38304F</color>
 </resources>

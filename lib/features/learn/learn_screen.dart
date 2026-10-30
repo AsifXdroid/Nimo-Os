@@ -118,7 +118,7 @@ class _LearnScreenState extends State<LearnScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Learn')),
       body: ListView(
-        padding: const EdgeInsets.all(Gap.md),
+        padding: const EdgeInsets.fromLTRB(Space.page, Gap.md, Space.page, Gap.lg),
         children: [
           _startCard(context),
           if (arcPacks.isNotEmpty) ...[

@@ -3,6 +3,27 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-30 — D-036: Neo UI (dark + light) + static logo implemented (main chat)
+- Owner-approved via repeat-back (21:56 IST): implement the Neo
+  UI and the D-035 static logo in the real app; motion explicitly
+  excluded. Full decision record: DECISIONS.md D-036.
+- Theme system rebuilt on Neo tokens (Space/RadiusToken/semantic
+  set; Gap kept as aliases); `neoDark()` + `neoLight()` themes
+  with teal functional in both (Route A); Settings Appearance
+  switch persisted in `app_settings.theme_mode`, dark default.
+- Logo: vector Face Mark (`lib/core/brand.dart`) in the Today
+  AppBar (top-left) + Settings brand footer; launcher icon =
+  Face Mark vector on brand lavender-plum #38304F with an
+  Android 13 monochrome layer; app label/title now "Nimo".
+- Page-margin (20) pass on the five tab screens + Settings.
+- Verified here: `flutter analyze` clean, `flutter test`
+  **492/492** (6 new tests in `test/neo_theme_test.dart`);
+  build-risk scan clean (no dependency/Gradle changes — res XML
+  + Dart only, so AAPT resource linking of the new icon vectors
+  is the one thing only CI can prove).
+- Open: on-device look/feel check in both themes (owner);
+  launcher icon rendering at real sizes (owner's drawer).
+
 ## 2026-10-30 — D-034: share capture reimplemented in-house, plugin removed (main chat)
 - Owner chose the proper fix over forcing the plugin's JVM
   targets from our Gradle config. `receive_sharing_intent` is

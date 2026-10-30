@@ -3,6 +3,39 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-30 — CI fix 2: receive_sharing_intent pinned exactly to 1.8.1 (main chat)
+- Owner approved the audit's recommendation. pubspec now pins
+  `receive_sharing_intent: 1.8.1` EXACTLY (no caret — `^1.8.0` is
+  what floated to 1.9.0) with the reason recorded in a comment.
+  1.8.1 verified from its pub.dev archive before pinning:
+  compileSdk 34, Gradle file clean on the full risk battery, and
+  the identical Dart API surface this app uses (getInitialMedia /
+  getMediaStream / reset); 1.9.0's changes were iOS-side plus the
+  SDK bump, so the downgrade costs nothing on Android.
+- Verified here: lock resolves 1.8.1; the resolved plugin's
+  build.gradle declares compileSdk 34; `flutter analyze` clean;
+  `flutter test` **483/483** (unchanged — no Dart code touched).
+- Audit doc updated with the confirmation. One known unknown
+  remains for the CI run: jni's native (CMake/NDK) compile step
+  has not yet been explicitly exercised end-to-end.
+
+## 2026-10-30 — CI build failed AGAIN on the fix push; diagnosis audited, no fix applied (main chat)
+- The `2999a875` build also failed (owner report; error text
+  requested). Owner's instruction: understand before fixing.
+- Full audit written to `docs/CI_BUILD_AUDIT-2026-10-30.md`:
+  pattern = new pinned toolchain (AGP 9.1.0 / Kotlin 2.4.0 /
+  Gradle 9.3.1 / compileSdk 36) vs lagging plugin Gradle scripts,
+  compounded by the workflow's unpinned `channel: stable`; our
+  gates are all host-Dart and structurally cannot see Gradle-side
+  failures (APK builds exist only in CI for this project).
+- Ranked suspects for failure 2 (both unreachable in run 1, which
+  died earlier in the build): (1) receive_sharing_intent 1.9.0
+  hard-codes compileSdk 37 vs the app's 36 (AAR-metadata check /
+  missing android-37 platform); (2) jni 1.1.1's CMake/NDK native
+  build (flutter.ndkVersion) on the runner. All other resolved
+  plugins audited clean-to-low; our own android/ files clean.
+  Awaiting the FAILURE block to identify it conclusively.
+
 ## 2026-10-30 — CI fix: flutter_inappwebview moved to the 6.2.0 beta line (main chat)
 - The S3–S7 push's Build APK run failed in Gradle:
   `flutter_inappwebview_android-1.1.3/android/build.gradle` calls

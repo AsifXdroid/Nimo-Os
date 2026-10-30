@@ -3,6 +3,27 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-30 — CI fix: flutter_inappwebview moved to the 6.2.0 beta line (main chat)
+- The S3–S7 push's Build APK run failed in Gradle:
+  `flutter_inappwebview_android-1.1.3/android/build.gradle` calls
+  `getDefaultProguardFile('proguard-android.txt')`, which AGP 9
+  removed. Verified locally: 1.1.3 IS the latest stable android
+  impl and contains exactly those lines — no stable upgrade path.
+- Fix: `flutter_inappwebview: ^6.2.0-beta.3` (resolves android impl
+  1.2.0-beta.3 + platform interface 1.4.0-beta.3); its build.gradle
+  uses `proguard-android-optimize.txt` (verified in the resolved
+  pub-cache copy). A narrower fix — overriding only the android
+  impl — was tried first and rejected by evidence: the stable
+  app-facing code no longer compiles against the beta platform
+  interface (missing PlatformInAppBrowserEvents members), caught
+  by the test run, not by analyze. The whole stack moves together;
+  revert to stable once a stable release resolves an android impl
+  >= 1.2.0 (note also recorded in pubspec.yaml).
+- Verified here: `flutter analyze` clean, `flutter test`
+  **483/483**. Changed files only: pubspec.yaml, pubspec.lock,
+  this log. Pushed as its own commit so the workflow re-runs;
+  the APK result is CI-side (watch Actions).
+
 ## 2026-10-30 — Partial S8 excised before the S3–S7 push (owner-directed)
 
 - S8 is owner-gated; a briefly-started S8 run was stopped and its partial,

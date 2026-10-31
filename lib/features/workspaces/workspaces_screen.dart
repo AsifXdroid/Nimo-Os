@@ -169,7 +169,8 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: FutureBuilder<_SpacesData>(
+      body: PageTop(
+        child: FutureBuilder<_SpacesData>(
         future: _data,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
@@ -245,6 +246,7 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
             ],
           );
         },
+      ),
       ),
     );
   }

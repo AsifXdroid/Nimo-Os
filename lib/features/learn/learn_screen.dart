@@ -153,15 +153,12 @@ class _LearnScreenState extends State<LearnScreen> {
             Text('No packs yet — import one to begin.',
                 style: Theme.of(context).textTheme.bodyMedium)
           else
-            NeoPanel(
-              level: NeoSurfaceLevel.flat,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: Space.s6, vertical: Space.s2),
-              child: Column(
-                children: [
-                  for (final pack in _packs) _packRow(context, pack),
-                ],
-              ),
+            // D-039: pack rows sit on the canvas (hairlines),
+            // not inside a panel.
+            Column(
+              children: [
+                for (final pack in _packs) _packRow(context, pack),
+              ],
             ),
           const SizedBox(height: Gap.md),
           OutlinedButton.icon(
@@ -178,13 +175,14 @@ class _LearnScreenState extends State<LearnScreen> {
     );
   }
 
-  /// The learning pulse panel (D-037, Neo Learn): three quiet
-  /// numbers — due, new, packs — then the one primary action.
-  /// Enjoyment is named as the metric in the hint, as the
-  /// prototype does; the trend itself lives in Progress, where
-  /// the session data is aggregated.
+  /// The learning pulse (D-039): the DEEP feature surface —
+  /// the concept's tinted pulse panel. Three quiet numbers on
+  /// deep green, then the one primary action. Enjoyment is
+  /// named as the metric in the hint; the trend itself lives
+  /// in Progress. All colours come from [EditorialColors].
   Widget _pulsePanel(BuildContext context) {
     final theme = Theme.of(context);
+    final ed = EditorialColors.of(context);
     final total = _due + _new;
     Widget cell(int number, String label) => Expanded(
           child: Column(
@@ -192,28 +190,46 @@ class _LearnScreenState extends State<LearnScreen> {
             children: [
               AnimatedCount(
                 value: number,
-                style: AppType.statistic(),
+                style: AppType.statistic().copyWith(color: ed.onDeep),
               ),
               Text(
                 label,
-                style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant),
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: ed.deepMuted),
               ),
             ],
           ),
         );
-    return NeoPanel(
+    return FeaturePanel(
+      kind: FeatureSurfaceKind.deep,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          NeoSectionHead(
-            title: 'Your learning pulse',
-            actionLabel:
-                widget.onOpenTopics == null ? null : 'All topics →',
-            onAction: widget.onOpenTopics,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  'Your learning pulse',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(color: ed.onDeep),
+                ),
+              ),
+              if (widget.onOpenTopics != null)
+                TextButton(
+                  onPressed: widget.onOpenTopics,
+                  child: Text(
+                    'All topics →',
+                    style: AppType.eyebrow.copyWith(
+                      fontSize: 10,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
+            ],
           ),
-          // D-038: the pulse shrinks to its content — with
-          // nothing due and nothing new, the three zero cells
+          // The pulse shrinks to its content (D-038): with
+          // nothing due and nothing new, the zero cells
           // collapse and the hint below carries the state.
           if (total > 0) ...[
             const SizedBox(height: Space.s5),
@@ -234,15 +250,15 @@ class _LearnScreenState extends State<LearnScreen> {
           const SizedBox(height: Space.s3),
           Text(
             'Measured in enjoyment, not minutes.',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.bodySmall?.copyWith(color: ed.deepMuted),
           ),
           if (total == 0) ...[
             const SizedBox(height: Space.s3),
             Text(
               'Import a pack or mark points while reading to '
               'create cards.',
-              style: theme.textTheme.bodySmall,
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: ed.onDeep),
             ),
           ],
         ],
@@ -322,16 +338,11 @@ class _LearnScreenState extends State<LearnScreen> {
   }
 
   Widget _verifyCard(BuildContext context) {
-    return NeoPanel(
-      level: NeoSurfaceLevel.flat,
-      padding: const EdgeInsets.symmetric(
-          horizontal: Space.s6, vertical: Space.s2),
-      child: NeoListRow(
-        icon: Icons.image_search_outlined,
-        title: '${_verifyPending.length} image targets to check',
-        onTap: _openVerifyList,
-        last: true,
-      ),
+    return NeoListRow(
+      icon: Icons.image_search_outlined,
+      title: '${_verifyPending.length} image targets to check',
+      onTap: _openVerifyList,
+      last: true,
     );
   }
 }

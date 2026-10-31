@@ -198,16 +198,12 @@ class _TopicsScreenState extends State<TopicsScreen> {
                     style: theme.textTheme.bodyMedium,
                   )
                 else
-                  NeoPanel(
-                    level: NeoSurfaceLevel.flat,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: Space.s6, vertical: Space.s2),
-                    child: Column(
-                      children: [
-                        for (final t in _inbox)
-                          _topicRow(context, t, last: t == _inbox.last),
-                      ],
-                    ),
+                  // D-039: topic rows on the canvas (hairlines).
+                  Column(
+                    children: [
+                      for (final t in _inbox)
+                        _topicRow(context, t, last: t == _inbox.last),
+                    ],
                   ),
                 const SizedBox(height: Gap.lg),
                 const NeoSectionHead(title: 'All topics'),
@@ -216,21 +212,17 @@ class _TopicsScreenState extends State<TopicsScreen> {
                   Text('No topics outside the Inbox yet.',
                       style: theme.textTheme.bodyMedium)
                 else
-                  NeoPanel(
-                    level: NeoSurfaceLevel.flat,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: Space.s6, vertical: Space.s2),
-                    child: Column(
-                      children: [
-                        for (final t in _others)
-                          _topicRow(context, t, last: t == _others.last),
-                      ],
-                    ),
+                  Column(
+                    children: [
+                      for (final t in _others)
+                        _topicRow(context, t, last: t == _others.last),
+                    ],
                   ),
                 const SizedBox(height: Gap.lg),
                 const NeoSectionHead(title: 'Your source library'),
                 const SizedBox(height: Space.s3),
                 NeoPanel(
+                  level: NeoSurfaceLevel.flat,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

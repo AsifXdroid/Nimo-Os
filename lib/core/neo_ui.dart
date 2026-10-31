@@ -756,12 +756,17 @@ class FeaturePanel extends StatelessWidget {
     required this.child,
     this.padding = const EdgeInsets.all(Space.s6),
     this.onTap,
+    this.circles = true,
   });
 
   final FeatureSurfaceKind kind;
   final Widget child;
   final EdgeInsetsGeometry padding;
   final VoidCallback? onTap;
+
+  /// The concentric circle line-art. Off where the surface
+  /// carries long reading text (the reader's paper).
+  final bool circles;
 
   @override
   Widget build(BuildContext context) {
@@ -776,6 +781,7 @@ class FeaturePanel extends StatelessWidget {
         children: [
           // Concentric circle line-art, offset off the corner
           // exactly as the concept draws it (clipped).
+          if (circles)
           Positioned(
             right: -55,
             top: -70,
@@ -788,6 +794,7 @@ class FeaturePanel extends StatelessWidget {
               ),
             ),
           ),
+          if (circles)
           Positioned(
             right: -79,
             top: -94,

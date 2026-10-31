@@ -313,19 +313,15 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
                 ),
                 if (_topic.triggerUrl != null) ...[
                   const SizedBox(height: Gap.md),
-                  NeoPanel(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: Space.s6, vertical: Space.s2),
-                    child: NeoListRow(
-                      icon: Icons.link,
-                      title: 'Sparked by',
-                      sub: _topic.triggerUrl!,
-                      last: true,
-                      onTap: () {
-                        final uri = Uri.tryParse(_topic.triggerUrl!);
-                        if (uri != null) launchUrl(uri);
-                      },
-                    ),
+                  NeoListRow(
+                    icon: Icons.link,
+                    title: 'Sparked by',
+                    sub: _topic.triggerUrl!,
+                    last: true,
+                    onTap: () {
+                      final uri = Uri.tryParse(_topic.triggerUrl!);
+                      if (uri != null) launchUrl(uri);
+                    },
                   ),
                   const SizedBox(height: Space.s3),
                   const NeoNotice(
@@ -340,16 +336,12 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
                   Text('No sources yet — import the real material.',
                       style: theme.textTheme.bodyMedium)
                 else
-                  NeoPanel(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: Space.s6, vertical: Space.s2),
-                    child: Column(
-                      children: [
-                        for (final s in _sources)
-                          _sourceRow(context, s,
-                              last: s == _sources.last),
-                      ],
-                    ),
+                  // D-039: source rows on the canvas (hairlines).
+                  Column(
+                    children: [
+                      for (final s in _sources)
+                        _sourceRow(context, s, last: s == _sources.last),
+                    ],
                   ),
                 const SizedBox(height: Gap.md),
                 Wrap(
@@ -383,12 +375,9 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
                     style: theme.textTheme.bodyMedium,
                   )
                 else
-                  NeoPanel(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: Space.s6, vertical: Space.s2),
-                    child: Column(
-                      children: [
-                        for (final pt in _points)
+                  Column(
+                    children: [
+                      for (final pt in _points)
                           NeoListRow(
                             title: '“${pt.sentence}”',
                             sub: 'Cloze card: ${pt.clozeText}',
@@ -404,7 +393,6 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
                           ),
                       ],
                     ),
-                  ),
                 if (_unminted > 0) ...[
                   const SizedBox(height: Gap.md),
                   FilledButton(

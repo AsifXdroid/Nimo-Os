@@ -74,21 +74,18 @@ class _ImageVerifyListScreenState extends State<ImageVerifyListScreen> {
                   padding: const EdgeInsets.fromLTRB(
                       Space.page, Gap.md, Space.page, Gap.lg),
                   children: [
-                    NeoPanel(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: Space.s6, vertical: Space.s2),
-                      child: Column(
-                        children: [
-                          for (final q in _pending)
-                            NeoListRow(
-                              icon: Icons.image_search_outlined,
-                              title: q.payload['prompt'] as String? ?? '',
-                              sub: q.packId ?? '',
-                              last: q == _pending.last,
-                              onTap: () => _open(q),
-                            ),
-                        ],
-                      ),
+                    // D-039: rows on the canvas (hairlines).
+                    Column(
+                      children: [
+                        for (final q in _pending)
+                          NeoListRow(
+                            icon: Icons.image_search_outlined,
+                            title: q.payload['prompt'] as String? ?? '',
+                            sub: q.packId ?? '',
+                            last: q == _pending.last,
+                            onTap: () => _open(q),
+                          ),
+                      ],
                     ),
                   ],
                 ),

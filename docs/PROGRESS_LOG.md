@@ -3,6 +3,33 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-31 — D-039 Stage 3: Learn (main chat)
+- Learn hub: the pulse moves onto the DEEP FeaturePanel
+  (serif title + mono "All topics" action on deep green,
+  AnimatedCount cells in onDeep, hint in deepMuted; the
+  D-038 collapse-when-empty behaviour and the "Begin a short
+  session →" anchor preserved). Pack rows and the verify
+  doorway leave their flat panels for canvas hairline rows.
+  Continue-episode cards keep their (now hairline) panels;
+  arc titles are serif via the Stage 1 role change.
+- Topics & Library: Inbox and All-topics lists on the
+  canvas; the source-library block goes flat.
+- Topic detail: "Sparked by", Sources and Marked points
+  lists on the canvas.
+- Reading: the reader chunk now sits on the PAPER feature
+  surface in both themes (text in onPaper) — `FeaturePanel`
+  gained a `circles` opt-out so no line-art sits behind long
+  reading text. PDF chrome unchanged (pdfrx owns the page).
+- Image-verify queue: canvas rows.
+- Sessions/question cards: no hardcoded colours existed;
+  prompts render in the serif titleLarge role and all
+  surfaces follow the scheme — interaction layouts and the
+  five card formats are untouched, per the brief (the
+  interaction matters more than the dressing).
+- Verified here: `flutter analyze` clean; `flutter test`
+  **517/517**. Preview:
+  `files/nimo-editorial-stage3-learn-preview.html`.
+
 ## 2026-10-31 — D-039 Stage 2: app shell + Today (main chat)
 - Shell: the bottom nav gains the concept's ruled edge (a
   hairline above the bar); labels stay sentence-case (tests

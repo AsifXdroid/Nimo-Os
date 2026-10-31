@@ -208,11 +208,18 @@ class _ReadingScreenState extends State<ReadingScreen> {
                     ?.copyWith(color: theme.colorScheme.primary),
               ),
               const SizedBox(height: Gap.md),
-              // The reader paper: the chunk sits on a raised
-              // Neo panel, like the prototype's `.reader-paper`.
-              NeoPanel(
-                child: SelectableText(chunk.text,
-                    style: theme.textTheme.bodyLarge),
+              // The reader paper (D-039): the chunk sits on the
+              // PAPER feature surface — reading on paper, in
+              // both themes. No circle art behind long text.
+              FeaturePanel(
+                kind: FeatureSurfaceKind.paper,
+                circles: false,
+                child: SelectableText(
+                  chunk.text,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: EditorialColors.of(context).onPaper,
+                  ),
+                ),
               ),
               const SizedBox(height: Gap.lg),
               if (_markOnCard != null)

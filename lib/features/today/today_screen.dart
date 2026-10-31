@@ -387,8 +387,8 @@ class _TodayScreenState extends State<TodayScreen> {
                 const SizedBox(height: Gap.lg),
                 _sundaySummaryCard(context, data.weekSummary!),
               ],
-              if (data.sections[TodayStore.sectionWeekStrip] ?? true)
-                _weekStrip(context, data),
+              const SizedBox(height: Gap.lg),
+              _dailyProgress(context, data),
               const SizedBox(height: Gap.md),
               _quickAddRow(context),
               const SizedBox(height: Gap.lg),
@@ -437,7 +437,6 @@ class _TodayScreenState extends State<TodayScreen> {
   Widget _intro(BuildContext context, DateTime now, _HubData data) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final streak = data.streak;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -466,57 +465,100 @@ class _TodayScreenState extends State<TodayScreen> {
         const SizedBox(height: Gap.sm),
         const NeoEyebrow('A little intention goes a long way'),
         const SizedBox(height: Space.s3),
-        Text(_greeting(now), style: theme.textTheme.displayMedium),
+        Text(_greeting(now), style: AppType.display(theme.textTheme)),
         const SizedBox(height: Space.s2),
         Text(
           'Make room for what matters. One small step at a time.',
           style: theme.textTheme.bodyMedium
               ?.copyWith(color: scheme.onSurfaceVariant),
         ),
-        const SizedBox(height: Gap.md),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: NeoRaisedSm(
-            padding: const EdgeInsets.symmetric(
-                horizontal: Space.s5, vertical: Space.s3),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.local_fire_department_outlined,
-                    size: 23, color: scheme.primary),
-                const SizedBox(width: Space.s3),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      streak.currentStreak > 0
-                          ? '${streak.currentStreak} day streak'
-                          : 'Start your streak today',
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(fontWeight: FontWeight.w600),
-                    ),
-                    Text(
-                      'One day at a time',
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: scheme.onSurfaceVariant),
-                    ),
-                  ],
-                ),
-                if (streak.shieldsHeld > 0) ...[
-                  const SizedBox(width: Space.s3),
-                  for (var i = 0; i < streak.shieldsHeld; i++)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 2),
-                      child: Icon(Icons.shield_outlined,
-                          size: 18, color: scheme.tertiary),
-                    ),
-                ],
-              ],
-            ),
-          ),
-        ),
       ],
+    );
+  }
+
+  /// The streak row's content, shared by the merged daily-
+  /// progress panel and the standalone pill.
+  Widget _streakRow(BuildContext context, _HubData data) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final streak = data.streak;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.local_fire_department_outlined,
+            size: 23, color: scheme.primary),
+        const SizedBox(width: Space.s3),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              streak.currentStreak > 0
+                  ? '${streak.currentStreak} day streak'
+                  : 'Start your streak today',
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            Text(
+              'One day at a time',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ],
+        ),
+        if (streak.shieldsHeld > 0) ...[
+          const SizedBox(width: Space.s3),
+          for (var i = 0; i < streak.shieldsHeld; i++)
+            Padding(
+              padding: const EdgeInsets.only(left: 2),
+              child: Icon(Icons.shield_outlined,
+                  size: 18, color: scheme.tertiary),
+            ),
+        ],
+      ],
+    );
+  }
+
+  /// Daily progress (D-038, brief §6.1): streak and week strip
+  /// as ONE component — a flat panel holding the streak row
+  /// above the week cells, so the two read as related parts of
+  /// the same daily progress. When the owner hides the week
+  /// strip (Customize Home), the streak survives as the
+  /// standalone pill, exactly as before.
+  Widget _dailyProgress(BuildContext context, _HubData data) {
+    final showWeek = data.sections[TodayStore.sectionWeekStrip] ?? true;
+    if (!showWeek) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: NeoRaisedSm(
+          padding: const EdgeInsets.symmetric(
+              horizontal: Space.s5, vertical: Space.s3),
+          child: _streakRow(context, data),
+        ),
+      );
+    }
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return NeoPanel(
+      level: NeoSurfaceLevel.flat,
+      padding: const EdgeInsets.fromLTRB(
+          Space.s5, Space.s4, Space.s5, Space.s3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _streakRow(context, data),
+          const SizedBox(height: Space.s4),
+          Container(
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(color: scheme.outlineVariant),
+              ),
+            ),
+            padding: const EdgeInsets.only(top: Space.s3),
+            child: _weekCells(context, data),
+          ),
+        ],
+      ),
     );
   }
 
@@ -526,6 +568,7 @@ class _TodayScreenState extends State<TodayScreen> {
   /// and the full summary lives in Progress afterwards.
   Widget _sundaySummaryCard(BuildContext context, WeeklySummary summary) {
     return NeoPanel(
+      level: NeoSurfaceLevel.flat,
       padding: const EdgeInsets.symmetric(
           horizontal: Space.s6, vertical: Space.s2),
       onTap: widget.onOpenWeeklySummary == null
@@ -544,7 +587,8 @@ class _TodayScreenState extends State<TodayScreen> {
     );
   }
 
-  Widget _weekStrip(BuildContext context, _HubData data) {
+  /// The week cells alone (inside [_dailyProgress]).
+  Widget _weekCells(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
     final monday = TodayStore.mondayOf(DateTime.now());
     final today = TodayStore.dayOnly(DateTime.now());
@@ -593,10 +637,7 @@ class _TodayScreenState extends State<TodayScreen> {
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.only(top: Gap.md, bottom: Gap.sm),
-      child: Row(children: [for (var i = 0; i < 7; i++) cell(i)]),
-    );
+    return Row(children: [for (var i = 0; i < 7; i++) cell(i)]);
   }
 
   Widget _quickAddRow(BuildContext context) {
@@ -606,6 +647,7 @@ class _TodayScreenState extends State<TodayScreen> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 3),
             child: NeoRaisedSm(
+              level: NeoSurfaceLevel.flat,
               padding: const EdgeInsets.symmetric(vertical: Space.s3),
               onTap: onTap,
               child: Column(
@@ -724,86 +766,92 @@ class _TodayScreenState extends State<TodayScreen> {
     );
   }
 
-  /// The learning card itself: the one plum surface, kept
-  /// literally from both prototype files (#62536F). The round
-  /// arrow starts a session directly (the ≤2-tap path); tapping
-  /// the card goes to the Learn tab.
+  /// The learning card (D-038 restrained plum, superseding
+  /// D-037's literal plum block): a NEUTRAL Neo surface carrying
+  /// one lavender brand detail — the book tile — and a lavender
+  /// action. It reads as part of Nimo, not an advertisement.
+  /// The round arrow starts a session directly (the ≤2-tap
+  /// path); tapping the card goes to the Learn tab.
   Widget _learningCard(BuildContext context, _HubData data) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final total = data.dueCount + data.newCount;
-    return Container(
-      decoration: BoxDecoration(
-        color: FeatureColors.plumSurface,
-        borderRadius: BorderRadius.circular(RadiusToken.card),
-        boxShadow: neoRaisedShadows(context),
-      ),
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(RadiusToken.card),
-          onTap: widget.onOpenLearn,
-          child: Padding(
-            padding: const EdgeInsets.all(Space.s6),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const NeoEyebrow(
-                  'Pick up where you left off',
-                  color: FeatureColors.onPlumDim,
+    return NeoPanel(
+      onTap: widget.onOpenLearn,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: BrandColors.lavender,
+                  borderRadius:
+                      BorderRadius.circular(RadiusToken.control),
                 ),
-                const SizedBox(height: Space.s5),
-                Text(
-                  total == 0
-                      ? 'Import a pack to start learning.'
-                      : 'Your next session is ready.',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: -0.6,
-                    height: 1.3,
-                  ),
+                child: const Icon(Icons.menu_book_outlined,
+                    size: AppIconSize.lg, color: BrandColors.plum),
+              ),
+              const SizedBox(width: Space.s4),
+              Text(
+                'Pick up where you left off',
+                style: AppType.caption(theme.textTheme)?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  // Lavender-deep reads on dark; on light the
+                  // deeper wordmark plum keeps contrast.
+                  color: theme.brightness == Brightness.dark
+                      ? BrandColors.lavenderDeep
+                      : BrandColors.plum,
                 ),
-                const SizedBox(height: Space.s2),
-                Text(
-                  total == 0
-                      ? 'Bring a PDF, text file, link or learning pack.'
-                      : '${data.dueCount} cards due to revisit · '
-                          '${data.newCount} new to explore.',
-                  style: const TextStyle(
-                      color: FeatureColors.onPlumDim, fontSize: 13),
-                ),
-                const SizedBox(height: Space.s6),
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Measured in enjoyment, not minutes.',
-                        style: TextStyle(
-                            color: FeatureColors.onPlumDim, fontSize: 12),
-                      ),
-                    ),
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: FeatureColors.onPlum,
-                      ),
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_forward,
-                            color: FeatureColors.plumSurface),
-                        tooltip: 'Start a session',
-                        onPressed: total > 0
-                            ? _openLearnSession
-                            : widget.onOpenLearn,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ),
+          const SizedBox(height: Space.s5),
+          Text(
+            total == 0
+                ? 'Import a pack to start learning.'
+                : 'Your next session is ready.',
+            style: theme.textTheme.titleLarge,
+          ),
+          const SizedBox(height: Space.s2),
+          Text(
+            total == 0
+                ? 'Bring a PDF, text file, link or learning pack.'
+                : '${data.dueCount} cards due to revisit · '
+                    '${data.newCount} new to explore.',
+            style: AppType.caption(theme.textTheme)
+                ?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: Space.s6),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Measured in enjoyment, not minutes.',
+                  style: AppType.caption(theme.textTheme)
+                      ?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ),
+              Container(
+                width: 46,
+                height: 46,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: BrandColors.lavenderDeep,
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_forward,
+                      color: Colors.white),
+                  tooltip: 'Start a session',
+                  onPressed:
+                      total > 0 ? _openLearnSession : widget.onOpenLearn,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -850,6 +898,9 @@ class _TodayScreenState extends State<TodayScreen> {
                     : '—',
                 sub: 'Based on your core plan',
                 suffix: ' / 100',
+                fraction: closed && review.doneScore != null
+                    ? review.doneScore! / 100
+                    : null,
               ),
             ),
             const SizedBox(width: Space.s5),
@@ -861,6 +912,9 @@ class _TodayScreenState extends State<TodayScreen> {
                     : '—',
                 sub: closed ? 'Your own reflection' : 'Add yours at Day Close',
                 accentValue: true,
+                fraction: closed && review.selfScore != null
+                    ? review.selfScore! / 10
+                    : null,
               ),
             ),
           ],
@@ -947,8 +1001,7 @@ class _TodayScreenState extends State<TodayScreen> {
                       closed
                           ? 'A day, gently closed.'
                           : 'Leave the day a little lighter.',
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontSize: 16),
+                      style: AppType.cardHeading(theme.textTheme),
                     ),
                     const SizedBox(height: Space.s1),
                     Text(
@@ -1253,6 +1306,7 @@ class _TodayScreenState extends State<TodayScreen> {
             children: [
               for (final p in data.pinned)
                 NeoRaisedSm(
+                  level: NeoSurfaceLevel.flat,
                   padding: const EdgeInsets.all(Space.s3),
                   onTap: () => widget.onOpenWorkspace(p.workspace),
                   child: Column(
@@ -1288,19 +1342,15 @@ class _TodayScreenState extends State<TodayScreen> {
 
   Widget _recentSection(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const NeoSectionHead(title: 'Recently touched'),
-        const SizedBox(height: Space.s3),
-        if (data.recent.isEmpty)
-          Text('Nothing yet — items you create will show up here.',
+    // D-038: Recently touched sits DIRECTLY on the canvas
+    // (Level 0) — hairline-divided rows under a section head,
+    // no enclosing panel.
+    return NeoSection(
+      title: 'Recently touched',
+      child: data.recent.isEmpty
+          ? Text('Nothing yet — items you create will show up here.',
               style: theme.textTheme.bodyMedium)
-        else
-          NeoPanel(
-            padding: const EdgeInsets.symmetric(
-                horizontal: Space.s6, vertical: Space.s2),
-            child: Column(
+          : Column(
               children: [
                 for (final r in data.recent)
                   NeoListRow(
@@ -1325,8 +1375,6 @@ class _TodayScreenState extends State<TodayScreen> {
                   ),
               ],
             ),
-          ),
-      ],
     );
   }
 
@@ -1385,19 +1433,25 @@ class _TodayScreenState extends State<TodayScreen> {
                         NeoStepperButton(
                           icon: Icons.remove,
                           tooltip: 'Decrease',
-                          onTap: () async {
-                            await widget.goalsStore.step(goal, -1);
-                            setState(_reload);
-                          },
+                          // Disabled at the bounds, matching the
+                          // Goals tab (D-037 call 6).
+                          onTap: goal.current <= 0
+                              ? null
+                              : () async {
+                                  await widget.goalsStore.step(goal, -1);
+                                  setState(_reload);
+                                },
                         ),
                         const SizedBox(width: Space.s3),
                         NeoStepperButton(
                           icon: Icons.add,
                           tooltip: 'Increase',
-                          onTap: () async {
-                            await widget.goalsStore.step(goal, 1);
-                            setState(_reload);
-                          },
+                          onTap: goal.current >= goal.target
+                              ? null
+                              : () async {
+                                  await widget.goalsStore.step(goal, 1);
+                                  setState(_reload);
+                                },
                         ),
                       ],
                     ),

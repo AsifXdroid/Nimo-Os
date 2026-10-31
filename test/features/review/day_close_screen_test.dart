@@ -100,8 +100,8 @@ void main() {
         await tester.tap(find.text('Skip')); // skipping step 3 closes
         // Step 4 — Reveal: dual scores shown, Done computed, Mine empty.
         expect(await pollFor(find.text('Day closed')), isTrue);
-        expect(find.text('DONE SCORE · AUTO'), findsOneWidget);
-        expect(find.text('SELF SCORE · YOURS'), findsOneWidget);
+        expect(find.text('Done score · auto'), findsOneWidget);
+        expect(find.text('Self score · yours'), findsOneWidget);
         expect(find.text('50 / 100'), findsOneWidget); // 1 of 2 done
         watch.stop();
         expect(watch.elapsed, lessThan(const Duration(minutes: 2)));

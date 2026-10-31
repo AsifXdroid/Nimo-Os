@@ -166,16 +166,9 @@ abstract final class BrandColors {
   static const Color iconBackground = Color(0xFF38304F);
 }
 
-/// Feature-surface colours (D-038): the Today learning card's
-/// restrained plum surface and its on-surface text tones. Kept
-/// here so NO screen file carries literal colours (the token
-/// discipline the Hallmark audit checks). Plum is a brand-
-/// family surface, never the functional accent (Route A).
-abstract final class FeatureColors {
-  static const Color plumSurface = Color(0xFF62536F);
-  static const Color onPlum = Color(0xFFEDE7F1);
-  static const Color onPlumDim = Color(0xFFE0D8E6);
-}
+/// (Stage 1's short-lived FeatureColors block was retired in
+/// Stage 2: the learning card's restrained plum treatment uses
+/// BrandColors directly — see D-038's Stage 2 log entry.)
 
 /// Semantic colours per brightness (Neo's semantic set, D-036).
 /// Functional teal stays the primary in both themes; its value

@@ -587,15 +587,23 @@ class NeoScoreWell extends StatelessWidget {
     required this.sub,
     this.accentValue = false,
     this.suffix = ' / 10',
+    this.fraction,
   });
 
-  /// e.g. "Done score · auto".
+  /// e.g. "Done score · auto". Rendered as a sentence-case
+  /// caption label (D-038 eyebrow thinning: eyebrows belong to
+  /// page titles, not inside wells).
   final String label;
 
   /// e.g. "7.6" or "—".
   final String value;
   final String sub;
   final bool accentValue;
+
+  /// Optional 0..1 proportion shown as a thin track under the
+  /// number (D-038: the two scores read at a glance). Null
+  /// hides the track (e.g. before Day Close, value "—").
+  final double? fraction;
 
   /// Scale suffix shown after the number. The app's Done Score
   /// is 0–100 and its Self Score is 1–10 (score.dart formula
@@ -611,7 +619,13 @@ class NeoScoreWell extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          NeoEyebrow(label),
+          Text(
+            label,
+            style: AppType.caption(theme.textTheme)?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
           const SizedBox(height: Space.s2),
           Text.rich(
             TextSpan(
@@ -633,6 +647,10 @@ class NeoScoreWell extends StatelessWidget {
               ],
             ),
           ),
+          if (fraction != null) ...[
+            const SizedBox(height: Space.s3),
+            NeoTrack(value: fraction!, height: 5),
+          ],
           const SizedBox(height: Space.s1),
           Text(
             sub,

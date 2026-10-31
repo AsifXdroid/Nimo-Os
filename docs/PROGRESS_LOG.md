@@ -3,6 +3,33 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-31 — D-038 Stage 2: Today, the reference screen (main chat)
+- Daily progress merged: the streak pill and week strip are
+  now ONE flat panel (streak row, hairline, week cells); when
+  the owner hides the week strip, the streak survives as the
+  standalone pill, unchanged.
+- Learning card rebuilt per the approved revision: neutral
+  Neo surface + one lavender book tile + lavender-deep action;
+  the plum block is gone. Stage 1's `FeatureColors` retired —
+  the card uses BrandColors directly.
+- Hierarchy pass: quick-add tiles, pinned tiles and the
+  Sunday card go flat; the plan panel stays raised (primary
+  content); Recently touched moves onto the canvas (NeoSection,
+  hairline rows, no panel).
+- Quiet progress: score wells gain a thin proportion track
+  (Done /100, Self /10; hidden before close); Day Close reveal
+  wells match. Score-well labels leave the eyebrow style for
+  sentence-case captions (Hallmark thinning, Stages 2–4);
+  page-title eyebrows stay as identity.
+- Today goal steppers now disable at their bounds, matching
+  the Goals tab. Day Close card heading uses the cardHeading
+  role. All copy and behaviour otherwise unchanged.
+- Verified here: `flutter analyze` clean; `flutter test`
+  **496/496** (one expectation updated for the sentence-case
+  score labels). Preview:
+  `files/nimo-stage2-today-preview.html`.
+- Next: Stage 3 — Learn, Progress, Spaces, Goals.
+
 ## 2026-10-31 — D-038 Stage 1: design-system foundation (main chat)
 - Owner approved the audited refinement programme (10:16 IST):
   six stages; brief §4.1's handwritten-font premise corrected

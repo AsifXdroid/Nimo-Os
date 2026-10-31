@@ -387,6 +387,8 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
                 value: '${saved.doneScore ?? '—'}',
                 sub: 'Based on your core plan',
                 suffix: ' / 100',
+                fraction:
+                    saved.doneScore == null ? null : saved.doneScore! / 100,
               ),
             ),
             const SizedBox(width: Space.s5),
@@ -398,6 +400,8 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
                     : '${saved.selfScore}',
                 sub: 'Your own reflection',
                 accentValue: true,
+                fraction:
+                    saved.selfScore == null ? null : saved.selfScore! / 10,
               ),
             ),
           ],

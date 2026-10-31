@@ -664,6 +664,17 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
     Remote residue: `design_preview.dart` +
     `design_preview_test.dart` remain on GitHub (connector
     cannot delete); owner to delete via web UI.
+    **PROGRAMME COMPLETE 2026-10-31: Stages 2–7 pushed —
+    `45b7275b` (shell/Today), `a1ec92ce` (Learn), `6e10ed05`
+    (Progress/Spaces/Goals), `566710cc` (Settings/secondary),
+    `05609096` (parity/motion/a11y: guard at 44 computed
+    pairs; paperMuted deepened #60685E→#5A6357; deepAccent
+    added after the guard caught the light-theme pulse
+    accent at ~1.9:1 on deep). Final: analyze clean,
+    531/531. Completion report:
+    `files/RENOVATION_COMPLETE-2026-10-31.md` (goal folder).
+    Fonts remain the one open item: binaries pending from
+    the owner (Route A); fallbacks render until then.**
 
 ## Open — awaiting owner
 

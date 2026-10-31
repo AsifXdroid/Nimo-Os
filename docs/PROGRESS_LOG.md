@@ -3,6 +3,26 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-31 — D-039 Stage 7: QA + programme completion (main chat)
+- Full final gates on the completed tree: `flutter analyze`
+  clean; `flutter test` **531/531**.
+- Sweeps: all six D-039 stage commits confirmed on remote
+  main in order; no user-facing "Neo" copy remains; no
+  hardcoded colours in feature screens (only the kit's own
+  score-well gradient stops); no TODO/FIXME in lib; lib is
+  25,224 lines (26,748 at Stage 0 — legacy deletions).
+- Completion report delivered:
+  `files/RENOVATION_COMPLETE-2026-10-31.md` — stage/commit
+  table, design decisions, parity results, and the stated
+  limitations (no screenshots possible in this environment;
+  font binaries pending from the owner under Route A; CI
+  runs for the D-039 pushes not yet checked; two orphaned
+  remote files await web-UI deletion).
+- **The D-039 Editorial programme is complete.** Remaining
+  owner-side: font upload (one follow-up commit from me),
+  orphaned-file deletion, and on-device judgement of the
+  renovated app in dark and light.
+
 ## 2026-10-31 — D-039 Stage 6: parity, motion, accessibility (main chat)
 - Parity, computed not eyeballed (the D-038 method): the
   guarded pair set grows by 7 pairs per theme — onDeep,

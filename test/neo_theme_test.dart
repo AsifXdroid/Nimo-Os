@@ -218,6 +218,7 @@ void main() {
 
     void checkPairs(String name, ThemeData theme) {
       final s = theme.colorScheme;
+      final ed = theme.extension<EditorialColors>()!;
       final scaffold = theme.scaffoldBackgroundColor;
       final pairs = <(String, Color, Color, double)>[
         ('onSurface/scaffold', s.onSurface, scaffold, 4.5),
@@ -231,6 +232,19 @@ void main() {
         ('avatar letter/container', s.onPrimaryContainer,
             s.primaryContainer, 4.5),
         ('error/surface', s.error, s.surface, 4.5),
+        // D-039 Stage 6: the two feature surfaces join the
+        // guarded set. paperMuted was deepened #60685E →
+        // #5A6357 in this stage — at 4.58 on dark-theme paper
+        // it was the thinnest margin in the system.
+        ('onDeep/deep', ed.onDeep, ed.deep, 4.5),
+        ('deepMuted/deep', ed.deepMuted, ed.deep, 4.5),
+        ('deepAccent/deep', ed.deepAccent, ed.deep, 4.5),
+        ('onDeepAccent/deepAccent', ed.onDeepAccent, ed.deepAccent,
+            4.5),
+        ('onPaper/paper', ed.onPaper, ed.paper, 4.5),
+        ('paperMuted/paper', ed.paperMuted, ed.paper, 4.5),
+        // The week dot and similar marks: graphical floor.
+        ('secondary mark/scaffold', s.secondary, scaffold, 3.0),
       ];
       for (final (label, fg, bg, floor) in pairs) {
         test('$name $label ≥ $floor', () {

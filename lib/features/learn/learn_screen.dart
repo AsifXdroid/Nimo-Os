@@ -222,7 +222,9 @@ class _LearnScreenState extends State<LearnScreen> {
                     'All topics →',
                     style: AppType.eyebrow.copyWith(
                       fontSize: 10,
-                      color: theme.colorScheme.primary,
+                      // On deep, the accent is the pale mint in
+                      // BOTH themes (EditorialColors.deepAccent).
+                      color: ed.deepAccent,
                     ),
                   ),
                 ),
@@ -243,6 +245,15 @@ class _LearnScreenState extends State<LearnScreen> {
           ],
           const SizedBox(height: Space.s5),
           FilledButton(
+            // The pulse's action is a pale-mint fill in both
+            // themes — the scheme primary (dark green in light
+            // mode) would blend into the deep surface.
+            style: FilledButton.styleFrom(
+              backgroundColor: ed.deepAccent,
+              foregroundColor: ed.onDeepAccent,
+              disabledBackgroundColor:
+                  ed.deepAccent.withValues(alpha: 0.35),
+            ),
             onPressed:
                 total == 0 ? null : () => _openSession(SessionKind.review),
             child: const Text('Begin a short session →'),

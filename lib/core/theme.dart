@@ -225,6 +225,8 @@ class EditorialColors extends ThemeExtension<EditorialColors> {
     required this.onDeep,
     required this.deepMuted,
     required this.deepLine,
+    required this.deepAccent,
+    required this.onDeepAccent,
     required this.paper,
     required this.onPaper,
     required this.paperMuted,
@@ -239,6 +241,16 @@ class EditorialColors extends ThemeExtension<EditorialColors> {
 
   /// Hairline / circle line-art colour on the deep surface.
   final Color deepLine;
+
+  /// The accent AS IT APPEARS on the deep surface — the pale
+  /// mint in BOTH themes. (The scheme primary differs per
+  /// theme; on deep it must not: in light mode the scheme
+  /// primary is a dark green that nearly vanishes on deep —
+  /// caught by the Stage 6 parity guard.)
+  final Color deepAccent;
+
+  /// Ink on [deepAccent] fills (the pulse's session button).
+  final Color onDeepAccent;
 
   /// Paper feature surface.
   final Color paper;
@@ -255,9 +267,11 @@ class EditorialColors extends ThemeExtension<EditorialColors> {
     onDeep: Color(0xFFEDF0E6),
     deepMuted: Color(0xFFA5B2A7),
     deepLine: Color(0xFF2A3A30),
+    deepAccent: Color(0xFFA9D5C6),
+    onDeepAccent: Color(0xFF142019),
     paper: Color(0xFFE8E5DA),
     onPaper: Color(0xFF20231E),
-    paperMuted: Color(0xFF60685E),
+    paperMuted: Color(0xFF5A6357),
   );
 
   static const EditorialColors light = EditorialColors(
@@ -265,9 +279,11 @@ class EditorialColors extends ThemeExtension<EditorialColors> {
     onDeep: Color(0xFFEDF0E6),
     deepMuted: Color(0xFFA5B2A7),
     deepLine: Color(0xFF2A3A30),
+    deepAccent: Color(0xFFA9D5C6),
+    onDeepAccent: Color(0xFF142019),
     paper: Color(0xFFF2F0E8),
     onPaper: Color(0xFF20231E),
-    paperMuted: Color(0xFF60685E),
+    paperMuted: Color(0xFF5A6357),
   );
 
   @override
@@ -276,6 +292,8 @@ class EditorialColors extends ThemeExtension<EditorialColors> {
     Color? onDeep,
     Color? deepMuted,
     Color? deepLine,
+    Color? deepAccent,
+    Color? onDeepAccent,
     Color? paper,
     Color? onPaper,
     Color? paperMuted,
@@ -285,6 +303,8 @@ class EditorialColors extends ThemeExtension<EditorialColors> {
         onDeep: onDeep ?? this.onDeep,
         deepMuted: deepMuted ?? this.deepMuted,
         deepLine: deepLine ?? this.deepLine,
+        deepAccent: deepAccent ?? this.deepAccent,
+        onDeepAccent: onDeepAccent ?? this.onDeepAccent,
         paper: paper ?? this.paper,
         onPaper: onPaper ?? this.onPaper,
         paperMuted: paperMuted ?? this.paperMuted,
@@ -298,6 +318,9 @@ class EditorialColors extends ThemeExtension<EditorialColors> {
       onDeep: Color.lerp(onDeep, other.onDeep, t)!,
       deepMuted: Color.lerp(deepMuted, other.deepMuted, t)!,
       deepLine: Color.lerp(deepLine, other.deepLine, t)!,
+      deepAccent: Color.lerp(deepAccent, other.deepAccent, t)!,
+      onDeepAccent:
+          Color.lerp(onDeepAccent, other.onDeepAccent, t)!,
       paper: Color.lerp(paper, other.paper, t)!,
       onPaper: Color.lerp(onPaper, other.onPaper, t)!,
       paperMuted: Color.lerp(paperMuted, other.paperMuted, t)!,

@@ -3,6 +3,34 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-31 — D-039 Stage 6: parity, motion, accessibility (main chat)
+- Parity, computed not eyeballed (the D-038 method): the
+  guarded pair set grows by 7 pairs per theme — onDeep,
+  deepMuted and deepAccent on deep; onPaper and paperMuted
+  on paper; onDeepAccent on deepAccent; the secondary mark
+  on scaffold at the graphical floor. **44 pairs total now
+  pass** (30 core + 14 new).
+- Two real fixes from the guard: (1) `paperMuted` deepened
+  #60685E → #5A6357 — at 4.58 on dark-theme paper it was
+  the thinnest margin in the system; now 4.96/5.48.
+  (2) **Light-theme pulse bug**: the Learn pulse's "All
+  topics" link and session button used the scheme primary
+  (dark green in light mode) on the deep panel — ratio
+  ~1.9, nearly invisible. `EditorialColors` gains
+  `deepAccent`/`onDeepAccent` (the pale mint + its ink, in
+  BOTH themes, because the deep surface is the same device
+  in both), and the pulse now uses them.
+- Motion: the D-038 system is untouched and carries the
+  new surfaces (AnimatedCount in the pulse, score tweens,
+  WarmReveal, skeletons, the single reduced-motion gate) —
+  no new animation was added by the renovation.
+- Accessibility: plan-row checkbox semantics survived the
+  timeline rebuild verbatim; feature panels carry real
+  text; space rows are text-bearing InkWells; the
+  320dp @ 200%-text layout test still passes.
+- Verified here: `flutter analyze` clean; `flutter test`
+  **531/531** (517 + 14 new parity tests).
+
 ## 2026-10-31 — D-039 Stage 5: Settings + secondary UI (main chat)
 - Settings: Appearance becomes a canvas section (head +
   copy + segmented control); the stale "The Neo design"

@@ -26,26 +26,26 @@ void main() {
   });
 
   group('Neo themes (D-036)', () {
-    test('dark is Neo-dark on Midnight; light is Neo light', () {
+    test('dark is Editorial charcoal; light is Editorial paper', () {
       final dark = AppTheme.neoDark();
       expect(dark.brightness, Brightness.dark);
-      expect(dark.scaffoldBackgroundColor, const Color(0xFF0B0E14));
+      expect(dark.scaffoldBackgroundColor, const Color(0xFF111411));
       final light = AppTheme.neoLight();
       expect(light.brightness, Brightness.light);
-      expect(light.scaffoldBackgroundColor, const Color(0xFFEEEDF0));
+      expect(light.scaffoldBackgroundColor, const Color(0xFFDFDBC9));
     });
 
-    test('Route A: teal is the functional accent in BOTH themes; '
-        'lavender never is', () {
+    test('Route A: mint/teal is the functional accent in BOTH '
+        'themes; lavender never is', () {
       expect(
         AppTheme.neoDark().colorScheme.primary,
-        const Color(0xFF2DD4BF),
+        const Color(0xFFA9D5C6),
       );
-      // Light deepens the same teal family for contrast — still
-      // teal, never the brand lavender.
+      // Light deepens the same family for paper contrast —
+      // still teal, never the brand lavender.
       expect(
         AppTheme.neoLight().colorScheme.primary,
-        const Color(0xFF0B7263),
+        const Color(0xFF2F6B57),
       );
       for (final t in [AppTheme.neoDark(), AppTheme.neoLight()]) {
         expect(t.colorScheme.primary, isNot(BrandColors.lavender));
@@ -95,12 +95,17 @@ void main() {
     test('type roles: card heading, caption, action labels', () {
       for (final t in [AppTheme.neoDark(), AppTheme.neoLight()]) {
         final tt = t.textTheme;
-        // Card-heading role (new): 16 / w600.
+        // Card-heading role: sans 16 / w600 (unchanged).
         expect(tt.titleSmall!.fontSize, 16);
         expect(tt.titleSmall!.fontWeight, FontWeight.w600);
-        // Section-heading role, unchanged from D-037.
-        expect(tt.titleMedium!.fontSize, 18);
-        expect(tt.titleMedium!.fontWeight, FontWeight.w600);
+        expect(tt.titleSmall!.fontFamily, fontSans);
+        // Section-heading role (D-039): SERIF 20 / w500.
+        expect(tt.titleMedium!.fontSize, 20);
+        expect(tt.titleMedium!.fontWeight, FontWeight.w500);
+        expect(tt.titleMedium!.fontFamily, fontSerif);
+        // Page title is serif; body is sans (D-039 families).
+        expect(tt.headlineLarge!.fontFamily, fontSerif);
+        expect(tt.bodyMedium!.fontFamily, fontSans);
         // Caption role floored at 13; body keeps 15/16.
         expect(tt.bodySmall!.fontSize, 13);
         expect(tt.bodyMedium!.fontSize, 15);
@@ -122,9 +127,12 @@ void main() {
         stat.fontFeatures,
         contains(const FontFeature.tabularFigures()),
       );
-      expect(AppType.eyebrow.letterSpacing, 1.55);
-      expect(AppType.eyebrow.fontWeight, FontWeight.w600);
+      // Eyebrow (D-039): DM Mono 11 / w500 / tracked 1.6.
+      expect(AppType.eyebrow.letterSpacing, 1.6);
+      expect(AppType.eyebrow.fontWeight, FontWeight.w500);
+      expect(AppType.eyebrow.fontFamily, fontMono);
       expect(AppType.technical.fontSize, 13);
+      expect(AppType.technical.fontFamily, fontMono);
     });
 
     testWidgets('surface levels: flat has no border/shadow, raised '
@@ -153,17 +161,18 @@ void main() {
         );
         final deco = decoFor(level);
         final scheme = AppTheme.neoDark().colorScheme;
+        // D-039: NO level uses a shadow — separation is tone
+        // (flat) or a hairline border (raised / emphasis).
+        expect(deco.boxShadow, isNull);
         switch (level) {
           case NeoSurfaceLevel.flat:
-            expect(deco.boxShadow, isNull);
             expect(deco.border, isNull);
             expect(deco.color, scheme.surface);
           case NeoSurfaceLevel.raised:
-            expect(deco.boxShadow, isNotNull);
             expect(deco.border, isNotNull);
             expect(deco.color, scheme.surface);
           case NeoSurfaceLevel.emphasis:
-            expect(deco.boxShadow, isNotNull);
+            expect(deco.border, isNotNull);
             expect(deco.color, scheme.surfaceContainerHigh);
         }
       }
@@ -233,6 +242,26 @@ void main() {
 
     checkPairs('dark', AppTheme.neoDark());
     checkPairs('light', AppTheme.neoLight());
+  });
+
+  group('Editorial foundation (D-039)', () {
+    test('feature-surface extension present in both themes', () {
+      final d = AppTheme.neoDark().extension<EditorialColors>()!;
+      final l = AppTheme.neoLight().extension<EditorialColors>()!;
+      // The deep surface is the same device in both themes.
+      expect(d.deep, const Color(0xFF1C2822));
+      expect(l.deep, const Color(0xFF1C2822));
+      // Paper: the concept value on dark; lightest paper on light.
+      expect(d.paper, const Color(0xFFE8E5DA));
+      expect(l.paper, const Color(0xFFF2F0E8));
+      expect(d.onPaper, const Color(0xFF20231E));
+    });
+
+    test('editorial radius scale: controls 3, cards 10, nav 17', () {
+      expect(RadiusToken.control, 3);
+      expect(RadiusToken.card, 10);
+      expect(RadiusToken.nav, 17);
+    });
   });
 
   group('Settings Appearance switch (D-036)', () {

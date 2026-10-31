@@ -1,34 +1,54 @@
 /// CORE — theme tokens (PLAN.md architecture rule 4).
 /// Screens use these tokens / the Material theme, never raw literals.
 ///
-/// NEO UI (D-036, owner-approved 2026-10-30): the app now runs the
-/// Neo design system in BOTH themes —
-///   • dark  = Neo-dark (Midnight #0B0E14 base, D-008 preserved)
-///   • light = Neo light (lavender-grey surfaces from the original
-///     prototype)
-/// Route A (D-035) holds in both: TEAL is the functional accent;
-/// the lavender/plum family appears ONLY in the Nimo brand mark
-/// and the launcher icon, never as a UI colour. (Neo light's
-/// original plum functional accent is therefore not used.)
-/// Surfaces are flattened Neo (1px outline + at most one soft
-/// shadow on floating chrome) — neumorphic inset wells have no
-/// faithful Flutter equivalent and are not imitated (audit §D3).
+/// EDITORIAL (D-039, owner master brief 2026-10-31): the app's
+/// design language is now the editorial system extracted from
+/// `nimo_editorial_concept.html` —
+///   • dark  = deep green-charcoal (#111411), warm off-white ink,
+///     pale mint as the functional accent;
+///   • light = warm paper (#E8E5DA family), deepened teal;
+///   • type in three families: Playfair Display (serif display),
+///     DM Sans (UI/body), DM Mono (labels/metadata);
+///   • hairline rules instead of panel-first surfaces; two
+///     rationed feature surfaces (deep tint + paper, see
+///     [EditorialColors]).
+/// Route A (D-035) holds in both: mint/teal is the FUNCTIONAL
+/// accent; plum is brand-only (the concept's #C5A9D4 appears as
+/// the dark tertiary tint and in brand areas, never as a
+/// button/progress/selection colour).
 ///
-/// REFINEMENT (D-038, owner-approved 2026-10-31): Stage 1 of the
-/// visual-harmony programme adds (a) a typography ROLE system
-/// ([AppType]) over the system sans — the app has never shipped
-/// a custom font, and none is introduced; and (b) a surface
-/// hierarchy (canvas / content / emphasis) in the Neo kit, so
-/// borders and shadows become opt-in rather than universal.
+/// History: Neo system D-036/D-037, refined by D-038 (type
+/// roles, surface hierarchy, motion, parity). D-039 keeps the
+/// D-038 architecture — roles, levels, tokens, the parity
+/// method — and replaces the visual values. Method names
+/// (neoDark/neoLight, the neo_ui.dart kit) are retained to
+/// avoid churn across ~40 call sites; the justification is
+/// recorded in DECISIONS.md D-039.
+///
+/// FONTS: the three families are SIL OFL. They are wired by
+/// name WITH platform fallbacks, so the app renders correctly
+/// before the .ttf assets land (font binaries cannot travel
+/// the connector push route — D-007/D-039 §4). No runtime
+/// fetching, ever (offline-first).
 library;
 
 import 'package:flutter/material.dart';
 
-/// Design plates (previews in `lib/features/design_preview/`).
-/// Kept for the design-preview surface and its tests; the app
-/// itself runs the Neo themes below (D-036 supersedes D-008's
-/// plate-as-theme wiring, while keeping its dark-first choice:
-/// dark is the default theme mode).
+/// Bundled-family names (D-039). Until the assets land, the
+/// fallback chains render: serif → Noto Serif/Georgia,
+/// sans → Roboto, mono → Roboto Mono/monospace.
+const String fontSerif = 'Playfair Display';
+const String fontSans = 'DM Sans';
+const String fontMono = 'DM Mono';
+const List<String> fontSerifFallback = ['Georgia', 'Noto Serif', 'serif'];
+const List<String> fontSansFallback = ['Roboto', 'sans-serif'];
+const List<String> fontMonoFallback = ['Roboto Mono', 'monospace'];
+
+/// Design plates (legacy). Kept because the feature-test
+/// harness themes widgets via [AppTheme.forPlate]
+/// (AppPlate.midnight → the shipped dark theme); the preview
+/// screens that used the other plates were removed in D-039
+/// Stage 1 as dead code.
 enum AppPlate { calm, midnight, warm }
 
 extension AppPlateInfo on AppPlate {
@@ -54,8 +74,9 @@ extension AppPlateInfo on AppPlate {
       };
 }
 
-/// Neo spacing scale — the ONLY spacing source (D-036).
-/// 4pt grid, named steps, mirroring the prototype's --s1..--s12.
+/// Spacing scale — the ONLY spacing source. 4pt grid, named
+/// steps (carried from D-036 unchanged; it matches the
+/// concept's rhythm).
 abstract final class Space {
   static const double s1 = 4;
   static const double s2 = 8;
@@ -67,40 +88,38 @@ abstract final class Space {
   static const double s10 = 40;
   static const double s12 = 48;
 
-  /// Page margin token (the prototype's --page at phone width).
+  /// Page margin token.
   static const double page = 20;
 
-  /// Minimum touch target (Android/M3 — the prototype's 44pt
-  /// iOS value was raised to 48 in the audit).
+  /// Minimum touch target (Android/M3).
   static const double touch = 48;
 }
 
-/// Neo radius roles (the prototype's --r-*), not bare numbers.
+/// Radius roles (D-039): the concept's geometry — near-square
+/// controls (3), quiet cards (10), nav tiles (17), full circles
+/// reserved for checks, marks and avatars.
 abstract final class RadiusToken {
-  static const double sm = 8;
-  static const double control = 12;
-  static const double inset = 18;
-  static const double card = 24;
+  static const double sm = 3;
+  static const double control = 3;
+  static const double inset = 10;
+  static const double card = 10;
+  static const double nav = 17;
   static const double round = 999;
 }
 
-/// Typography ROLES (D-038 Stage 1) — the semantic layer over
-/// the Material [TextTheme]. Components ask for a role, never a
-/// raw size, so the hierarchy stays consistent across screens:
+/// Typography ROLES (D-038, re-familied D-039) — the semantic
+/// layer over the Material [TextTheme]. Components ask for a
+/// role, never a raw size:
 ///
-///   display        → the Today greeting (displayMedium)
-///   pageTitle      → screen headings (headlineLarge)
-///   sectionHeading → section heads (titleMedium)
-///   cardHeading    → headings inside cards (titleSmall)
-///   body / bodyLg  → running text (bodyMedium / bodyLarge)
-///   caption        → supporting descriptions (bodySmall)
-///   eyebrow        → uppercase meta lines (constant, below)
-///   statistic      → numbers with tabular figures (method)
-///   technical      → paths, ids, status detail (constant)
-///
-/// All roles use the system sans (Roboto on Android). No custom
-/// font is bundled and none is fetched at runtime (offline-first;
-/// a bundled display font is a separate future decision, D-038).
+///   display        → serif (displayMedium)
+///   pageTitle      → serif (headlineLarge)
+///   sectionHeading → serif (titleMedium)
+///   cardHeading    → sans (titleSmall)
+///   body / bodyLg  → sans (bodyMedium / bodyLarge)
+///   caption        → sans (bodySmall)
+///   eyebrow        → mono, uppercase (constant, below)
+///   statistic      → sans, tabular figures (method)
+///   technical      → mono (constant)
 abstract final class AppType {
   static TextStyle? display(TextTheme t) => t.displayMedium;
   static TextStyle? pageTitle(TextTheme t) => t.headlineLarge;
@@ -110,38 +129,45 @@ abstract final class AppType {
   static TextStyle? bodyLarge(TextTheme t) => t.bodyLarge;
   static TextStyle? caption(TextTheme t) => t.bodySmall;
 
-  /// Eyebrow / meta line: 12px, semibold, wide tracking.
-  /// Rendered uppercase by the caller (see NeoEyebrow).
+  /// Eyebrow / meta line (concept `.eyebrow`): DM Mono 11,
+  /// medium, wide tracking. Rendered uppercase by the caller
+  /// (see NeoEyebrow, which also draws the leading rule).
   static const TextStyle eyebrow = TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.w600,
-    letterSpacing: 1.55,
+    fontFamily: fontMono,
+    fontFamilyFallback: fontMonoFallback,
+    fontSize: 11,
+    fontWeight: FontWeight.w500,
+    letterSpacing: 1.6,
     height: 1.3,
   );
 
   /// Statistic: tabular figures so numbers align and never
-  /// jitter as they change. [size] 30 by default (pulse cells),
-  /// 32 in score wells.
+  /// jitter as they change. DM Sans — the concept sets values
+  /// in sans/serif and reserves mono for labels. [size] 30 by
+  /// default (pulse cells), 32 in score wells.
   static TextStyle statistic({double size = 30}) => TextStyle(
+        fontFamily: fontSans,
+        fontFamilyFallback: fontSansFallback,
         fontSize: size,
         fontWeight: FontWeight.w500,
         letterSpacing: size >= 28 ? -1 : -0.5,
         fontFeatures: const [FontFeature.tabularFigures()],
       );
 
-  /// Technical information: compact, even, readable — device
-  /// ids, file paths, sync status. Colour comes from the theme
-  /// at the use site.
+  /// Technical information: DM Mono — device ids, file paths,
+  /// sync status. Colour comes from the theme at the use site.
   static const TextStyle technical = TextStyle(
+    fontFamily: fontMono,
+    fontFamilyFallback: fontMonoFallback,
     fontSize: 13,
     fontWeight: FontWeight.w400,
     height: 1.45,
-    letterSpacing: 0.1,
+    letterSpacing: 0.2,
   );
 }
 
-/// Icon size roles (D-038): one family (Material outlined),
-/// three sizes — small inline, medium default, large feature.
+/// Icon size roles: one family (Material), three sizes —
+/// small inline, medium default, large feature.
 abstract final class AppIconSize {
   static const double sm = 18;
   static const double md = 20;
@@ -162,26 +188,22 @@ abstract final class BrandColors {
   static const Color plum = Color(0xFF302D38);
 
   /// Launcher-icon background: deep lavender-plum from the
-  /// board's Dark icon variation (retires #2F6B4F, D-036).
+  /// board's Dark icon variation (D-036).
   static const Color iconBackground = Color(0xFF38304F);
 }
 
-/// (Stage 1's short-lived FeatureColors block was retired in
-/// Stage 2: the learning card's restrained plum treatment uses
-/// BrandColors directly — see D-038's Stage 2 log entry.)
-
-/// Semantic colours per brightness (Neo's semantic set, D-036).
-/// Functional teal stays the primary in both themes; its value
-/// deepens on light so text/buttons keep contrast.
+/// Semantic colours per brightness, re-tinted to the editorial
+/// family (D-039). The warm warning/error carry over; success
+/// and info move toward the mint/sage family.
 ({Color success, Color warning, Color error, Color info}) semanticFor(
   Brightness brightness,
 ) =>
     switch (brightness) {
       Brightness.dark => (
-          success: const Color(0xFF4ADE80),
+          success: const Color(0xFF8FC7AE),
           warning: const Color(0xFFF5B86B),
-          error: const Color(0xFFFF8A8A),
-          info: const Color(0xFF7CC4F5),
+          error: const Color(0xFFF09A94),
+          info: const Color(0xFF9AB8C9),
         ),
       Brightness.light => (
           success: const Color(0xFF47715C),
@@ -191,103 +213,205 @@ abstract final class BrandColors {
         ),
     };
 
+/// The two rationed FEATURE surfaces (D-039, from the concept):
+/// a deep-green tint panel (the "pulse") and a paper card.
+/// At most one of each per screen. In light mode the deep
+/// surface is the inversion device; the paper surface becomes
+/// the lightest paper tone.
+@immutable
+class EditorialColors extends ThemeExtension<EditorialColors> {
+  const EditorialColors({
+    required this.deep,
+    required this.onDeep,
+    required this.deepMuted,
+    required this.deepLine,
+    required this.paper,
+    required this.onPaper,
+    required this.paperMuted,
+  });
+
+  /// Deep tint surface (#1C2822 in the concept, both themes).
+  final Color deep;
+  final Color onDeep;
+
+  /// Muted text on the deep surface.
+  final Color deepMuted;
+
+  /// Hairline / circle line-art colour on the deep surface.
+  final Color deepLine;
+
+  /// Paper feature surface.
+  final Color paper;
+  final Color onPaper;
+
+  /// Muted text on the paper surface.
+  final Color paperMuted;
+
+  static EditorialColors of(BuildContext context) =>
+      Theme.of(context).extension<EditorialColors>()!;
+
+  static const EditorialColors dark = EditorialColors(
+    deep: Color(0xFF1C2822),
+    onDeep: Color(0xFFEDF0E6),
+    deepMuted: Color(0xFFA5B2A7),
+    deepLine: Color(0xFF2A3A30),
+    paper: Color(0xFFE8E5DA),
+    onPaper: Color(0xFF20231E),
+    paperMuted: Color(0xFF60685E),
+  );
+
+  static const EditorialColors light = EditorialColors(
+    deep: Color(0xFF1C2822),
+    onDeep: Color(0xFFEDF0E6),
+    deepMuted: Color(0xFFA5B2A7),
+    deepLine: Color(0xFF2A3A30),
+    paper: Color(0xFFF2F0E8),
+    onPaper: Color(0xFF20231E),
+    paperMuted: Color(0xFF60685E),
+  );
+
+  @override
+  EditorialColors copyWith({
+    Color? deep,
+    Color? onDeep,
+    Color? deepMuted,
+    Color? deepLine,
+    Color? paper,
+    Color? onPaper,
+    Color? paperMuted,
+  }) =>
+      EditorialColors(
+        deep: deep ?? this.deep,
+        onDeep: onDeep ?? this.onDeep,
+        deepMuted: deepMuted ?? this.deepMuted,
+        deepLine: deepLine ?? this.deepLine,
+        paper: paper ?? this.paper,
+        onPaper: onPaper ?? this.onPaper,
+        paperMuted: paperMuted ?? this.paperMuted,
+      );
+
+  @override
+  EditorialColors lerp(EditorialColors? other, double t) {
+    if (other == null) return this;
+    return EditorialColors(
+      deep: Color.lerp(deep, other.deep, t)!,
+      onDeep: Color.lerp(onDeep, other.onDeep, t)!,
+      deepMuted: Color.lerp(deepMuted, other.deepMuted, t)!,
+      deepLine: Color.lerp(deepLine, other.deepLine, t)!,
+      paper: Color.lerp(paper, other.paper, t)!,
+      onPaper: Color.lerp(onPaper, other.onPaper, t)!,
+      paperMuted: Color.lerp(paperMuted, other.paperMuted, t)!,
+    );
+  }
+}
+
 abstract final class AppTheme {
-  /// The app's DARK theme: Neo-dark (D-036). Default mode.
-  static ThemeData neoDark() => _neo(Brightness.dark);
+  /// The app's DARK theme: Editorial dark (D-039). Default mode.
+  static ThemeData neoDark() => _editorial(Brightness.dark);
 
-  /// The app's LIGHT theme: Neo light (D-036).
-  static ThemeData neoLight() => _neo(Brightness.light);
+  /// The app's LIGHT theme: Editorial paper (D-039).
+  static ThemeData neoLight() => _editorial(Brightness.light);
 
-  static ThemeData _neo(Brightness brightness) {
+  static ThemeData _editorial(Brightness brightness) {
     final dark = brightness == Brightness.dark;
-    final primary = dark ? const Color(0xFF2DD4BF) : const Color(0xFF0B7263);
     final scheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF2DD4BF),
+      seedColor: const Color(0xFFA9D5C6),
       brightness: brightness,
     ).copyWith(
-      primary: primary,
-      onPrimary: dark ? const Color(0xFF06251F) : Colors.white,
-      surface: dark ? const Color(0xFF10141C) : const Color(0xFFF0EFF2),
-      onSurface: dark ? const Color(0xFFE8ECF4) : const Color(0xFF302D38),
+      primary: dark ? const Color(0xFFA9D5C6) : const Color(0xFF2F6B57),
+      onPrimary: dark ? const Color(0xFF142019) : const Color(0xFFF2F0E8),
+      primaryContainer:
+          dark ? const Color(0xFF1C2822) : const Color(0xFFCDE3D8),
+      onPrimaryContainer:
+          dark ? const Color(0xFFA9D5C6) : const Color(0xFF1E3A2F),
+      secondary: dark ? const Color(0xFF6EAA98) : const Color(0xFF41765F),
+      onSecondary: dark ? const Color(0xFF0E1A13) : Colors.white,
+      // Brand tint (concept plum) — a tint role, never the
+      // functional accent (Route A).
+      tertiary: dark ? const Color(0xFFC5A9D4) : const Color(0xFF7A5C8F),
+      onTertiary: dark ? const Color(0xFF241A2E) : Colors.white,
+      surface: dark ? const Color(0xFF181D19) : const Color(0xFFE8E5DA),
+      onSurface: dark ? const Color(0xFFF1F0E9) : const Color(0xFF20231E),
       onSurfaceVariant:
-          dark ? const Color(0xFF9AA5B8) : const Color(0xFF5E5967),
+          dark ? const Color(0xFF9A9F94) : const Color(0xFF53584C),
       surfaceContainerLowest:
-          dark ? const Color(0xFF07090D) : const Color(0xFFE9E8ED),
+          dark ? const Color(0xFF0C0F0C) : const Color(0xFFD8D4C2),
       surfaceContainerLow:
-          dark ? const Color(0xFF131824) : const Color(0xFFE9E8ED),
+          dark ? const Color(0xFF131713) : const Color(0xFFE2DECF),
       surfaceContainer:
-          dark ? const Color(0xFF171E2E) : const Color(0xFFF0EFF2),
+          dark ? const Color(0xFF181D19) : const Color(0xFFE8E5DA),
       surfaceContainerHigh:
-          dark ? const Color(0xFF171C28) : const Color(0xFFF5F4F6),
-      outline: dark ? const Color(0xFF232A3A) : const Color(0xFFDBD8E0),
+          dark ? const Color(0xFF202720) : const Color(0xFFF2F0E8),
+      surfaceContainerHighest:
+          dark ? const Color(0xFF262E26) : const Color(0xFFF7F5EE),
+      outline: dark ? const Color(0xFF2C332C) : const Color(0xFFC6C2B0),
       outlineVariant:
-          dark ? const Color(0xFF1D2434) : const Color(0xFFE3E0E8),
+          dark ? const Color(0xFF20261F) : const Color(0xFFD5D1BF),
       error: semanticFor(brightness).error,
     );
     final scaffold =
-        dark ? const Color(0xFF0B0E14) : const Color(0xFFEEEDF0);
+        dark ? const Color(0xFF111411) : const Color(0xFFDFDBC9);
     final base = ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
       brightness: brightness,
       scaffoldBackgroundColor: scaffold,
+      fontFamily: fontSans,
+      fontFamilyFallback: fontSansFallback,
+      extensions: [dark ? EditorialColors.dark : EditorialColors.light],
     );
+    TextStyle? serif(TextStyle? s, double size, FontWeight w,
+            {double ls = -0.4, double h = 1.2}) =>
+        s?.copyWith(
+          fontFamily: fontSerif,
+          fontFamilyFallback: fontSerifFallback,
+          fontSize: size,
+          fontWeight: w,
+          letterSpacing: ls,
+          height: h,
+        );
     final textTheme = base.textTheme.copyWith(
-      // Type roles (D-038, building on D-037's values): system
-      // sans throughout; hierarchy from size + weight + tracking,
-      // not colour. Body 15–16, small text floored at 12–13.
-      bodyLarge:
-          base.textTheme.bodyLarge?.copyWith(fontSize: 16, height: 1.45),
-      bodyMedium:
-          base.textTheme.bodyMedium?.copyWith(fontSize: 15, height: 1.45),
-      // Caption role: supporting descriptions, restrained.
-      bodySmall:
-          base.textTheme.bodySmall?.copyWith(fontSize: 13, height: 1.4),
-      labelSmall: base.textTheme.labelSmall?.copyWith(fontSize: 12),
-      // Action labels (buttons) read semibold, not medium.
-      labelLarge: base.textTheme.labelLarge
-          ?.copyWith(fontSize: 14, fontWeight: FontWeight.w600),
-      // Card-heading role (new in D-038): inside-panel headings,
-      // one step under section heads.
+      // Serif display family (D-039): display, page title,
+      // section heads, feature titles.
+      displayMedium: serif(base.textTheme.displayMedium, 40,
+          FontWeight.w500,
+          ls: -1.0, h: 1.08),
+      headlineLarge: serif(base.textTheme.headlineLarge, 30,
+          FontWeight.w500,
+          ls: -0.6, h: 1.15),
+      headlineMedium: serif(base.textTheme.headlineMedium, 26,
+          FontWeight.w500,
+          ls: -0.4, h: 1.2),
+      titleLarge: serif(base.textTheme.titleLarge, 22, FontWeight.w600,
+          ls: -0.2, h: 1.25),
+      // Section-heading role: serif 20 (concept `.section-head`
+      // at phone width).
+      titleMedium: serif(base.textTheme.titleMedium, 20, FontWeight.w500,
+          ls: -0.25, h: 1.3),
+      // Card-heading role stays sans: 16 / w600 (unchanged).
       titleSmall: base.textTheme.titleSmall?.copyWith(
         fontSize: 16,
         fontWeight: FontWeight.w600,
         letterSpacing: -0.2,
         height: 1.3,
       ),
-      // Neo section heads are 18 / w600 / −0.35 (`.section-head`).
-      titleMedium: base.textTheme.titleMedium?.copyWith(
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.35,
-        height: 1.3,
+      bodyLarge:
+          base.textTheme.bodyLarge?.copyWith(fontSize: 16, height: 1.5),
+      bodyMedium:
+          base.textTheme.bodyMedium?.copyWith(fontSize: 15, height: 1.5),
+      bodySmall:
+          base.textTheme.bodySmall?.copyWith(fontSize: 13, height: 1.45),
+      // Micro labels are mono (nav labels, tiny meta).
+      labelSmall: base.textTheme.labelSmall?.copyWith(
+        fontFamily: fontMono,
+        fontFamilyFallback: fontMonoFallback,
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.8,
       ),
-      titleLarge: base.textTheme.titleLarge?.copyWith(
-        fontSize: 22,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.4,
-        height: 1.25,
-      ),
-      headlineMedium: base.textTheme.headlineMedium?.copyWith(
-        fontSize: 28,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.5,
-        height: 1.25,
-      ),
-      // Neo page titles (`.page-title h1` = --title 30) and the
-      // Today greeting (--display 36).
-      headlineLarge: base.textTheme.headlineLarge?.copyWith(
-        fontSize: 30,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -1.0,
-        height: 1.22,
-      ),
-      displayMedium: base.textTheme.displayMedium?.copyWith(
-        fontSize: 36,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -1.25,
-        height: 1.22,
-      ),
+      // Action labels (buttons) read semibold sans.
+      labelLarge: base.textTheme.labelLarge
+          ?.copyWith(fontSize: 14, fontWeight: FontWeight.w600),
     );
     final cardShape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(RadiusToken.card),
@@ -328,7 +452,7 @@ abstract final class AppTheme {
       ),
       chipTheme: base.chipTheme.copyWith(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(RadiusToken.round),
+          borderRadius: BorderRadius.circular(RadiusToken.control),
           side: BorderSide(color: scheme.outline),
         ),
       ),
@@ -344,9 +468,29 @@ abstract final class AppTheme {
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: scheme.surfaceContainerLow,
-        indicatorColor: scheme.primary.withValues(alpha: 0.18),
+        backgroundColor: scaffold,
+        indicatorColor: scheme.primaryContainer,
         elevation: 0,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return TextStyle(
+            fontFamily: fontMono,
+            fontFamilyFallback: fontMonoFallback,
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 1.1,
+            color: selected
+                ? scheme.onSurface
+                : scheme.onSurfaceVariant,
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            color: selected ? scheme.primary : scheme.onSurfaceVariant,
+            size: AppIconSize.md,
+          );
+        }),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
@@ -354,13 +498,13 @@ abstract final class AppTheme {
           borderRadius: BorderRadius.circular(RadiusToken.control),
         ),
       ),
-      dividerTheme: DividerThemeData(color: scheme.outline, thickness: 1),
+      dividerTheme: DividerThemeData(color: scheme.outlineVariant, thickness: 1),
     );
   }
 
-  /// Legacy plate themes — design previews + their tests only.
-  /// The midnight plate now resolves to the Neo-dark theme so
-  /// previews track the shipped design (D-036).
+  /// Legacy plate themes — kept for the test harness
+  /// ([forPlate]); the midnight plate resolves to the shipped
+  /// dark theme so feature tests track the real design.
   static ThemeData light() {
     final scheme = ColorScheme.fromSeed(seedColor: AppPlate.calm.seed);
     return ThemeData(
@@ -378,7 +522,7 @@ abstract final class AppTheme {
     );
   }
 
-  /// Theme for any design plate (design preview + tests).
+  /// Theme for any design plate (test harness).
   static ThemeData forPlate(AppPlate plate) => switch (plate) {
         AppPlate.calm => light(),
         AppPlate.midnight => neoDark(),
@@ -409,10 +553,11 @@ abstract final class AppTheme {
   }
 }
 
-/// The owner's theme choice (D-036): Neo dark (default, D-008's
-/// dark-first pick) or Neo light. Persisted in app_settings
-/// under [themeModeSettingKey]; no "system" option — the app is
-/// dark-first by decision, and the switch is one tap in Settings.
+/// The owner's theme choice: Editorial dark (default, D-008's
+/// dark-first pick) or Editorial paper light. Persisted in
+/// app_settings under [themeModeSettingKey]; no "system"
+/// option — the app is dark-first by decision, and the switch
+/// is one tap in Settings.
 enum AppThemeChoice {
   dark,
   light;
@@ -430,8 +575,8 @@ enum AppThemeChoice {
 const String themeModeSettingKey = 'theme_mode';
 
 /// Shared spacing tokens. The historical 3-step scale, kept as
-/// aliases of the Neo [Space] steps so every existing screen
-/// reads on the Neo grid unchanged (D-036).
+/// aliases of the [Space] steps so every existing screen reads
+/// on the grid unchanged.
 abstract final class Gap {
   static const double sm = Space.s2;
   static const double md = Space.s4;

@@ -3,6 +3,49 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-31 — D-039 Stage 1: Editorial design-system foundation (main chat)
+- Stage 0 approved by the owner as-is; font Route A chosen
+  (bundle the real faces; owner supplies the .ttf files).
+- `theme.dart` rebuilt on the Editorial system: green-
+  charcoal dark (#111411 canvas, #181D19 surface, #202720
+  raised) + paper light (#DFDBC9 canvas, #E8E5DA surface);
+  mint #A9D5C6 / deepened #2F6B57 functional; plum tertiary
+  tint, brand-only (Route A intact); semantics re-tinted
+  warm. Type re-familied: Playfair Display (display/page/
+  section/feature titles), DM Sans (UI/body/statistics),
+  DM Mono (eyebrow/technical/nav labels) — wired BY NAME
+  with platform fallbacks; no pubspec font block until the
+  binaries land (a missing-asset reference would break the
+  build). Radius scale 3/10/17/999. `EditorialColors`
+  extension carries the two feature surfaces (deep #1C2822
+  both themes; paper #E8E5DA dark / #F2F0E8 light).
+  Navigation bar themed: canvas bg, mono labels, mint
+  selected icon.
+- Kit (`neo_ui.dart`) genuinely re-founded, not re-tokenised
+  only: ALL neumorphic shadows deleted (hairline + tone in
+  both themes now); NeoCheck is a circle; NeoEyebrow gains
+  the concept's 24px leading rule in the accent; NeoNotice
+  rides primaryContainer; NeoGlyph is the concept's bordered
+  square; NeoChip/NeoTag/steppers on the editorial radius;
+  section-head actions in mono; NEW `FeaturePanel` (deep /
+  paper) with the concentric circle line-art. Motion system
+  untouched and compatible.
+- Legacy cleanup: `redesign_explore/` (never pushed) and
+  `design_preview/` deleted locally after import/route/test
+  verification (nothing referenced them at runtime; their
+  smoke tests deleted with them, −6 tests). NOTE: the
+  design_preview pair WAS in two old snapshots, and the
+  connector cannot delete — the two remote copies are
+  orphaned until the owner deletes them on GitHub (can ride
+  along with the font upload).
+- Font delivery pack: `assets/fonts/README.md` lists the
+  exact 8 .ttf filenames + 3 OFL licence files required.
+- Verified here: `flutter analyze` clean; `flutter test`
+  **517/517** (521 baseline − 6 deleted smoke tests + 2 new
+  foundation tests; the 18 computed parity pairs pass on
+  the new palette unchanged). Preview:
+  `files/nimo-editorial-stage1-preview.html`.
+
 ## 2026-10-31 — D-038 Stage 6: motion, accessibility, responsive (main chat)
 - Motion foundation: `lib/core/motion.dart` — the spec's
   tokens (micro 150 / standard 250 cubic(0.32,0.72,0,1) /

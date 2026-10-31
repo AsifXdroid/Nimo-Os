@@ -623,8 +623,52 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
     judgement is on-device (motion feel, wells, parity in
     real light) — the owner's.
 
+- **D-039 (2026-10-31) — "Editorial" renovation programme
+  (owner master brief + `nimo_editorial_concept.html`).**
+  A full UI/UX renovation to an editorial design language:
+  green-charcoal dark (`#111411`) + warm paper light, pale
+  mint functional teal (`#A9D5C6`/`#6EAA98`), plum
+  `#C5A9D4` brand-only (D-035 Route A UNCHANGED), serif/
+  sans/mono type families (Playfair Display / DM Sans /
+  DM Mono, OFL), hairline-ruled composition instead of
+  panel-first surfaces, two rationed feature surfaces
+  (deep tint + paper), radius scale 3/10/17/full. Stage 0
+  audit + system + plan:
+  `files/RENOVATION_STAGE0-2026-10-31.md` in the goal
+  workspace. Stages 1–7 per the brief (foundation → shell/
+  Today → Learn → Progress/Spaces/Goals → Settings/
+  secondary → parity/motion/a11y → QA), each analyze +
+  full suite + push, per the brief's execution strategy.
+  Standing calls: the concept's triangle mark NOT adopted
+  (Face Mark stays, D-035); plan timeline shows no clock
+  times (the data model has none — never invent data);
+  brand tagline unchanged ("a little better, every day");
+  Material icon set retained (one consistent set over a
+  mixed one). Font binaries cannot travel the connector
+  push (D-007 constraint): families are wired with
+  fallbacks in Stage 1; the real faces land only if the
+  owner supplies the .ttf files once (route A, recommended)
+  — non-blocking either way. `redesign_explore/` +
+  `design_preview/` (dead, unpushed) to be deleted in
+  Stage 1. All D-001…D-038 product rules preserved
+  verbatim; presentation-only by construction.
+  - **Stage 1 DONE 2026-10-31 (owner-approved Stage 0 +
+    font Route A):** theme + kit rebuilt on the Editorial
+    system (see PROGRESS_LOG); analyze clean, tests 517/517
+    (521 − 6 deleted smoke tests + 2 new). Font status:
+    families wired with fallbacks; binaries NOT yet in the
+    repo — the owner supplies the 8 .ttf + 3 OFL files per
+    `assets/fonts/README.md`, then a text-only follow-up
+    commit adds the pubspec `fonts:` block. Until then the
+    app renders Noto Serif / Roboto / Roboto Mono fallbacks.
+    Remote residue: `design_preview.dart` +
+    `design_preview_test.dart` remain on GitHub (connector
+    cannot delete); owner to delete via web UI.
+
 ## Open — awaiting owner
 
 - D-037's interpretation call 1 (teal accent in both themes)
   stands; call 2 (surfaces) and call 3 (plum learning card)
   are superseded by D-038 above.
+- D-039 font route: owner supplies the OFL .ttf files once
+  (recommended) or the renovation ships on font fallbacks.

@@ -8,6 +8,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../review/review_store.dart';
@@ -115,7 +116,13 @@ class _LearnScreenState extends State<LearnScreen> {
   @override
   Widget build(BuildContext context) {
     if (!_loaded) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        body: Padding(
+          padding: EdgeInsets.fromLTRB(
+              Space.page, Gap.md, Space.page, Gap.lg),
+          child: DelayedSkeleton(skeleton: SkeletonList(panels: 2)),
+        ),
+      );
     }
     final arcPacks = [
       for (final p in _packs)
@@ -179,12 +186,12 @@ class _LearnScreenState extends State<LearnScreen> {
   Widget _pulsePanel(BuildContext context) {
     final theme = Theme.of(context);
     final total = _due + _new;
-    Widget cell(String number, String label) => Expanded(
+    Widget cell(int number, String label) => Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                number,
+              AnimatedCount(
+                value: number,
                 style: AppType.statistic(),
               ),
               Text(
@@ -212,9 +219,9 @@ class _LearnScreenState extends State<LearnScreen> {
             const SizedBox(height: Space.s5),
             Row(
               children: [
-                cell('$_due', 'due to revisit'),
-                cell('$_new', 'new to explore'),
-                cell('${_packs.length}', 'packs in your library'),
+                cell(_due, 'due to revisit'),
+                cell(_new, 'new to explore'),
+                cell(_packs.length, 'packs in your library'),
               ],
             ),
           ],

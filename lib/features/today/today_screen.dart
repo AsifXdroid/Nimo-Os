@@ -10,6 +10,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../core/brand.dart';
+import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../goals/goals_store.dart';
@@ -157,6 +158,12 @@ class TodayScreen extends StatefulWidget {
 class _TodayScreenState extends State<TodayScreen> {
   late Future<_HubData> _data;
   bool _showWeek = false;
+
+  /// Goal-completion tracking (D-038 Stage 6, Tier 3): the
+  /// previous fraction per goal, and the goals that crossed
+  /// to complete on the latest load (celebrated once).
+  final Map<int, double> _prevGoalFractions = {};
+  final Set<int> _justCompleted = {};
   final _addController = TextEditingController();
 
   @override
@@ -197,6 +204,13 @@ class _TodayScreenState extends State<TodayScreen> {
     }
     final recent = await widget.store.recentItems(limit: 5);
     final goals = await widget.goalsStore.goals();
+    for (final g in goals) {
+      final prev = _prevGoalFractions[g.id];
+      if (prev != null && prev < 1 && g.fraction >= 1) {
+        _justCompleted.add(g.id);
+      }
+      _prevGoalFractions[g.id] = g.fraction;
+    }
     final sections = await widget.todayStore.homeSectionVisibility();
     final inboxCount = await widget.learn.store.inboxCountOrZero();
     final dueCount = await widget.learn.engine.dueCount();
@@ -375,7 +389,13 @@ class _TodayScreenState extends State<TodayScreen> {
         future: _data,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+            // Skeleton after 150ms (spec §6) — local reads
+            // usually land first and show nothing.
+            return const Padding(
+              padding: EdgeInsets.fromLTRB(
+                  Space.page, Gap.md, Space.page, Gap.lg),
+              child: DelayedSkeleton(skeleton: SkeletonList()),
+            );
           }
           final data = snapshot.data!;
           return ListView(
@@ -1176,12 +1196,19 @@ class _TodayScreenState extends State<TodayScreen> {
       {bool last = false}) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return InkWell(
-      onTap: () async {
-        await widget.todayStore.toggleItem(item);
-        await _afterPlanEdit();
-        setState(_reload);
-      },
+    // A11y (D-038 Stage 6): the row announces as a checkbox
+    // with its state, not just a tappable text block.
+    return Semantics(
+      container: true,
+      button: true,
+      checked: item.done,
+      label: item.title,
+      child: InkWell(
+        onTap: () async {
+          await widget.todayStore.toggleItem(item);
+          await _afterPlanEdit();
+          setState(_reload);
+        },
       child: Container(
         decoration: last
             ? null
@@ -1232,6 +1259,7 @@ class _TodayScreenState extends State<TodayScreen> {
               ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -1381,6 +1409,14 @@ class _TodayScreenState extends State<TodayScreen> {
   Widget _goalsSection(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    if (_justCompleted.isNotEmpty) {
+      // Celebrate once: after this build, later rebuilds show
+      // the badge statically.
+      final shown = Set<int>.of(_justCompleted);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _justCompleted.removeAll(shown);
+      });
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1414,6 +1450,12 @@ class _TodayScreenState extends State<TodayScreen> {
                           style: theme.textTheme.titleSmall
                               ?.copyWith(color: scheme.primary),
                         ),
+                        if (goal.fraction >= 1) ...[
+                          const SizedBox(width: Space.s3),
+                          GoalCompletionBadge(
+                            celebrate: _justCompleted.contains(goal.id),
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: Space.s4),

@@ -8,6 +8,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../items/item_detail_screen.dart';
@@ -172,7 +173,11 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
         future: _data,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+            return const Padding(
+              padding: EdgeInsets.fromLTRB(
+                  Space.page, Gap.md, Space.page, Gap.lg),
+              child: DelayedSkeleton(skeleton: SkeletonList(panels: 2)),
+            );
           }
           final data = snapshot.data!;
           Workspace? selected;

@@ -18,6 +18,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../review/review_store.dart';
@@ -843,11 +844,14 @@ class _SessionScreenState extends State<SessionScreen> {
     final accuracy = distinct == 0 ? 0.0 : run.firstTryCorrect / distinct * 100;
     final history = _history;
     final teaser = _pack?.arc?['teaser'] as String?;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-          Space.page, Gap.md, Space.page, Gap.lg),
-      children: [
-        NeoEyebrow(isBoss ? 'The boss level' : 'A little more understanding'),
+    // Tier 2 (spec §3): the completion surface settles in
+    // warm; the headline numbers count up.
+    return WarmReveal(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(
+            Space.page, Gap.md, Space.page, Gap.lg),
+        children: [
+          NeoEyebrow(isBoss ? 'The boss level' : 'A little more understanding'),
         const SizedBox(height: Space.s3),
         Text(
           isBoss ? 'Boss level complete' : 'Session complete',
@@ -862,11 +866,16 @@ class _SessionScreenState extends State<SessionScreen> {
           ),
         ],
         const SizedBox(height: Gap.md),
-        Text('Cards answered: $distinct', style: theme.textTheme.bodyLarge),
-        const SizedBox(height: Gap.sm),
-        Text(
-          'First-try accuracy: ${accuracy.round()}%',
+        AnimatedCount(
+          value: distinct,
           style: theme.textTheme.bodyLarge,
+          format: (v) => 'Cards answered: $v',
+        ),
+        const SizedBox(height: Gap.sm),
+        AnimatedCount(
+          value: accuracy.round(),
+          style: theme.textTheme.bodyLarge,
+          format: (v) => 'First-try accuracy: $v%',
         ),
         if (history != null) ...[
           const SizedBox(height: Gap.sm),
@@ -886,7 +895,11 @@ class _SessionScreenState extends State<SessionScreen> {
               'Enjoyment — you ${enjoymentLabels[_finalEnjoyment! - 1]} '
               '· usual '
               '${enjoymentLabels[history.enjoyment!.round() - 1]}',
-              style: theme.textTheme.bodyLarge,
+              // The one warm colour, reserved for the enjoyment
+              // moment (spec §3): the theme's warm semantic.
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: semanticFor(theme.brightness).warning,
+              ),
             ),
           ],
         ],
@@ -894,12 +907,13 @@ class _SessionScreenState extends State<SessionScreen> {
           const SizedBox(height: Gap.md),
           Text('Next time: $teaser', style: theme.textTheme.bodyMedium),
         ],
-        const SizedBox(height: Gap.lg),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, true),
-          child: const Text('Done'),
-        ),
-      ],
+          const SizedBox(height: Gap.lg),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Done'),
+          ),
+        ],
+      ),
     );
   }
 }

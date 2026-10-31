@@ -11,6 +11,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../review/review_store.dart';
@@ -159,7 +160,11 @@ class _ProgressScreenState extends State<ProgressScreen> {
             );
           }
           if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+            return const Padding(
+              padding: EdgeInsets.fromLTRB(
+                  Space.page, Gap.md, Space.page, Gap.lg),
+              child: DelayedSkeleton(skeleton: SkeletonList()),
+            );
           }
           final data = snapshot.data!;
           final model = buildJourney(data.journey, today: DateTime.now());
@@ -210,7 +215,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
                 children: [
                   Icon(icon, size: 18, color: theme.colorScheme.primary),
                   const SizedBox(width: 4),
-                  Text(value, style: AppType.statistic(size: 22)),
+                  AnimatedCount(
+                    value: int.tryParse(value) ?? 0,
+                    style: AppType.statistic(size: 22),
+                  ),
                 ],
               ),
               Text(label, style: theme.textTheme.labelSmall),

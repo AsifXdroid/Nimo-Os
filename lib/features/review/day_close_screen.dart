@@ -14,6 +14,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../learn/learn_store.dart';
@@ -378,12 +379,15 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
       children: [
         Text('Day closed', style: theme.textTheme.titleMedium),
         const SizedBox(height: Gap.md),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: NeoScoreWell(
-                label: 'Done score · auto',
+        // Tier 2 (spec §3): the reveal surface settles in warm;
+        // the two scores tween separately inside their wells.
+        WarmReveal(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: NeoScoreWell(
+                  label: 'Done score · auto',
                 value: '${saved.doneScore ?? '—'}',
                 sub: 'Based on your core plan',
                 suffix: ' / 100',
@@ -404,7 +408,8 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
                     saved.selfScore == null ? null : saved.selfScore! / 10,
               ),
             ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: Gap.md),
         const NeoNotice(

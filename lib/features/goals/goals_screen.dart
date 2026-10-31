@@ -4,6 +4,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../shared_ui.dart';
@@ -45,7 +46,11 @@ class _GoalsScreenState extends State<GoalsScreen> {
         future: _goals,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+            return const Padding(
+              padding: EdgeInsets.fromLTRB(
+                  Space.page, Gap.md, Space.page, Gap.lg),
+              child: DelayedSkeleton(skeleton: SkeletonList(panels: 2)),
+            );
           }
           final list = snapshot.data!;
           return ListView(
@@ -130,8 +135,12 @@ class _GoalsScreenState extends State<GoalsScreen> {
   }
 }
 
-/// One goal with progress bar and −/+ stepper.
-class GoalCard extends StatelessWidget {
+/// One goal with progress bar and −/+ stepper. Stateful for
+/// one reason (D-038 Stage 6, Tier 3): it notices the moment
+/// the goal CROSSES into complete, so the completion badge can
+/// celebrate exactly once — later rebuilds and revisits show
+/// the badge statically.
+class GoalCard extends StatefulWidget {
   const GoalCard({
     super.key,
     required this.goal,
@@ -149,13 +158,29 @@ class GoalCard extends StatelessWidget {
   final NeoSurfaceLevel level;
 
   @override
+  State<GoalCard> createState() => _GoalCardState();
+}
+
+class _GoalCardState extends State<GoalCard> {
+  bool _justCompleted = false;
+
+  @override
+  void didUpdateWidget(GoalCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.goal.fraction < 1 && widget.goal.fraction >= 1) {
+      _justCompleted = true;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final goal = widget.goal;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: Space.s5),
       child: NeoRaisedSm(
-        level: level,
+        level: widget.level,
         radius: RadiusToken.card,
         padding: const EdgeInsets.all(Space.s6),
         child: Column(
@@ -174,11 +199,15 @@ class GoalCard extends StatelessWidget {
                   style: theme.textTheme.titleMedium
                       ?.copyWith(color: scheme.primary),
                 ),
-                if (onDelete != null)
+                if (goal.fraction >= 1) ...[
+                  const SizedBox(width: Space.s3),
+                  GoalCompletionBadge(celebrate: _justCompleted),
+                ],
+                if (widget.onDelete != null)
                   IconButton(
                     icon: const Icon(Icons.delete_outline),
                     tooltip: 'Delete goal',
-                    onPressed: onDelete,
+                    onPressed: widget.onDelete,
                   ),
               ],
             ),
@@ -189,17 +218,22 @@ class GoalCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    goal.unit.isEmpty
-                        ? 'steps completed'
-                        : '${goal.unit} completed',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: scheme.onSurfaceVariant),
+                    goal.fraction >= 1
+                        ? 'Goal reached — nicely done.'
+                        : (goal.unit.isEmpty
+                            ? 'steps completed'
+                            : '${goal.unit} completed'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: goal.fraction >= 1
+                          ? scheme.primary
+                          : scheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
                 NeoStepperButton(
                   icon: Icons.remove,
                   tooltip: 'Decrease',
-                  onTap: goal.current <= 0 ? null : () => onStep(-1),
+                  onTap: goal.current <= 0 ? null : () => widget.onStep(-1),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: Space.s4),
@@ -214,7 +248,7 @@ class GoalCard extends StatelessWidget {
                   tooltip: 'Increase',
                   onTap: goal.current >= goal.target
                       ? null
-                      : () => onStep(1),
+                      : () => widget.onStep(1),
                 ),
               ],
             ),

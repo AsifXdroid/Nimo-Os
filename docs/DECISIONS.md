@@ -612,6 +612,16 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
     joins into stacked captions, keeping short two-part joins.
     Floor 6/7 (focus visibility, reduced motion) land in
     Stage 6, already approved there.
+  - **Programme COMPLETE 2026-10-31:** all six stages built,
+    verified and pushed in sequence (Stage 1 `364e69a2`,
+    Stage 2 `2b4c8b2f`, Stage 3 `21c8bb9c`, Stage 4 `9867489f`,
+    Stage 5 `b0b1a869`, Stage 6 — see PROGRESS_LOG). Final
+    suite: analyze clean, **521/521**. Stage 6 scope note:
+    the motion spec's ambient drift (§5) and first-entry
+    stagger were NOT in this programme's approval list and
+    remain unbuilt; press feedback is Material ink. Remaining
+    judgement is on-device (motion feel, wells, parity in
+    real light) — the owner's.
 
 ## Open — awaiting owner
 

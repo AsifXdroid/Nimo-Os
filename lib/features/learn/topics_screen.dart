@@ -11,6 +11,7 @@ library;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../shared_ui.dart';
@@ -173,7 +174,11 @@ class _TopicsScreenState extends State<TopicsScreen> {
         label: const Text('Topic'),
       ),
       body: !_loaded
-          ? const Center(child: CircularProgressIndicator())
+          ? const Padding(
+              padding: EdgeInsets.fromLTRB(
+                  Space.page, Gap.md, Space.page, Gap.lg),
+              child: DelayedSkeleton(skeleton: SkeletonList(panels: 2)),
+            )
           : ListView(
               padding: const EdgeInsets.fromLTRB(
                   Space.page, Gap.md, Space.page, Gap.lg),

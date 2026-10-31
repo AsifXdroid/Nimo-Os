@@ -17,6 +17,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../core/brand.dart';
+import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import 'backup_section.dart';
@@ -203,7 +204,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (s == null)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: Gap.md),
-              child: Center(child: CircularProgressIndicator()),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SkeletonBlock(width: 220),
+                  SizedBox(height: Gap.md),
+                  SkeletonBlock(width: 180),
+                ],
+              ),
             )
           else ...[
             SwitchListTile(

@@ -26,6 +26,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import 'motion.dart';
 import 'theme.dart';
 
 /// Surface levels (D-038 §4.3): how much separation a surface
@@ -360,17 +361,28 @@ class NeoTrack extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final v = value.clamp(0.0, 1.0);
-    return Container(
-      height: height,
-      decoration: neoWellDecoration(context, radius: RadiusToken.round),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: FractionallySizedBox(
-          widthFactor: v,
-          child: Container(
-            decoration: BoxDecoration(
-              color: color ?? scheme.primary,
-              borderRadius: BorderRadius.circular(RadiusToken.round),
+    // D-038 Stage 6 (spec §4 AnimatedBar): the fill tweens to
+    // its value over `standard`; reduced motion snaps.
+    return Semantics(
+      label: 'Progress',
+      value: '${(v * 100).round()}%',
+      child: Container(
+        height: height,
+        decoration: neoWellDecoration(context, radius: RadiusToken.round),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: v, end: v),
+            duration: motionDuration(context, Motion.standard),
+            curve: Motion.standardCurve,
+            builder: (context, av, _) => FractionallySizedBox(
+              widthFactor: av,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: color ?? scheme.primary,
+                  borderRadius: BorderRadius.circular(RadiusToken.round),
+                ),
+              ),
             ),
           ),
         ),
@@ -390,21 +402,32 @@ class NeoCheck extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    if (done) {
-      return Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: scheme.primary,
-          borderRadius: BorderRadius.circular(9),
-        ),
-        child: Icon(Icons.check, size: size * 0.58, color: scheme.onPrimary),
-      );
-    }
-    return Container(
+    // D-038 Stage 6: the fill and check settle over `micro` —
+    // a tick is high-frequency, so this is all the motion it
+    // gets. Reduced motion snaps.
+    final d = motionDuration(context, Motion.micro);
+    return AnimatedContainer(
+      duration: d,
+      curve: Motion.easeOut,
       width: size,
       height: size,
-      decoration: neoWellDecoration(context, radius: 9),
+      decoration: done
+          ? BoxDecoration(
+              color: scheme.primary,
+              borderRadius: BorderRadius.circular(9),
+            )
+          : neoWellDecoration(context, radius: 9),
+      child: AnimatedScale(
+        duration: d,
+        curve: Motion.easeOut,
+        scale: done ? 1 : 0.5,
+        child: AnimatedOpacity(
+          duration: d,
+          opacity: done ? 1 : 0,
+          child:
+              Icon(Icons.check, size: size * 0.58, color: scheme.onPrimary),
+        ),
+      ),
     );
   }
 }
@@ -627,26 +650,43 @@ class NeoScoreWell extends StatelessWidget {
             ),
           ),
           const SizedBox(height: Space.s2),
-          Text.rich(
-            TextSpan(
-              text: value,
+          // D-038 Stage 6 (spec §4): a numeric score tweens in
+          // via AnimatedCount — each well animates SEPARATELY
+          // with the same duration, so the pair never merges.
+          if (int.tryParse(value) != null)
+            // One Text.rich (as before Stage 6) whose number
+            // span is driven by the tween.
+            TweenAnimationBuilder<int>(
+              tween: IntTween(begin: int.parse(value), end: int.parse(value)),
+              duration: motionDuration(context, Motion.standard),
+              curve: Motion.standardCurve,
+              builder: (context, v, _) => Text.rich(
+                TextSpan(
+                  text: '$v',
+                  style: AppType.statistic(size: 32).copyWith(
+                    color: accentValue ? scheme.primary : null,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: suffix,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: 0,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            Text(
+              value,
               style: AppType.statistic(size: 32).copyWith(
                 color: accentValue ? scheme.primary : null,
               ),
-              children: [
-                if (value != '—')
-                  TextSpan(
-                    text: suffix,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: 0,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-              ],
             ),
-          ),
           if (fraction != null) ...[
             const SizedBox(height: Space.s3),
             NeoTrack(value: fraction!, height: 5),

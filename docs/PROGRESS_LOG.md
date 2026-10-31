@@ -3,6 +3,45 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-31 — D-038 Stage 6: motion, accessibility, responsive (main chat)
+- Motion foundation: `lib/core/motion.dart` — the spec's
+  tokens (micro 150 / standard 250 cubic(0.32,0.72,0,1) /
+  emphasis 400 / celebration ≤800), one reduced-motion gate
+  every animation passes through, framework widgets only.
+- AnimatedCount (interruptible int tween, optional whole-line
+  format) + animated NeoTrack fill + NeoScoreWell numbers —
+  Done and Self tween separately, same duration, never
+  merged. Applied: score wells, Learn pulse, Progress streak
+  header, session stats. NeoCheck settles over `micro` — a
+  tick gets that and nothing more.
+- Tier 2 warm feedback: WarmReveal (rise 10px + fade,
+  emphasis) on the session-complete surface (enjoyment line
+  in the warm semantic colour) and the Day Close reveal.
+- Tier 3: GoalCompletionBadge — springs in with one glow
+  pulse when a goal CROSSES to complete (Goals tab card
+  detects the crossing; Today strips track previous
+  fractions), then sits as a quiet state ("Goal reached —
+  nicely done."). Never on revisit, never on app open.
+- Skeletons per spec §6: 150ms delay-before-show, pulse only
+  after 600ms visible, static under reduced motion; applied
+  to Today / Learn / Progress / Spaces / Goals / Topics
+  first loads + Settings' reminder wait. In-place work
+  (sync, backup, calendar) keeps progress indicators.
+- A11y: plan rows announce as checkboxes with state;
+  NeoTrack exposes a percentage value; steppers already at
+  the 48dp touch token. Test guards 320dp width at 200%
+  text scaling (no overflow).
+- NOT built, deliberately: ambient background drift and
+  first-entry list stagger (in the motion spec but not in
+  the owner's D-038 approval list); press-scale on panels
+  (Material ink is Android's press feedback).
+- Verified here: `flutter analyze` clean; `flutter test`
+  **521/521** (514 + 7 motion tests proving tween behaviour,
+  reduced-motion snapping, the skeleton gate, the crossing
+  celebration, and the 200%/320dp composition). Preview:
+  `files/nimo-stage6-motion-preview.html`.
+- **D-038 programme complete: all six stages pushed.**
+
 ## 2026-10-31 — D-038 Stage 5: light/dark parity (main chat)
 - Method: the VM cannot render the app, so parity was proven
   arithmetically — both themes' resolved ColorSchemes were

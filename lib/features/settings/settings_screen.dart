@@ -140,16 +140,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: Gap.lg),
           if (widget.themeChoice != null &&
               widget.onThemeChanged != null) ...[
-            NeoPanel(
-              level: NeoSurfaceLevel.flat,
-              child: Column(
+            // D-039: Appearance is a canvas section, not a panel.
+            const NeoSectionHead(title: 'Appearance'),
+            const SizedBox(height: Gap.sm),
+            Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Appearance', style: theme.textTheme.titleMedium),
-                  const SizedBox(height: Gap.sm),
                   Text(
-                    'The Neo design, in dark or light. Dark is Nimo\'s '
-                    'home; light is there whenever you want it.',
+                    'The Editorial design, in dark or light. Dark is '
+                    'Nimo\'s home; light is there whenever you want it.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -173,7 +172,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         widget.onThemeChanged!(sel.first),
                   ),
                 ],
-              ),
             ),
             const SizedBox(height: Gap.lg),
           ],
@@ -255,10 +253,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // two distinct sections instead of one data block.
           const NeoSectionHead(title: 'Backup & restore'),
           const SizedBox(height: Gap.sm),
-          NeoPanel(
-            level: NeoSurfaceLevel.flat,
-            child: widget.backupSection,
-          ),
+          // The backup section carries its own structure; the
+          // flat wrapper panel is gone (D-039 canvas rule).
+          widget.backupSection,
           const SizedBox(height: Gap.lg),
           const NeoSectionHead(title: 'Sync between your devices'),
           const SizedBox(height: Gap.sm),
@@ -272,27 +269,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           const SizedBox(height: Gap.lg),
-          NeoPanel(
-            level: NeoSurfaceLevel.flat,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const NeoGlyph(icon: Icons.lock_outline),
-                const SizedBox(height: Space.s4),
-                Text(
-                  'A quieter kind of app.',
-                  style: theme.textTheme.titleMedium,
+          // The closing note sits on the canvas (D-039).
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const NeoGlyph(icon: Icons.lock_outline),
+              const SizedBox(height: Space.s4),
+              Text(
+                'A quieter kind of app.',
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: Space.s2),
+              Text(
+                'Your personal growth shouldn’t be someone '
+                'else’s data.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(height: Space.s2),
-                Text(
-                  'Your personal growth shouldn’t be someone '
-                  'else’s data.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
           const SizedBox(height: Gap.lg),
           const Divider(),

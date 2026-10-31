@@ -3,6 +3,27 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-31 — D-039 Stage 5: Settings + secondary UI (main chat)
+- Settings: Appearance becomes a canvas section (head +
+  copy + segmented control); the stale "The Neo design"
+  copy now reads "The Editorial design". The Backup
+  wrapper panel is removed (the section carries its own
+  structure); the closing note sits on the canvas. Sync
+  and backup sections audited — no panels inside; they
+  inherit the theme.
+- Routine editor: template rows on the canvas; the
+  if–then habit-prompt block on the canvas.
+- Day Close: the recap step loses its panel (the other
+  steps were already canvas); flow, optional-everything
+  semantics and the reveal are unchanged.
+- Sheets/dialogs: bottom sheets take the concept's modal
+  radius (17px top corners); dialogs keep 10. Dialog and
+  sheet bodies inherit Stage 1 component themes; empty,
+  loading (skeletons) and error states audited as already
+  typographic and consistent.
+- Verified here: `flutter analyze` clean; `flutter test`
+  **517/517**.
+
 ## 2026-10-31 — D-039 Stage 4: Progress, Spaces, Goals (main chat)
 - Progress: the Journey keeps its single justified hero
   panel (the path art is the visual). The numbers/charts

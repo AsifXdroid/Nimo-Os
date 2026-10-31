@@ -462,9 +462,10 @@ abstract final class AppTheme {
         ),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
+        // The concept's modal sheet: the one large radius (17).
         shape: RoundedRectangleBorder(
           borderRadius:
-              BorderRadius.vertical(top: Radius.circular(RadiusToken.card)),
+              BorderRadius.vertical(top: Radius.circular(RadiusToken.nav)),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(

@@ -236,8 +236,9 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
   Widget _recapStep(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return NeoPanel(
-      child: Column(
+    // D-039: the recap step reads on the canvas like the
+    // other steps — no panel around the checklist.
+    return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('What actually happened?',
@@ -277,7 +278,6 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
                 ),
               ),
         ],
-      ),
     );
   }
 

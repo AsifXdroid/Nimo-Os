@@ -211,19 +211,15 @@ class _RoutineScreenState extends State<RoutineScreen> {
                   style: theme.textTheme.bodyMedium,
                 )
               else
-                NeoPanel(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: Space.s6, vertical: Space.s2),
-                  child: Column(
-                    children: [
-                      for (final t in list)
-                        _templateRow(context, t, last: t == list.last),
-                    ],
-                  ),
+                // D-039: template rows on the canvas (hairlines).
+                Column(
+                  children: [
+                    for (final t in list)
+                      _templateRow(context, t, last: t == list.last),
+                  ],
                 ),
               const SizedBox(height: Gap.lg),
-              NeoPanel(
-                child: Column(
+              Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('A tiny habit prompt',
@@ -258,7 +254,6 @@ class _RoutineScreenState extends State<RoutineScreen> {
                       ),
                     ),
                   ],
-                ),
               ),
               const SizedBox(height: 72), // FAB clearance
             ],

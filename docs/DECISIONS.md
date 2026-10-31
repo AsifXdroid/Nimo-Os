@@ -861,3 +861,89 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
   analyze clean. Kotlin compiles only in CI (VM Gradle
   limitation) and SAF behaviour on a real device is
   owner-verified — stated, not claimed.
+
+## 2026-11-01 — D-044: Routine visibility (explicit Add to today's plan) + "Build your Nimo" first-run onboarding
+- **The reported bug, diagnosed (owner's "Go to Hospital" /
+  "Go to run" missing from Today):** NOT a rendering or query
+  bug. (1) `ensurePlanFor` is generate-once — today's plan was
+  generated (by the first one-off) BEFORE the templates were
+  created, and generation is the only moment templates are
+  read; (2) the Today plan card rendered the Daily To-do
+  section ONLY when it had rows (`if (routines.isNotEmpty)`),
+  so the section — and any explanation — vanished. Template
+  defaults (active, every-day) and the plan query were
+  verified correct.
+- **Rule kept:** routine template changes apply from tomorrow
+  by default; generation is unchanged. **The exception is
+  explicit:** `TodayStore.addRoutineToToday(templateId, date)`
+  inserts ONE row into the existing plan — same shape and
+  same deterministic sync_id generation would have produced
+  (sync dedupes against a peer that generated it) — returning
+  added / alreadyInPlan / notScheduledToday / inactive /
+  notFound. It never touches other rows: completions,
+  one-offs and historical plans are preserved by construction
+  and by test. Surfaced twice: a per-template action in the
+  Routine screen (active templates only, plain-language
+  snackbar for every outcome), and on Today itself, where the
+  Daily To-do head now ALWAYS renders in the day view,
+  carrying the explanation ("starts tomorrow — routines
+  created after today's plan was made…"), the not-scheduled
+  line ("isn't scheduled for Sundays"), the one-tap
+  **Add to today's plan** for all missing scheduled routines,
+  or the no-routines state with a Set up routines action.
+- **Onboarding gate (lifecycle):** durable marker in
+  `app_settings` (`onboarding.completed`, `onboarding.step`),
+  never DB emptiness: marker → done; no marker + any content
+  (the D-011 content-table list) → **grandfathered** (marker
+  written at bootstrap; existing users and restored backups
+  are NEVER forced through onboarding after an update); no
+  marker + no content → first run. Bootstrap passes the
+  verdict to DailyLifeApp, whose home is the onboarding
+  screen until it finishes — so the first daily plan is
+  generated only after onboarding data exists (or by the
+  user's own first one-off inside step 2).
+- **"Build your Nimo" (6 steps, all skippable, none
+  mandatory):** 1 Daily rhythm (category chips + custom,
+  weekday chips per routine) → real plan_templates; 2
+  Prepare today (one-offs) → real plan rows; 3 Learning
+  desk (topics + optional link source; topics are hosted by
+  a by-name "Learning" workspace / "Topics" project,
+  created once, reused on resume); 4 Spaces & projects
+  (space / project / note / checklist over the real Store);
+  5 Goals (the app's numeric goals); 6 Review (everything
+  created, each removable via the real delete paths).
+  Everything is written straight into the real stores as it
+  is added — no draft state — so an interruption cannot
+  duplicate anything; the current step persists, and on
+  relaunch the lists re-read from the stores (on a fresh
+  install those hold exactly what onboarding created).
+  Skipping creates NO records (widget-tested: empty stores,
+  zero day_plans).
+- **Model honesty (brief items NOT built, recorded):** a
+  daily intention has no field in the data model
+  (`day_reviews.self_note` is the Day Close reflection, a
+  different thing) — step 2 is one-offs only. Goals have no
+  milestones or target dates (numeric title/target/unit) —
+  step 5 uses the real model. Both would need a reviewed
+  schema/design change, not invented fields.
+- **Empty states (brief Part E) audited:** Spaces, Goals,
+  Learn packs and Topics already carry intentional empty
+  copy with adjacent actions — left unchanged; the only
+  silent empty state was Today's plan, fixed above.
+- **Untouched:** backup, signing, sync, schema (still v8),
+  scoring/streak/Day Close semantics.
+- **Tests (16 new, all executed):** add-to-today store suite
+  (6: tomorrow-by-default intact, insert with link/core/sync
+  id, duplicate refused, rows/history preserved, weekday
+  respected, inactive/missing refused); gate suite (5:
+  fresh→needed, marker→done, content→grandfathered,
+  plan-only DB→grandfathered, step round-trip/clamp);
+  onboarding widgets (4: skip-setup marker, skip-all creates
+  nothing + no plan, created routines + one-off appear in
+  the FIRST plan, saved-step resume with creations listed);
+  Today visibility widget (1: the owner's exact scenario —
+  explanation renders, explicit add inserts both routines,
+  one-off untouched). Full suite **589/589**, analyze clean.
+  (The first full run showed one timing flake in the
+  pre-existing D-043 sheet test under parallel load; it
+  passed standalone and in the clean re-run.)

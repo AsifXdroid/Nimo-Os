@@ -67,6 +67,7 @@ class _HubData {
     required this.newCount,
     this.weekSummary,
     this.linkedItems = const {},
+    this.templates = const [],
   });
 
   final List<DayPlanItem> items;
@@ -106,6 +107,11 @@ class _HubData {
   /// A missing id (deleted resource) simply has no entry —
   /// the FK already nulled it; this is belt-and-braces.
   final Map<int, Item> linkedItems;
+
+  /// D-044: every routine template, so the plan card can
+  /// explain routines that are not in today's plan (created
+  /// after generation, or not scheduled for this weekday).
+  final List<PlanTemplate> templates;
 }
 
 class TodayScreen extends StatefulWidget {
@@ -237,6 +243,10 @@ class _TodayScreenState extends State<TodayScreen> {
         }
       }
     }
+    // D-044: the routine templates ride along so the plan card
+    // can EXPLAIN a missing Daily To-do section (created after
+    // generation, or not scheduled today) instead of hiding it.
+    final templates = await widget.todayStore.templates();
     final sections = await widget.todayStore.homeSectionVisibility();
     final inboxCount = await widget.learn.store.inboxCountOrZero();
     final dueCount = await widget.learn.engine.dueCount();
@@ -265,6 +275,7 @@ class _TodayScreenState extends State<TodayScreen> {
       newCount: newCount,
       linkedItems: linkedItems,
       weekSummary: weekSummary,
+      templates: templates,
     );
   }
 
@@ -1164,6 +1175,22 @@ class _TodayScreenState extends State<TodayScreen> {
     final routines = items.where((e) => e.isRoutine).toList();
     final oneoffs = items.where((e) => !e.isRoutine).toList();
     final done = items.where((e) => e.done).length;
+    // D-044: routines that exist but are NOT in today's plan —
+    // the explanation the old UI never gave. `missing` were
+    // created (or reactivated) after today's plan was generated
+    // (tomorrow-by-default); `notToday` are scheduled for other
+    // weekdays.
+    final now = DateTime.now();
+    final inPlan = {
+      for (final e in items)
+        if (e.templateId != null) e.templateId!,
+    };
+    final active = data.templates.where((t) => t.isActive).toList();
+    final missing = active
+        .where((t) => t.scheduledOn(now) && !inPlan.contains(t.id))
+        .toList();
+    final notToday =
+        active.where((t) => !t.scheduledOn(now)).toList();
     // D-039: the plan is an editorial TIMELINE on the canvas —
     // a hairline rail through node marks (see _planRow). The
     // data model carries no clock times, so the rail shows
@@ -1174,18 +1201,7 @@ class _TodayScreenState extends State<TodayScreen> {
         NeoSectionHead(
           title: "Today's plan",
           actionLabel: 'Edit routine →',
-          onAction: () async {
-            await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    RoutineScreen(
-                        todayStore: widget.todayStore,
-                        store: widget.store),
-              ),
-            );
-            setState(_reload);
-          },
+          onAction: _openRoutineScreen,
         ),
         const SizedBox(height: Space.s3),
         Row(
@@ -1213,7 +1229,7 @@ class _TodayScreenState extends State<TodayScreen> {
           ),
         ),
         const SizedBox(height: Space.s2),
-        if (items.isEmpty)
+        if (items.isEmpty && missing.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: Space.s4),
             child: Text(
@@ -1226,12 +1242,26 @@ class _TodayScreenState extends State<TodayScreen> {
           // (routine templates) above, Today (one-offs) below —
           // one scrolling list, no second mode switch. The
           // Today/This week control above stays the only one.
+          // D-044: the Daily To-do head now renders even with no
+          // routine rows, carrying the explanation + the
+          // add-to-today action instead of vanishing silently.
           if (routines.isNotEmpty)
-            _planGroup(context, data, 'Daily To-do', routines),
-          if (routines.isNotEmpty && oneoffs.isNotEmpty)
+            _planGroup(context, data, 'Daily To-do', routines)
+          else ...[
+            _groupHead(context, 'Daily To-do'),
+            _routineNote(context, missing, notToday,
+                noRoutinesAtAll: active.isEmpty),
+          ],
+          if (oneoffs.isNotEmpty) ...[
             const SizedBox(height: Space.s4),
-          if (oneoffs.isNotEmpty)
             _planGroup(context, data, 'Today', oneoffs),
+          ],
+          if (routines.isNotEmpty &&
+              (missing.isNotEmpty || notToday.isNotEmpty)) ...[
+            const SizedBox(height: Space.s3),
+            _routineNote(context, missing, notToday,
+                noRoutinesAtAll: false),
+          ],
         ],
         const SizedBox(height: Space.s4),
         Row(
@@ -1292,28 +1322,134 @@ class _TodayScreenState extends State<TodayScreen> {
 
   /// One plan section (D-042): a mono group label with a
   /// hairline, then the group's rows on the timeline rail.
+  Future<void> _openRoutineScreen() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RoutineScreen(
+            todayStore: widget.todayStore, store: widget.store),
+      ),
+    );
+    setState(_reload);
+  }
+
+  static String _weekdayName(DateTime d) => const [
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+        'Sunday',
+      ][d.weekday - 1];
+
+  /// D-044: add every scheduled-but-missing routine to today's
+  /// plan (the explicit exception to tomorrow-by-default).
+  Future<void> _addMissingToToday(List<PlanTemplate> missing) async {
+    var added = 0;
+    for (final t in missing) {
+      final r = await widget.todayStore
+          .addRoutineToToday(t.id, DateTime.now());
+      if (r == AddRoutineResult.added) added++;
+    }
+    if (!mounted) return;
+    if (added > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(added == 1
+            ? 'Routine added to today\'s plan.'
+            : '$added routines added to today\'s plan.'),
+      ));
+    }
+    await _afterPlanEdit();
+    setState(_reload);
+  }
+
+  /// D-044: why the Daily To-do section is short or empty —
+  /// always an explanation, never silence. [missing] routines
+  /// start tomorrow by default and can be added explicitly;
+  /// [notToday] routines are scheduled for other weekdays.
+  Widget _routineNote(
+    BuildContext context,
+    List<PlanTemplate> missing,
+    List<PlanTemplate> notToday, {
+    required bool noRoutinesAtAll,
+  }) {
+    final theme = Theme.of(context);
+    final style = theme.textTheme.bodyMedium;
+    String quoted(List<PlanTemplate> ts) =>
+        ts.map((t) => '“${t.title}”').join(', ');
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.s2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (noRoutinesAtAll)
+            Text('No daily routines yet.', style: style)
+          else ...[
+            if (missing.isNotEmpty)
+              Text(
+                '${quoted(missing)} '
+                '${missing.length == 1 ? 'starts' : 'start'} '
+                'tomorrow — routines created after today\'s plan '
+                'was made join from the next day.',
+                style: style,
+              ),
+            if (notToday.isNotEmpty)
+              Text(
+                '${quoted(notToday)} '
+                '${notToday.length == 1 ? "isn't" : "aren't"} '
+                'scheduled for ${_weekdayName(DateTime.now())}s.',
+                style: style,
+              ),
+          ],
+          if (missing.isNotEmpty) ...[
+            const SizedBox(height: Space.s2),
+            TextButton.icon(
+              onPressed: () => _addMissingToToday(missing),
+              icon: const Icon(Icons.today_outlined, size: 18),
+              label: const Text("Add to today's plan"),
+            ),
+          ] else if (noRoutinesAtAll) ...[
+            const SizedBox(height: Space.s2),
+            TextButton.icon(
+              onPressed: _openRoutineScreen,
+              icon: const Icon(Icons.arrow_forward, size: 18),
+              label: const Text('Set up routines'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// The mono group head (D-042): eyebrow label + hairline.
+  Widget _groupHead(BuildContext context, String label) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: AppType.eyebrow.copyWith(
+            fontSize: 10,
+            letterSpacing: 1.2,
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(width: Space.s3),
+        Expanded(
+          child: Container(height: 1, color: scheme.outlineVariant),
+        ),
+      ],
+    );
+  }
+
   Widget _planGroup(BuildContext context, _HubData data, String label,
       List<DayPlanItem> group) {
     final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              label.toUpperCase(),
-              style: AppType.eyebrow.copyWith(
-                fontSize: 10,
-                letterSpacing: 1.2,
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(width: Space.s3),
-            Expanded(
-              child: Container(height: 1, color: scheme.outlineVariant),
-            ),
-          ],
-        ),
+        _groupHead(context, label),
         Stack(
           children: [
             Positioned(

@@ -1,3 +1,27 @@
+## 2026-11-01 — D-044: Routine visibility + "Build your Nimo" onboarding (test branch)
+- **Bug diagnosed first (report delivered before building):**
+  the owner's two active routines missed Today because
+  (1) plan generation is generate-once and ran before the
+  templates existed, and (2) the Daily To-do section rendered
+  only when non-empty — no signal, no explanation. Not a
+  query or rendering bug; defaults verified correct.
+- **Fix:** tomorrow-by-default kept; explicit
+  `addRoutineToToday` (store) + Routine-screen action +
+  Today's Daily To-do head now always renders with the
+  explanation / not-scheduled line / one-tap Add to today's
+  plan / no-routines state. Inserted rows carry generation's
+  deterministic sync_id; completions and history untouched.
+- **Onboarding:** marker-based gate (existing users
+  grandfathered, never forced); 6-step Build your Nimo over
+  the real stores, fully skippable, resumable by saved step,
+  creates nothing when skipped; first plan generated only
+  after onboarding data exists. Daily intention and goal
+  milestones/dates recorded as NOT in the data model — not
+  invented.
+- **Gates:** analyze clean; **589/589 executed** (573 + 16
+  new). Test branch only; no merge; backup/signing/schema
+  untouched.
+
 ## 2026-11-01 — D-043: External backup P0 (test branch)
 - **Owner priority change:** manual selective sync paused;
   data preservation first (audit: debug-signed CI APKs can

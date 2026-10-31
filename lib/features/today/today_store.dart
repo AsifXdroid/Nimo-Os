@@ -163,6 +163,15 @@ class DayPending {
   final List<DayPlanItem> items;
 }
 
+/// Outcome of an explicit add-to-today request (D-044).
+enum AddRoutineResult {
+  added,
+  alreadyInPlan,
+  notScheduledToday,
+  inactive,
+  notFound,
+}
+
 class TodayStore {
   TodayStore(this._db);
 
@@ -394,6 +403,58 @@ class TodayStore {
 
   Future<void> deletePlanItem(int id) async {
     await _db.delete('day_plan_items', where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Add ONE routine template to [date]'s plan explicitly
+  /// (D-044) — the user-controlled exception to the
+  /// tomorrow-by-default rule. Plan generation stays
+  /// generate-once; this inserts a single row into the existing
+  /// plan (generating the plan first if needed) without
+  /// touching any other row: completions, one-offs and history
+  /// are all preserved. The row is identical to what generation
+  /// would have produced — same deterministic sync_id — so a
+  /// peer that generated it normally dedupes against it.
+  Future<AddRoutineResult> addRoutineToToday(
+      int templateId, DateTime date) async {
+    final rows = await _db.query('plan_templates',
+        where: 'id = ?', whereArgs: [templateId]);
+    if (rows.isEmpty) return AddRoutineResult.notFound;
+    final t = PlanTemplate.fromRow(rows.single);
+    if (!t.isActive) return AddRoutineResult.inactive;
+    if (!t.scheduledOn(date)) return AddRoutineResult.notScheduledToday;
+    // Whether the plan already existed decides the report: if
+    // this call had to generate it, generation itself placed
+    // the row (the template is active and scheduled — checked
+    // above), so the add did happen, by generation.
+    final planExisted = (await _db.query('day_plans',
+            where: 'date = ?', whereArgs: [dateKey(date)], limit: 1))
+        .isNotEmpty;
+    final planId = await ensurePlanFor(date);
+    final existing = await _db.query('day_plan_items',
+        where: 'day_plan_id = ? AND template_id = ?',
+        whereArgs: [planId, templateId]);
+    if (existing.isNotEmpty) {
+      return planExisted
+          ? AddRoutineResult.alreadyInPlan
+          : AddRoutineResult.added;
+    }
+    await _db.insert('day_plan_items', {
+      'day_plan_id': planId,
+      'title': t.title,
+      'kind': PlanItemKind.routine,
+      'template_id': templateId,
+      'done': 0,
+      'carried': 0,
+      'position': (await _maxPosition('day_plan_items',
+              where: 'day_plan_id = ?', whereArgs: [planId])) +
+          1,
+      'counts_core': t.countsCore ? 1 : 0,
+      'item_id': t.itemId,
+      'url': t.url,
+      'sync_id':
+          'rt-${await _rowSyncId('plan_templates', rows.single)}-${dateKey(date)}',
+    });
+    return AddRoutineResult.added;
   }
 
   /// Rename one plan row (D-042). Per-day only: renaming a

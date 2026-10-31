@@ -43,6 +43,8 @@ import 'features/progress/weekly_summary_screen.dart';
 import 'features/projects/projects_screen.dart';
 import 'features/review/day_close_screen.dart';
 import 'features/review/review_store.dart';
+import 'features/onboarding/onboarding_gate.dart';
+import 'features/onboarding/onboarding_screen.dart';
 import 'features/settings/backup_section.dart';
 import 'features/settings/backup_store.dart';
 import 'features/settings/external_backup.dart';
@@ -94,6 +96,15 @@ Future<void> bootstrap() async {
   );
   final backup = BackupStore();
 
+  // D-044: first-run onboarding gate. An existing install
+  // (content present, no marker) is grandfathered silently —
+  // never forced through onboarding after an update; a
+  // restored backup takes the same path.
+  final onboardingNeed = await OnboardingGate.evaluate(db);
+  if (onboardingNeed == OnboardingNeed.grandfathered) {
+    await OnboardingGate.markCompleted(db);
+  }
+
   final reviewStore = ReviewStore(db, todayStore);
   final progressStore = ProgressStore(db, reviewStore, todayStore);
   final themeChoice = await _themeChoice(db);
@@ -136,6 +147,7 @@ Future<void> bootstrap() async {
       externalBackup: Platform.isAndroid
           ? ExternalBackupStore(db, backup, MethodChannelSafBackup())
           : null,
+      needsOnboarding: onboardingNeed == OnboardingNeed.needed,
       onRestoreBackup: (zip, {required replaceConfirmed}) async {
         // D-011 restore: close → swap files under the guard → the
         // whole app re-bootstraps onto the restored database. The
@@ -230,6 +242,7 @@ class DailyLifeApp extends StatefulWidget {
     required this.onRestoreBackup,
     this.shareService,
     this.externalBackup,
+    this.needsOnboarding = false,
     this.progressStore,
     this.reminders,
     this.reminderRouter,
@@ -265,6 +278,10 @@ class DailyLifeApp extends StatefulWidget {
   /// tests that do not wire it) — the section is then omitted.
   final ExternalBackupStore? externalBackup;
 
+  /// D-044: bootstrap's onboarding verdict — true only for a
+  /// genuine first run (no marker, no content).
+  final bool needsOnboarding;
+
   /// Runs a guarded backup restore and restarts the app on the
   /// restored data (wired in bootstrap()).
   final Future<void> Function(File zip, {required bool replaceConfirmed})
@@ -276,6 +293,12 @@ class DailyLifeApp extends StatefulWidget {
 
 class _DailyLifeAppState extends State<DailyLifeApp> {
   late AppThemeChoice _themeChoice = widget.initialThemeChoice;
+
+  /// D-044: while true, the home is "Build your Nimo" instead
+  /// of the shell — so the first daily plan is generated only
+  /// after onboarding data exists (or when the user adds their
+  /// first one-off inside onboarding itself).
+  late bool _showOnboarding = widget.needsOnboarding;
 
   /// NEO (D-036): switch the Neo theme and persist the choice in
   /// app_settings (same store as library_root). Persistence is
@@ -302,7 +325,16 @@ class _DailyLifeAppState extends State<DailyLifeApp> {
       theme: AppTheme.neoLight(),
       darkTheme: AppTheme.neoDark(),
       themeMode: _themeChoice.themeMode,
-      home: AppShell(
+      home: _showOnboarding
+          ? OnboardingScreen(
+              db: widget.db,
+              todayStore: widget.todayStore,
+              store: widget.store,
+              learn: widget.learn,
+              goalsStore: widget.goalsStore,
+              onDone: () => setState(() => _showOnboarding = false),
+            )
+          : AppShell(
         db: widget.db,
         store: widget.store,
         todayStore: widget.todayStore,

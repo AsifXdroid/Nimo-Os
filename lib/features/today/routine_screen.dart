@@ -195,6 +195,30 @@ class _RoutineScreenState extends State<RoutineScreen> {
   /// Schedule (weekday mask) + linked resource for a template
   /// (D-042). Applies to plans not yet generated, like every
   /// template edit — generated history is never rewritten.
+  /// D-044: the explicit exception to tomorrow-by-default —
+  /// add this routine to today's plan, in place, and say
+  /// plainly what happened (including when scheduling says no).
+  Future<void> _addToToday(PlanTemplate t) async {
+    final now = DateTime.now();
+    final result =
+        await widget.todayStore.addRoutineToToday(t.id, now);
+    if (!mounted) return;
+    final message = switch (result) {
+      AddRoutineResult.added => '“${t.title}” added to today\'s plan.',
+      AddRoutineResult.alreadyInPlan =>
+        '“${t.title}” is already in today\'s plan.',
+      AddRoutineResult.notScheduledToday =>
+        '“${t.title}” isn\'t scheduled for '
+            '${const ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][now.weekday - 1]}s — '
+            'it will appear on its scheduled days.',
+      AddRoutineResult.inactive => 'Turn the routine on first.',
+      AddRoutineResult.notFound => 'That routine no longer exists.',
+    };
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+    setState(_reload);
+  }
+
   Future<void> _scheduleLink(PlanTemplate t) async {
     var mask = t.weekdays ?? 127;
     var itemId = t.itemId;
@@ -475,6 +499,12 @@ class _RoutineScreenState extends State<RoutineScreen> {
             ),
           Row(
             children: [
+              if (t.isActive)
+                IconButton(
+                  icon: const Icon(Icons.today_outlined, size: 20),
+                  tooltip: "Add to today's plan",
+                  onPressed: () => _addToToday(t),
+                ),
               IconButton(
                 icon: const Icon(Icons.spa_outlined, size: 20),
                 tooltip: 'Habit details',

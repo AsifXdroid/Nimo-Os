@@ -6,6 +6,7 @@
 // the FFI database deadlocks in the fake-async zone (see
 // widget_test.dart's note).
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:daily_life_app/core/brand.dart';
 import 'package:daily_life_app/core/db/app_database.dart';
@@ -182,6 +183,56 @@ void main() {
       expect(find.text('body'), findsOneWidget);
       expect(find.byType(NeoPanel), findsNothing);
     });
+  });
+
+  // D-038 Stage 5: parity is guarded, not eyeballed — the core
+  // text/component pairs of BOTH themes must hold their WCAG
+  // contrast floors. (Full audit: 32 pairs computed and passing,
+  // 2026-10-31; light onSurfaceVariant was deepened
+  // 0xFF696471 → 0xFF5E5967 — its flat-surface margin was the
+  // thinnest at 4.71.)
+  group('Theme parity contrast (D-038 Stage 5)', () {
+    double lum(Color c) {
+      double f(double s) => s <= 0.03928
+          ? s / 12.92
+          : math.pow((s + 0.055) / 1.055, 2.4).toDouble();
+      return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+    }
+
+    double ratio(Color a, Color b) {
+      final la = lum(a);
+      final lb = lum(b);
+      final hi = la > lb ? la : lb;
+      final lo = la > lb ? lb : la;
+      return (hi + 0.05) / (lo + 0.05);
+    }
+
+    void checkPairs(String name, ThemeData theme) {
+      final s = theme.colorScheme;
+      final scaffold = theme.scaffoldBackgroundColor;
+      final pairs = <(String, Color, Color, double)>[
+        ('onSurface/scaffold', s.onSurface, scaffold, 4.5),
+        ('onSurface/surface', s.onSurface, s.surface, 4.5),
+        ('onSurfaceVariant/scaffold', s.onSurfaceVariant, scaffold, 4.5),
+        ('onSurfaceVariant/flat', s.onSurfaceVariant,
+            s.surfaceContainerLow, 4.5),
+        ('primary text/surface', s.primary, s.surface, 4.5),
+        ('onPrimary/primary', s.onPrimary, s.primary, 4.5),
+        ('tertiary icon/surface', s.tertiary, s.surface, 3.0),
+        ('avatar letter/container', s.onPrimaryContainer,
+            s.primaryContainer, 4.5),
+        ('error/surface', s.error, s.surface, 4.5),
+      ];
+      for (final (label, fg, bg, floor) in pairs) {
+        test('$name $label ≥ $floor', () {
+          expect(ratio(fg, bg), greaterThanOrEqualTo(floor),
+              reason: '$name $label');
+        });
+      }
+    }
+
+    checkPairs('dark', AppTheme.neoDark());
+    checkPairs('light', AppTheme.neoLight());
   });
 
   group('Settings Appearance switch (D-036)', () {

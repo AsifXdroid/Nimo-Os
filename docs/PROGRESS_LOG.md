@@ -3,6 +3,26 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-31 — D-038 Stage 5: light/dark parity (main chat)
+- Method: the VM cannot render the app, so parity was proven
+  arithmetically — both themes' resolved ColorSchemes were
+  read from the running code (a throwaway probe test, since
+  deleted) and every foreground/background pair the UI uses
+  was computed against WCAG floors (4.5 text / 3.0 components).
+- Result: 32/32 pairs pass in both themes. One thin margin
+  fixed: light `onSurfaceVariant` deepened #696471 → #5E5967
+  (flat-surface captions 4.71 → 5.56). Charts and the Journey
+  Path verified scheme-driven (no hard-coded colours);
+  geometry is shared by construction (one theme builder);
+  seed-derived container pairs are M3-generated.
+- Parity is now GUARDED: 18 new tests in neo_theme_test.dart
+  compute the core pairs from the live themes and fail below
+  their floors.
+- Verified here: `flutter analyze` clean; `flutter test`
+  **514/514** (496 + 18). Audit page:
+  `files/nimo-stage5-parity-preview.html`.
+- Next: Stage 6 — motion, accessibility, responsive polish.
+
 ## 2026-10-31 — D-038 Stage 4: Settings refinement (main chat)
 - Owner directed the use of the installed design skills for
   the remaining stages (Hallmark as the audit lens, Apple

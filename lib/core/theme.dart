@@ -210,7 +210,7 @@ abstract final class AppTheme {
       surface: dark ? const Color(0xFF10141C) : const Color(0xFFF0EFF2),
       onSurface: dark ? const Color(0xFFE8ECF4) : const Color(0xFF302D38),
       onSurfaceVariant:
-          dark ? const Color(0xFF9AA5B8) : const Color(0xFF696471),
+          dark ? const Color(0xFF9AA5B8) : const Color(0xFF5E5967),
       surfaceContainerLowest:
           dark ? const Color(0xFF07090D) : const Color(0xFFE9E8ED),
       surfaceContainerLow:

@@ -636,6 +636,7 @@ class _AppShellState extends State<AppShell> {
           progressStore: _progress,
           onOpenSettings: _openSettings,
           onOpenWeeklySummary: _openWeeklySummary,
+          onOpenProgress: () => _select('progress'),
         ),
       },
       bottomNavigationBar: Container(

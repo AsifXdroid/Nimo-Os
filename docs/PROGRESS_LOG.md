@@ -1,3 +1,30 @@
+## 2026-10-31 — D-040: Today header — streak chip + greeting customization (main chat)
+- Owner brief (Stage 2 follow-on): make the Today header
+  compact and customizable. **Header group in Customize
+  Home:** master "Show editorial greeting" + Date label /
+  Eyebrow line / Greeting heading / Tagline switches
+  (element switches disabled while the master is off),
+  persisted via the existing TodayStore app_settings
+  mechanism — restarts keep them, existing section prefs
+  untouched.
+- **Streak chip in the brand header:** flame + mono
+  "N day(s)" beside the Face Mark, fed by the same hub
+  load (no second calculation); flame + number only under
+  360dp; 48dp tap height; tapping opens Progress (full
+  streak detail). Settings moved into the AppBar beside it.
+- **No duplication, no gaps:** the standalone streak
+  row/pill is deleted from Today (week strip remains;
+  shield detail stays in the scores section + Progress).
+  With the greeting off, the block and its spacing render
+  nothing and the next sections move up — proven by an
+  offset assertion in the tests.
+- Validation: 8 new widget tests (all-visible, master-off
+  incl. no-gap, date-only off, eyebrow+tagline off, heading
+  off, seeded streak=1 + chip tap, 320dp compact, light
+  theme) — note: the harness found that openInMemory() is a
+  sqflite-cached shared DB, so each test harness uses its
+  own temp file. Analyze clean, **540/540**.
+
 # Progress Log — Daily Life App
 
 Newest first. Each entry: date, feature IDs / stage, what changed,

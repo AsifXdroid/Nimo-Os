@@ -673,8 +673,35 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
     accent at ~1.9:1 on deep). Final: analyze clean,
     531/531. Completion report:
     `files/RENOVATION_COMPLETE-2026-10-31.md` (goal folder).
-    Fonts remain the one open item: binaries pending from
-    the owner (Route A); fallbacks render until then.**
+    Fonts: integrated later the same day (see the Open
+    section) — the app now renders the real faces.**
+
+- **D-040 (2026-10-31) — Today header: compact +
+  customizable (owner brief, built as a Stage 2 follow-on).**
+  The streak count moves into the brand header as a compact
+  chip beside the Face Mark + "Nimo" (flame + "N day(s)" in
+  mono micro type; flame + number only under 360dp wide; a
+  full-height tap target that opens Progress, where the
+  streak detail lives). It reads the SAME hub load as
+  everything else — no second streak calculation — and the
+  standalone streak row/pill on Today is REMOVED, so the
+  streak is never displayed twice (shield detail remains in
+  the scores section and in Progress). Settings moves from
+  the intro's date row into the AppBar beside the chip.
+  Customize Home gains a **Header** group: a master switch
+  "Show editorial greeting" plus per-element switches for
+  the date label, eyebrow, greeting heading and tagline;
+  element switches are disabled while the master is off.
+  Hidden means hidden: the greeting block and its spacing
+  render NOTHING (no placeholder), and the following
+  sections move up. All five prefs persist through the
+  existing TodayStore app_settings mechanism
+  (`home_show_header_*`), defaults on; existing section
+  prefs untouched; no streak/scoring/schema change. Eight
+  widget tests cover the brief's validation list
+  (`test/features/today/today_header_test.dart`), including
+  the no-gap offset check, the narrow-screen compact chip
+  and both themes. Final: analyze clean, 540/540.**
 
 ## Open — awaiting owner
 

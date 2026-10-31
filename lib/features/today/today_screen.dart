@@ -115,6 +115,7 @@ class TodayScreen extends StatefulWidget {
     this.progressStore,
     this.onOpenSettings,
     this.onOpenWeeklySummary,
+    this.onOpenProgress,
   });
 
   final Store store;
@@ -150,6 +151,11 @@ class TodayScreen extends StatefulWidget {
 
   /// Opens the full weekly summary for the given Monday (S6).
   final void Function(DateTime monday)? onOpenWeeklySummary;
+
+  /// Opens the Progress tab (D-040): the header streak chip's
+  /// destination, where the full streak detail lives. Null
+  /// keeps the chip a display-only indicator.
+  final void Function()? onOpenProgress;
 
   @override
   State<TodayScreen> createState() => _TodayScreenState();
@@ -336,6 +342,13 @@ class _TodayScreenState extends State<TodayScreen> {
       TodayStore.sectionRecent: 'Recent items',
       TodayStore.sectionGoals: 'Goals',
     };
+    // D-040: the Header group's element switches.
+    const headerLabels = [
+      (TodayStore.headerDate, 'Date label'),
+      (TodayStore.headerEyebrow, 'Eyebrow line'),
+      (TodayStore.headerHeading, 'Greeting heading'),
+      (TodayStore.headerTagline, 'Tagline'),
+    ];
     final result = await showDialog<Map<String, bool>>(
       context: context,
       builder: (context) {
@@ -343,18 +356,48 @@ class _TodayScreenState extends State<TodayScreen> {
         return AlertDialog(
           title: const Text('Customize Home'),
           content: StatefulBuilder(
-            builder: (context, setDialogState) => Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final key in TodayStore.homeSections)
-                  SwitchListTile(
-                    title: Text(labels[key]!),
-                    value: values[key] ?? true,
-                    onChanged: (v) =>
-                        setDialogState(() => values[key] = v),
-                  ),
-              ],
-            ),
+            builder: (context, setDialogState) {
+              final masterOn = values[TodayStore.headerGreeting] ?? true;
+              // Scrollable: the Header group makes the dialog
+              // taller than small screens are.
+              return SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Header',
+                        style: Theme.of(context).textTheme.labelLarge),
+                    SwitchListTile(
+                      title: const Text('Show editorial greeting'),
+                      value: masterOn,
+                      onChanged: (v) => setDialogState(
+                          () => values[TodayStore.headerGreeting] = v),
+                    ),
+                    for (final (key, label) in headerLabels)
+                      SwitchListTile(
+                        title: Text(label),
+                        value: values[key] ?? true,
+                        // Editable only while the master greeting
+                        // is on (D-040).
+                        onChanged: masterOn
+                            ? (v) =>
+                                setDialogState(() => values[key] = v)
+                            : null,
+                      ),
+                    const Divider(),
+                    Text('Sections',
+                        style: Theme.of(context).textTheme.labelLarge),
+                    for (final key in TodayStore.homeSections)
+                      SwitchListTile(
+                        title: Text(labels[key]!),
+                        value: values[key] ?? true,
+                        onChanged: (v) =>
+                            setDialogState(() => values[key] = v),
+                      ),
+                  ],
+                ),
+              );
+            },
           ),
           actions: [
             TextButton(
@@ -384,7 +427,26 @@ class _TodayScreenState extends State<TodayScreen> {
     return Scaffold(
       // BRAND (D-035): the static Nimo logo lives top-left in the
       // app's home header — same mark, same place, always.
-      appBar: AppBar(title: const NimoBrand()),
+      // D-040: the header also carries the streak chip (the
+      // streak's one home now) and the Settings action, which
+      // moved up from the intro's date row.
+      appBar: AppBar(
+        title: const NimoBrand(),
+        actions: [
+          FutureBuilder<_HubData>(
+            future: _data,
+            builder: (context, snap) => snap.hasData
+                ? _streakChip(context, snap.data!.streak)
+                : const SizedBox.shrink(),
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip:
+                widget.onOpenSettings == null ? 'Coming soon' : 'Settings',
+            onPressed: widget.onOpenSettings,
+          ),
+        ],
+      ),
       body: FutureBuilder<_HubData>(
         future: _data,
         builder: (context, snapshot) {
@@ -398,18 +460,33 @@ class _TodayScreenState extends State<TodayScreen> {
             );
           }
           final data = snapshot.data!;
+          // D-040: the greeting block renders only when its
+          // master switch is on AND at least one element is —
+          // hidden means NO placeholder and NO leftover gap:
+          // each block below carries its own trailing spacing.
+          bool on(String k) => data.sections[k] ?? true;
+          final showIntro = on(TodayStore.headerGreeting) &&
+              (on(TodayStore.headerDate) ||
+                  on(TodayStore.headerEyebrow) ||
+                  on(TodayStore.headerHeading) ||
+                  on(TodayStore.headerTagline));
+          final showWeek = on(TodayStore.sectionWeekStrip);
           return ListView(
             padding: const EdgeInsets.fromLTRB(
                 Space.page, Gap.md, Space.page, Gap.lg),
             children: [
-              _intro(context, now, data),
-              if (data.weekSummary != null) ...[
+              if (showIntro) ...[
+                _intro(context, now, data),
                 const SizedBox(height: Gap.lg),
-                _sundaySummaryCard(context, data.weekSummary!),
               ],
-              const SizedBox(height: Gap.lg),
-              _dailyProgress(context, data),
-              const SizedBox(height: Gap.md),
+              if (data.weekSummary != null) ...[
+                _sundaySummaryCard(context, data.weekSummary!),
+                const SizedBox(height: Gap.lg),
+              ],
+              if (showWeek) ...[
+                _dailyProgress(context, data),
+                const SizedBox(height: Gap.md),
+              ],
               _quickAddRow(context),
               const SizedBox(height: Gap.lg),
               if (_showWeek)
@@ -451,131 +528,125 @@ class _TodayScreenState extends State<TodayScreen> {
     );
   }
 
-  /// Neo intro block (D-037): date row, the eyebrow, the big
-  /// greeting, the quiet sub line, and the raised streak pill —
-  /// the prototype's Today `.intro`, derived for phone width.
+  /// The editorial greeting block (D-037, element switches
+  /// D-040): date, eyebrow, greeting heading, tagline — each
+  /// rendered only when its Customize Home switch is on, with
+  /// the original rhythm kept between the parts that remain.
+  /// The master switch and the all-off case are handled by
+  /// the caller, which omits this block (and its spacing)
+  /// entirely. Settings no longer lives here — it sits in the
+  /// AppBar beside the streak chip.
   Widget _intro(BuildContext context, DateTime now, _HubData data) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                // The concept's date chip: mono, uppercase.
-                _formatDate(now).toUpperCase(),
-                style: AppType.eyebrow.copyWith(
-                  fontSize: 10,
-                  letterSpacing: 1.2,
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.settings_outlined),
-              tooltip:
-                  widget.onOpenSettings == null ? 'Coming soon' : 'Settings',
-              onPressed: widget.onOpenSettings,
-            ),
-          ],
+    bool on(String k) => data.sections[k] ?? true;
+    final parts = <Widget>[];
+    void add(Widget part, double gapBefore) {
+      if (parts.isNotEmpty) parts.add(SizedBox(height: gapBefore));
+      parts.add(part);
+    }
+
+    if (on(TodayStore.headerDate)) {
+      add(
+        Text(
+          // The concept's date chip: mono, uppercase.
+          _formatDate(now).toUpperCase(),
+          style: AppType.eyebrow.copyWith(
+            fontSize: 10,
+            letterSpacing: 1.2,
+            color: scheme.onSurfaceVariant,
+          ),
         ),
-        const SizedBox(height: Gap.sm),
-        const NeoEyebrow('A little intention goes a long way'),
-        const SizedBox(height: Space.s3),
+        0,
+      );
+    }
+    if (on(TodayStore.headerEyebrow)) {
+      add(const NeoEyebrow('A little intention goes a long way'), Gap.sm);
+    }
+    if (on(TodayStore.headerHeading)) {
+      add(
         Text(_greeting(now), style: AppType.display(theme.textTheme)),
-        const SizedBox(height: Space.s2),
+        Space.s3,
+      );
+    }
+    if (on(TodayStore.headerTagline)) {
+      add(
         Text(
           'Make room for what matters. One small step at a time.',
           style: theme.textTheme.bodyMedium
               ?.copyWith(color: scheme.onSurfaceVariant),
         ),
-      ],
-    );
-  }
-
-  /// The streak row's content, shared by the merged daily-
-  /// progress panel and the standalone pill.
-  Widget _streakRow(BuildContext context, _HubData data) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final streak = data.streak;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.local_fire_department_outlined,
-            size: 23, color: scheme.primary),
-        const SizedBox(width: Space.s3),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              streak.currentStreak > 0
-                  ? '${streak.currentStreak} day streak'
-                  : 'Start your streak today',
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            Text(
-              'One day at a time',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-          ],
-        ),
-        if (streak.shieldsHeld > 0) ...[
-          const SizedBox(width: Space.s3),
-          for (var i = 0; i < streak.shieldsHeld; i++)
-            Padding(
-              padding: const EdgeInsets.only(left: 2),
-              child: Icon(Icons.shield_outlined,
-                  size: 18, color: scheme.tertiary),
-            ),
-        ],
-      ],
-    );
-  }
-
-  /// Daily progress (D-038, brief §6.1): streak and week strip
-  /// as ONE component — a flat panel holding the streak row
-  /// above the week cells, so the two read as related parts of
-  /// the same daily progress. When the owner hides the week
-  /// strip (Customize Home), the streak survives as the
-  /// standalone pill, exactly as before.
-  Widget _dailyProgress(BuildContext context, _HubData data) {
-    final showWeek = data.sections[TodayStore.sectionWeekStrip] ?? true;
-    if (!showWeek) {
-      return Align(
-        alignment: Alignment.centerLeft,
-        child: NeoRaisedSm(
-          padding: const EdgeInsets.symmetric(
-              horizontal: Space.s5, vertical: Space.s3),
-          child: _streakRow(context, data),
-        ),
+        Space.s2,
       );
     }
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    // D-039: daily progress sits on the CANVAS — the streak
-    // row, a hairline, and the week as pure type (the concept's
-    // week strip). No panel.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _streakRow(context, data),
-        const SizedBox(height: Space.s4),
-        Container(
-          decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(color: scheme.outlineVariant),
+      children: parts,
+    );
+  }
+
+  /// The header streak chip (D-040): the streak's one home on
+  /// Today, beside the brand in the AppBar. Fed by the SAME
+  /// hub load as everything else — no second calculation.
+  /// Compact by design (mono micro-label, visually secondary
+  /// to the brand); on narrow screens (< 360dp) it reduces to
+  /// the flame and the number. A full-height tap target, and
+  /// tapping opens Progress, where the streak detail lives,
+  /// when the shell provides the callback.
+  Widget _streakChip(BuildContext context, StreakState streak) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final n = streak.currentStreak;
+    final label = n == 1 ? '1 day' : '$n days';
+    final narrow = MediaQuery.sizeOf(context).width < 360;
+    return Semantics(
+      container: true,
+      button: widget.onOpenProgress != null,
+      label: 'Current streak: $label'
+          '${widget.onOpenProgress != null ? '. Opens Progress.' : ''}',
+      child: InkWell(
+        onTap: widget.onOpenProgress,
+        borderRadius: BorderRadius.circular(RadiusToken.round),
+        child: SizedBox(
+          height: 48,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Space.s3),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.local_fire_department_outlined,
+                    size: 16, color: scheme.primary),
+                const SizedBox(width: Space.s1),
+                ExcludeSemantics(
+                  child: Text(
+                    narrow ? '$n' : label,
+                    style: theme.textTheme.labelSmall
+                        ?.copyWith(color: scheme.onSurfaceVariant),
+                  ),
+                ),
+              ],
             ),
           ),
-          padding: const EdgeInsets.only(top: Space.s3),
-          child: _weekCells(context, data),
         ),
-      ],
+      ),
+    );
+  }
+
+  /// Daily progress (D-040): the week strip alone. The streak
+  /// row that used to head this block moved to the brand
+  /// header chip — the same information is never shown twice.
+  /// Shield detail remains in the scores section below and in
+  /// Progress.
+  Widget _dailyProgress(BuildContext context, _HubData data) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: scheme.outlineVariant),
+        ),
+      ),
+      padding: const EdgeInsets.only(top: Space.s3),
+      child: _weekCells(context, data),
     );
   }
 

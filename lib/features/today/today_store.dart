@@ -384,6 +384,26 @@ class TodayStore {
     sectionGoals,
   ];
 
+  /// Header customization keys (D-040): the Today header's
+  /// editorial greeting, controlled from a dedicated Header
+  /// group in Customize Home and stored through the SAME
+  /// app_settings mechanism as the sections above. The master
+  /// key hides the whole greeting block; the four element
+  /// keys apply only while the master is on.
+  static const headerGreeting = 'header_greeting';
+  static const headerDate = 'header_date';
+  static const headerEyebrow = 'header_eyebrow';
+  static const headerHeading = 'header_heading';
+  static const headerTagline = 'header_tagline';
+
+  static const List<String> headerSections = [
+    headerGreeting,
+    headerDate,
+    headerEyebrow,
+    headerHeading,
+    headerTagline,
+  ];
+
   Future<bool> homeSectionVisible(String key) async {
     final rows = await _db.query('app_settings',
         where: 'key = ?', whereArgs: ['home_show_$key'], limit: 1);
@@ -394,6 +414,9 @@ class TodayStore {
   Future<Map<String, bool>> homeSectionVisibility() async {
     return {
       for (final key in homeSections) key: await homeSectionVisible(key),
+      // D-040: header prefs ride the same map the hub loads.
+      for (final key in headerSections)
+        key: await homeSectionVisible(key),
     };
   }
 

@@ -3,6 +3,43 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-31 — Post-programme fixes: build failure + font integration (main chat)
+- **Build failure (owner-reported) — root cause:** the
+  owner's web-UI deletion removed only
+  `lib/features/design_preview/design_preview.dart`
+  (commit `09000d6c`); its test,
+  `test/design_preview_test.dart`, remained and imports the
+  deleted file → analyze/test/build fail (CI run #30:
+  Failure, 45s, exit code 1). Reproduced locally with the
+  exact remote file: `uri_does_not_exist` + 3 undefined
+  preview classes. Audit miss, recorded honestly: the pair
+  was treated as two independent orphans and the deletion
+  was delegated to manual web-UI steps because the snapshot
+  push path cannot delete — but the connector's full MCP
+  toolset DOES expose `delete_file` (via call-tool), which
+  was never checked. **Fix:** the orphaned test deleted via
+  the connector, commit `93131f89` — no restoration (the
+  preview code was genuinely obsolete D-008 prototypes).
+  CI run #31 for `93131f89`: 10m 58s, no error annotations
+  (only the standard deprecation warnings) — build green
+  again. Local gates on the fixed tree: pub get ✓, analyze
+  clean, tests 531/531 at the fix, 532/532 final.
+- **Fonts INTEGRATED (supersedes the "pending" notes):**
+  the environment has internet; official static instances
+  were downloaded from Google Fonts (Playfair Display
+  1.203 — 500/600/500-italic; DM Sans 4.004 — 400/500/700;
+  DM Mono 1.000 — 400/500) and verified with fontTools
+  (family names, OS/2 weight classes, italic flags; NO
+  variable-font table in any file — the names are real).
+  OFL licences from the google/fonts repo. Binaries reached
+  GitHub via the web upload UI (the connector's file tools
+  are text-only; git/gh/SSH routes were checked and are
+  unavailable here): commit `bb3cce1`, blob SHAs verified
+  identical to the downloaded files. Pubspec `fonts:` block
+  + guard test (`test/font_assets_test.dart`: FontManifest
+  + TTF bytes load from the bundle) pushed as `4a1f197`.
+  The app now renders the real Editorial faces.
+
 ## 2026-10-31 — D-039 Stage 7: QA + programme completion (main chat)
 - Full final gates on the completed tree: `flutter analyze`
   clean; `flutter test` **531/531**.

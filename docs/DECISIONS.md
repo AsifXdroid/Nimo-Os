@@ -681,5 +681,8 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
 - D-037's interpretation call 1 (teal accent in both themes)
   stands; call 2 (surfaces) and call 3 (plum learning card)
   are superseded by D-038 above.
-- D-039 font route: owner supplies the OFL .ttf files once
-  (recommended) or the renovation ships on font fallbacks.
+- D-039 font route: RESOLVED 2026-10-31 — the binaries were
+  acquired from Google Fonts directly and integrated
+  (commits `bb3cce1` + `4a1f197`); see the PROGRESS_LOG
+  entry "Post-programme fixes". The design_preview pair is
+  also fully deleted now (`09000d6c` + `93131f89`).

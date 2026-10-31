@@ -1,11 +1,15 @@
-# Font assets — D-039 "Editorial" (Route A, owner-supplied)
+# Font assets — D-039 "Editorial" (Route A)
 
-The Editorial type system (Playfair Display / DM Sans / DM Mono,
-all SIL Open Font License 1.1) is wired in `lib/core/theme.dart`
-by family name WITH platform fallbacks, so the app builds and
-runs correctly before these binaries land. **Do not add the
-pubspec `fonts:` block until every file below is present** —
-referencing a missing asset breaks the build.
+**INTEGRATED 2026-10-31.** All files below are present in this
+directory and declared in `pubspec.yaml`; the app now renders
+the real faces (fallbacks in `lib/core/theme.dart` remain as
+safety nets only). Provenance: official static instances
+served by Google Fonts (Playfair Display 1.203, DM Sans
+4.004, DM Mono 1.000), verified by name table + OS/2 weight
+class + italic flag, none of them variable fonts. Licences:
+the three `OFL-*.txt` files beside the fonts (SIL OFL 1.1).
+Guarded by `test/font_assets_test.dart`, which loads the
+FontManifest and the font bytes from the built bundle.
 
 ## Files to place in THIS directory (exact names)
 

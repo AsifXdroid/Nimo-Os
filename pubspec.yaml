@@ -87,6 +87,36 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # D-039 Editorial typefaces (OFL 1.1; licences in assets/fonts/).
+  # Official static instances from Google Fonts, verified by
+  # name table + OS/2 weight class (2026-10-31): Playfair
+  # Display 1.203, DM Sans 4.004, DM Mono 1.000. No runtime
+  # fetching — the files ship with the app.
+  fonts:
+    - family: Playfair Display
+      fonts:
+        - asset: assets/fonts/PlayfairDisplay-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/PlayfairDisplay-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/PlayfairDisplay-MediumItalic.ttf
+          weight: 500
+          style: italic
+    - family: DM Sans
+      fonts:
+        - asset: assets/fonts/DMSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/DMSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/DMSans-Bold.ttf
+          weight: 700
+    - family: DM Mono
+      fonts:
+        - asset: assets/fonts/DMMono-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/DMMono-Medium.ttf
+          weight: 500
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

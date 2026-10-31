@@ -140,6 +140,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (widget.themeChoice != null &&
               widget.onThemeChanged != null) ...[
             NeoPanel(
+              level: NeoSurfaceLevel.flat,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -190,9 +191,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: const EdgeInsets.only(top: Gap.sm),
               child: Text(
                 'On desktop, scheduled reminders are not supported '
-                'by the platform notification service (§R8.6) — '
-                'these toggles are kept for parity, but treat the '
-                'phone as the reminder device.',
+                'by the platform notification service — these '
+                'toggles are kept for parity, but treat the phone '
+                'as the reminder device.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -241,11 +242,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
           ],
           const SizedBox(height: Gap.lg),
-          const NeoSectionHead(title: 'Your data, in your hands'),
+          // D-038 (§6.6): Backup and Sync are DIFFERENT tools —
+          // a full snapshot vs moving changes — and now read as
+          // two distinct sections instead of one data block.
+          const NeoSectionHead(title: 'Backup & restore'),
           const SizedBox(height: Gap.sm),
-          widget.backupSection,
+          NeoPanel(
+            level: NeoSurfaceLevel.flat,
+            child: widget.backupSection,
+          ),
           const SizedBox(height: Gap.lg),
-          const NeoSectionHead(title: 'Sync'),
+          const NeoSectionHead(title: 'Sync between your devices'),
           const SizedBox(height: Gap.sm),
           if (widget.syncSection != null)
             widget.syncSection!
@@ -258,6 +265,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           const SizedBox(height: Gap.lg),
           NeoPanel(
+            level: NeoSurfaceLevel.flat,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

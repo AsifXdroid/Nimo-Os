@@ -16,6 +16,7 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import 'backup_store.dart';
 
@@ -145,11 +146,23 @@ class _BackupSectionState extends State<BackupSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Backup', style: theme.textTheme.titleMedium),
+        // D-038: distinct from Sync — this is the FULL snapshot.
+        Row(
+          children: [
+            const NeoGlyph(icon: Icons.archive_outlined, size: 36),
+            const SizedBox(width: Space.s3),
+            Expanded(
+              child: Text('Full snapshot backup',
+                  style: AppType.cardHeading(theme.textTheme)),
+            ),
+          ],
+        ),
         const SizedBox(height: Gap.sm),
         Text(
           'One zip file: a database snapshot plus your Library. '
-          'Stored in Library/backups — it travels with the folder.',
+          'Stored in Library/backups — it travels with the folder. '
+          'Unlike sync, a backup copies everything, not just '
+          'changes.',
           style: theme.textTheme.bodySmall,
         ),
         const SizedBox(height: Gap.md),

@@ -3,6 +3,34 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-31 — D-038 Stage 4: Settings refinement (main chat)
+- Owner directed the use of the installed design skills for
+  the remaining stages (Hallmark as the audit lens, Apple
+  Design + Emil design-eng for motion/polish judgement,
+  ponytail for restraint). Stage 4 applies them as review
+  discipline; Stage 6 is where their motion rules bite.
+- Settings regrouped per §6.6 with NO behaviour change:
+  Appearance and the closing note go flat; reminders stay on
+  the canvas; the old "Your data, in your hands" + "Sync"
+  block splits into two distinct sections — "Backup &
+  restore" (the backup section in its own flat panel, headed
+  "Full snapshot backup" with an explicit "unlike sync, a
+  backup copies everything" line) and "Sync between your
+  devices".
+- Sync section internally grouped: overview (copy shortened;
+  the old paragraph's doc references removed) · Status (well;
+  device id in the technical role) · Library folder (path in
+  the technical role) · Manual transfer (Sync now, Import a
+  package) · Advanced (Conflicts / Held / Repair, with a
+  plain-language explainer). Group labels use the caption
+  treatment from Stage 2's score wells.
+- The desktop reminder note loses its "(§R8.6)" doc-speak.
+- Verified here: `flutter analyze` clean; `flutter test`
+  **496/496** (no expectation changes needed — labels and
+  flows untouched). Preview:
+  `files/nimo-stage4-settings-preview.html`.
+- Next: Stage 5 — light/dark parity.
+
 ## 2026-10-31 — D-038 Stage 3: Learn, Progress, Spaces, Goals (main chat)
 - Learn: the pulse panel shrinks to its content — with
   nothing due and nothing new, the three zero cells collapse

@@ -338,6 +338,23 @@ class _SyncSectionState extends State<SyncSection> {
     return DateTime.fromMillisecondsSinceEpoch(ms).toLocal().toString();
   }
 
+  /// A quiet group label inside the Sync section (D-038):
+  /// caption role, sentence case — the same treatment as the
+  /// score-well labels.
+  Widget _groupHead(BuildContext context, String title) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Gap.sm),
+      child: Text(
+        title,
+        style: AppType.caption(theme.textTheme)?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -345,16 +362,19 @@ class _SyncSectionState extends State<SyncSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // D-038 (§6.6): the Sync section is grouped — overview,
+        // status, library, manual transfer, advanced — instead
+        // of one long undifferentiated block.
         Text(
-          'Two-device sync, Stage A: data travels in packages you '
-          'export and import by hand (or let your Library folder '
-          'sync carry them — packages land in Library/sync). Your '
-          'Library files themselves travel with the folder via '
-          'Syncthing-Fork (setup: docs/SYNC_SETUP.md). The live '
+          'Your phone and laptop exchange small packages of '
+          'changes. Move them by hand, or let your Library folder '
+          'carry them (packages land in Library/sync). Your '
+          'Library files travel with the folder itself. The live '
           'database file is never synced directly.',
           style: theme.textTheme.bodySmall,
         ),
         const SizedBox(height: Gap.md),
+        _groupHead(context, 'Status'),
         if (s == null)
           const Center(child: CircularProgressIndicator())
         else
@@ -364,8 +384,9 @@ class _SyncSectionState extends State<SyncSection> {
               children: [
                 Text(
                   'This device: ${s.deviceId.substring(0, 8)}…',
-                  style: theme.textTheme.bodyMedium,
+                  style: AppType.technical,
                 ),
+                const SizedBox(height: Space.s1),
                 Text(
                   'Last export: ${_fmtTime(s.lastExportAt)}'
                   '${s.lastExportFile == null ? '' : ' (${s.lastExportFile})'}',
@@ -387,9 +408,10 @@ class _SyncSectionState extends State<SyncSection> {
           ),
         if (widget.onSetLibraryRoot != null) ...[
           const SizedBox(height: Gap.md),
+          _groupHead(context, 'Library folder'),
           Text(
-            'Library folder: ${widget.libraryRoot.path}',
-            style: theme.textTheme.bodySmall,
+            widget.libraryRoot.path,
+            style: AppType.technical,
           ),
           const SizedBox(height: Gap.sm),
           Wrap(
@@ -417,6 +439,7 @@ class _SyncSectionState extends State<SyncSection> {
           ),
         ],
         const SizedBox(height: Gap.md),
+        _groupHead(context, 'Manual transfer'),
         Wrap(
           spacing: Gap.sm,
           runSpacing: Gap.sm,
@@ -431,6 +454,21 @@ class _SyncSectionState extends State<SyncSection> {
               icon: const Icon(Icons.file_download_outlined),
               label: const Text('Import a package…'),
             ),
+          ],
+        ),
+        const SizedBox(height: Gap.md),
+        _groupHead(context, 'Advanced'),
+        Text(
+          'Conflicts and held changes are kept for your review. '
+          'Repair rebuilds this device from a backup snapshot.',
+          style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: Gap.sm),
+        Wrap(
+          spacing: Gap.sm,
+          runSpacing: Gap.sm,
+          children: [
             OutlinedButton.icon(
               onPressed: _busy ? null : _showConflicts,
               icon: const Icon(Icons.content_copy_outlined),

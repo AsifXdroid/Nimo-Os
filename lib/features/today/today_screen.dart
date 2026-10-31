@@ -28,6 +28,7 @@ import '../shared_ui.dart';
 import '../store.dart';
 import 'routine_screen.dart';
 import 'today_store.dart';
+import 'plan_link.dart';
 
 const _weekdayNames = [
   'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
@@ -65,6 +66,7 @@ class _HubData {
     required this.dueCount,
     required this.newCount,
     this.weekSummary,
+    this.linkedItems = const {},
   });
 
   final List<DayPlanItem> items;
@@ -98,6 +100,12 @@ class _HubData {
   /// Sunday-evening card is due (§R5.4: Sunday from ~18:00) and
   /// a ProgressStore is wired; null otherwise.
   final WeeklySummary? weekSummary;
+
+  /// D-042: plan items' linked Spaces items, resolved at load
+  /// (id → item) so rows can render their resource action.
+  /// A missing id (deleted resource) simply has no entry —
+  /// the FK already nulled it; this is belt-and-braces.
+  final Map<int, Item> linkedItems;
 }
 
 class TodayScreen extends StatefulWidget {
@@ -217,6 +225,18 @@ class _TodayScreenState extends State<TodayScreen> {
       }
       _prevGoalFractions[g.id] = g.fraction;
     }
+    // D-042: resolve the plan's linked resources for the rows.
+    final linkedItems = <int, Item>{};
+    for (final it in items) {
+      final id = it.itemId;
+      if (id != null && !linkedItems.containsKey(id)) {
+        try {
+          linkedItems[id] = await widget.store.itemById(id);
+        } catch (_) {
+          // Deleted between generation and load: plain task.
+        }
+      }
+    }
     final sections = await widget.todayStore.homeSectionVisibility();
     final inboxCount = await widget.learn.store.inboxCountOrZero();
     final dueCount = await widget.learn.engine.dueCount();
@@ -243,6 +263,7 @@ class _TodayScreenState extends State<TodayScreen> {
       inboxCount: inboxCount,
       dueCount: dueCount,
       newCount: newCount,
+      linkedItems: linkedItems,
       weekSummary: weekSummary,
     );
   }
@@ -1140,6 +1161,8 @@ class _TodayScreenState extends State<TodayScreen> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final items = data.items;
+    final routines = items.where((e) => e.isRoutine).toList();
+    final oneoffs = items.where((e) => !e.isRoutine).toList();
     final done = items.where((e) => e.done).length;
     // D-039: the plan is an editorial TIMELINE on the canvas —
     // a hairline rail through node marks (see _planRow). The
@@ -1156,7 +1179,9 @@ class _TodayScreenState extends State<TodayScreen> {
               context,
               MaterialPageRoute(
                 builder: (_) =>
-                    RoutineScreen(todayStore: widget.todayStore),
+                    RoutineScreen(
+                        todayStore: widget.todayStore,
+                        store: widget.store),
               ),
             );
             setState(_reload);
@@ -1196,25 +1221,18 @@ class _TodayScreenState extends State<TodayScreen> {
                 'your routine template.',
                 style: theme.textTheme.bodyMedium),
           )
-        else
-          Stack(
-            children: [
-              Positioned(
-                left: 5,
-                top: 10,
-                bottom: 10,
-                child: Container(
-                  width: 1,
-                  color: scheme.outlineVariant,
-                ),
-              ),
-              Column(
-                children: [
-                  for (final item in items) _planRow(context, item),
-                ],
-              ),
-            ],
-          ),
+        else ...[
+          // D-042: the plan is SECTIONED by kind — Daily To-do
+          // (routine templates) above, Today (one-offs) below —
+          // one scrolling list, no second mode switch. The
+          // Today/This week control above stays the only one.
+          if (routines.isNotEmpty)
+            _planGroup(context, data, 'Daily To-do', routines),
+          if (routines.isNotEmpty && oneoffs.isNotEmpty)
+            const SizedBox(height: Space.s4),
+          if (oneoffs.isNotEmpty)
+            _planGroup(context, data, 'Today', oneoffs),
+        ],
         const SizedBox(height: Space.s4),
         Row(
           children: [
@@ -1272,12 +1290,55 @@ class _TodayScreenState extends State<TodayScreen> {
     );
   }
 
+  /// One plan section (D-042): a mono group label with a
+  /// hairline, then the group's rows on the timeline rail.
+  Widget _planGroup(BuildContext context, _HubData data, String label,
+      List<DayPlanItem> group) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              label.toUpperCase(),
+              style: AppType.eyebrow.copyWith(
+                fontSize: 10,
+                letterSpacing: 1.2,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(width: Space.s3),
+            Expanded(
+              child: Container(height: 1, color: scheme.outlineVariant),
+            ),
+          ],
+        ),
+        Stack(
+          children: [
+            Positioned(
+              left: 5,
+              top: 10,
+              bottom: 10,
+              child: Container(width: 1, color: scheme.outlineVariant),
+            ),
+            Column(
+              children: [
+                for (final item in group) _planRow(context, data, item),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   /// One plan row on the timeline: a node mark on the rail
   /// (filled when done), the title with its quiet
   /// classification line, a CARRIED tag when the item rolled
   /// over, delete for one-offs, and the circular check at the
   /// right — the row tap toggles; the check is its affordance.
-  Widget _planRow(BuildContext context, DayPlanItem item) {
+  Widget _planRow(BuildContext context, _HubData data, DayPlanItem item) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     // A11y (D-038 Stage 6): the row announces as a checkbox
@@ -1293,6 +1354,9 @@ class _TodayScreenState extends State<TodayScreen> {
           await _afterPlanEdit();
           setState(_reload);
         },
+        // D-042: management lives in the sheet (long-press is
+        // the accelerator; the ⋯ button is the visible path).
+        onLongPress: () => _showPlanItemSheet(context, data, item),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: Space.s4),
           child: Row(
@@ -1332,6 +1396,8 @@ class _TodayScreenState extends State<TodayScreen> {
                       style: theme.textTheme.bodySmall
                           ?.copyWith(color: scheme.onSurfaceVariant),
                     ),
+                    if (item.hasResource)
+                      _resourceAction(context, data, item),
                   ],
                 ),
               ),
@@ -1339,16 +1405,14 @@ class _TodayScreenState extends State<TodayScreen> {
                 const SizedBox(width: Space.s3),
                 const NeoTag('CARRIED', tint: true),
               ],
-              if (!item.isRoutine)
-                IconButton(
-                  icon: const Icon(Icons.close, size: 18),
-                  tooltip: 'Delete',
-                  onPressed: () async {
-                    await widget.todayStore.deletePlanItem(item.id);
-                    await _afterPlanEdit();
-                    setState(_reload);
-                  },
-                ),
+              // D-042: no permanent × — deletion lives in the
+              // management sheet, behind a confirmation.
+              IconButton(
+                icon: const Icon(Icons.more_horiz, size: 20),
+                tooltip: 'Task options',
+                onPressed: () =>
+                    _showPlanItemSheet(context, data, item),
+              ),
               const SizedBox(width: Space.s2),
               NeoCheck(done: item.done),
             ],
@@ -1356,6 +1420,333 @@ class _TodayScreenState extends State<TodayScreen> {
         ),
       ),
     );
+  }
+
+  /// The row's resource action (D-042): derived from the
+  /// link — never stored, never toggles completion. A link
+  /// whose item has vanished renders nothing.
+  Widget _resourceAction(
+      BuildContext context, _HubData data, DayPlanItem item) {
+    final scheme = Theme.of(context).colorScheme;
+    final linked =
+        item.itemId == null ? null : data.linkedItems[item.itemId];
+    if (item.url == null && linked == null) {
+      return const SizedBox.shrink();
+    }
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: InkWell(
+        onTap: () async {
+          await openPlanResource(
+            context,
+            url: item.url,
+            item: linked,
+            store: widget.store,
+            learn: widget.learn,
+            thumbnails: widget.thumbnails,
+          );
+          if (mounted) setState(_reload);
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: Space.s2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                resourceActionIcon(url: item.url, item: linked),
+                size: 14,
+                color: scheme.primary,
+              ),
+              const SizedBox(width: Space.s2),
+              Text(
+                resourceActionLabel(url: item.url, item: linked),
+                style: AppType.eyebrow.copyWith(
+                  fontSize: 10,
+                  color: scheme.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The task-management sheet (D-042) — the × button's
+  /// replacement. Everything deliberate lives here: open the
+  /// resource, retitle, link, remove. Deletion always
+  /// confirms; removing a completed core routine names its
+  /// streak consequence first (owner decision).
+  Future<void> _showPlanItemSheet(
+      BuildContext context, _HubData data, DayPlanItem item) async {
+    final theme = Theme.of(context);
+    final linked =
+        item.itemId == null ? null : data.linkedItems[item.itemId];
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 2),
+              child: Text(item.title,
+                  style: theme.textTheme.titleMedium),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text(
+                item.isRoutine
+                    ? (item.countsCore
+                        ? 'Daily to-do · Core'
+                        : 'Daily to-do')
+                    : 'Today',
+                style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ),
+            if (item.url != null || linked != null)
+              ListTile(
+                leading: Icon(
+                    resourceActionIcon(url: item.url, item: linked)),
+                title: Text(resourceActionLabel(
+                        url: item.url, item: linked)
+                    .replaceAll(' →', '')),
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  await openPlanResource(
+                    context,
+                    url: item.url,
+                    item: linked,
+                    store: widget.store,
+                    learn: widget.learn,
+                    thumbnails: widget.thumbnails,
+                  );
+                  if (mounted) setState(_reload);
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Edit title'),
+              onTap: () async {
+                Navigator.pop(sheetContext);
+                final title = await promptText(context,
+                    title: 'Edit title',
+                    label: 'Title',
+                    initial: item.title);
+                if (title == null ||
+                    title.isEmpty ||
+                    title == item.title) {
+                  return;
+                }
+                await widget.todayStore.renamePlanItem(item.id, title);
+                if (mounted) setState(_reload);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.link),
+              title: Text(
+                  item.hasResource ? 'Change link' : 'Attach a link'),
+              onTap: () async {
+                Navigator.pop(sheetContext);
+                await _attachLink(context, item);
+              },
+            ),
+            if (item.hasResource)
+              ListTile(
+                leading: const Icon(Icons.link_off),
+                title: const Text('Remove link'),
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  await widget.todayStore.setPlanItemLink(item.id);
+                  if (mounted) setState(_reload);
+                },
+              ),
+            const Divider(),
+            if (item.isRoutine) ...[
+              ListTile(
+                leading: const Icon(Icons.tune_outlined),
+                title: const Text('Edit in Routine'),
+                subtitle:
+                    const Text('Changes every day, from tomorrow'),
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => RoutineScreen(
+                          todayStore: widget.todayStore,
+                          store: widget.store),
+                    ),
+                  );
+                  if (mounted) setState(_reload);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.visibility_off_outlined),
+                title: const Text('Remove from today only'),
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  await _removeFromToday(context, item);
+                },
+              ),
+            ] else
+              ListTile(
+                leading: Icon(Icons.delete_outline,
+                    color: theme.colorScheme.error),
+                title: Text('Delete task',
+                    style:
+                        TextStyle(color: theme.colorScheme.error)),
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  await _deleteOneOff(context, item);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The attach flow (D-042): paste a link, or pick an
+  /// existing Spaces item. Setting one clears the other —
+  /// one resource per task.
+  Future<void> _attachLink(BuildContext context, DayPlanItem item) async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (c) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.link),
+              title: const Text('Paste a web or video link'),
+              onTap: () => Navigator.pop(c, 'url'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.folder_open_outlined),
+              title: const Text(
+                  'Choose a note, link or quiz from Spaces'),
+              onTap: () => Navigator.pop(c, 'item'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!context.mounted || choice == null) return;
+    if (choice == 'url') {
+      final controller = TextEditingController(text: item.url ?? '');
+      final saved = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('Web or video link'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+                labelText: 'URL', hintText: 'https://…'),
+            keyboardType: TextInputType.url,
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      );
+      final raw = controller.text.trim();
+      controller.dispose();
+      if (saved != true || !context.mounted) return;
+      if (!isValidWebUrl(raw)) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text("That doesn't look like a valid web link.")));
+        return;
+      }
+      await widget.todayStore.setPlanItemLink(item.id, url: raw);
+    } else {
+      final picked = await pickLinkItem(context, widget.store);
+      if (picked == null) return;
+      await widget.todayStore.setPlanItemLink(item.id, itemId: picked.id);
+    }
+    if (mounted) setState(_reload);
+  }
+
+  Future<bool> _confirmAction(
+    BuildContext context, {
+    required String title,
+    required String body,
+    required String action,
+  }) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(title),
+        content: Text(body),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: Text(action),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
+  }
+
+  Future<void> _deleteOneOff(BuildContext context, DayPlanItem item) async {
+    final ok = await _confirmAction(
+      context,
+      title: 'Delete this task?',
+      body: 'It will be removed from today and will not carry '
+          'over to tomorrow.',
+      action: 'Delete',
+    );
+    if (!ok) return;
+    await widget.todayStore.deletePlanItem(item.id);
+    await _afterPlanEdit();
+    if (mounted) setState(_reload);
+  }
+
+  Future<void> _removeFromToday(
+      BuildContext context, DayPlanItem item) async {
+    // Owner decision (D-042): allowed, never silent — and a
+    // completed CORE row carries the explicit consequence.
+    final (title, body) = switch ((item.done, item.countsCore)) {
+      (true, true) => (
+          'Remove a completed core task?',
+          'This task is done and counts toward today\'s core. '
+              'Removing it recalculates today\'s Done Score from '
+              'the remaining tasks — and today may stop counting '
+              'toward your streak. The task stays in your '
+              'routine and returns tomorrow.'
+        ),
+      (true, false) => (
+          'Remove this task for today?',
+          'It is done, so today\'s Done Score will be '
+              'recalculated from the remaining tasks. The task '
+              'stays in your routine and returns tomorrow.'
+        ),
+      _ => (
+          'Remove this task for today?',
+          'The task stays in your routine and returns tomorrow.'
+        ),
+    };
+    final ok = await _confirmAction(context,
+        title: title, body: body, action: 'Remove for today');
+    if (!ok) return;
+    await widget.todayStore.deletePlanItem(item.id);
+    await _afterPlanEdit();
+    if (mounted) setState(_reload);
   }
 
   Widget _weekCard(BuildContext context, _HubData data) {

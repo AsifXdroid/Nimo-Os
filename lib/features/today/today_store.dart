@@ -29,6 +29,9 @@ class PlanTemplate {
     this.anchorText,
     this.track,
     this.countsCore = true,
+    this.weekdays,
+    this.itemId,
+    this.url,
   });
 
   final int id;
@@ -46,6 +49,24 @@ class PlanTemplate {
   final String? track;
   final bool countsCore;
 
+  /// Weekday mask (D-042): bits 0–6 = Mon–Sun; null (or 127)
+  /// means every day. Decides at plan generation whether this
+  /// template produces a row for a date — never stored on the
+  /// row, so later edits cannot rewrite generated history.
+  final int? weekdays;
+
+  /// Optional linked resource (D-042): an existing Spaces
+  /// item and/or a bare external URL. One resource per task;
+  /// the URL wins for the row's action when both are set.
+  final int? itemId;
+  final String? url;
+
+  bool scheduledOn(DateTime date) {
+    final mask = weekdays;
+    if (mask == null || mask == 127) return true;
+    return (mask >> (date.weekday - 1)) & 1 == 1;
+  }
+
   factory PlanTemplate.fromRow(Map<String, Object?> r) => PlanTemplate(
         id: r['id'] as int,
         title: r['title'] as String,
@@ -56,6 +77,9 @@ class PlanTemplate {
         anchorText: r['anchor_text'] as String?,
         track: r['track'] as String?,
         countsCore: ((r['counts_core'] as int?) ?? 1) == 1,
+        weekdays: r['weekdays'] as int?,
+        itemId: r['item_id'] as int?,
+        url: r['url'] as String?,
       );
 }
 
@@ -83,6 +107,8 @@ class DayPlanItem {
     required this.carried,
     required this.position,
     this.countsCore = false,
+    this.itemId,
+    this.url,
   });
 
   final int id;
@@ -104,7 +130,15 @@ class DayPlanItem {
   /// edits/deletes can't rewrite history. One-offs: false.
   final bool countsCore;
 
+  /// Optional linked resource (D-042), copied from the
+  /// template at generation or from yesterday's one-off at
+  /// carry-over. item_id is a real FK (ON DELETE SET NULL):
+  /// a deleted resource leaves a plain task behind.
+  final int? itemId;
+  final String? url;
+
   bool get isRoutine => kind == PlanItemKind.routine;
+  bool get hasResource => url != null || itemId != null;
 
   factory DayPlanItem.fromRow(Map<String, Object?> r) => DayPlanItem(
         id: r['id'] as int,
@@ -116,6 +150,8 @@ class DayPlanItem {
         carried: (r['carried'] as int) == 1,
         position: r['position'] as int,
         countsCore: ((r['counts_core'] as int?) ?? 0) == 1,
+        itemId: r['item_id'] as int?,
+        url: r['url'] as String?,
       );
 }
 
@@ -231,6 +267,8 @@ class TodayStore {
       bool carried = false,
       bool countsCore = false,
       String? syncId,
+      int? itemId,
+      String? url,
     }) async {
       await _db.insert('day_plan_items', {
         'day_plan_id': planId,
@@ -241,6 +279,12 @@ class TodayStore {
         'carried': carried ? 1 : 0,
         'position': position++,
         'counts_core': countsCore ? 1 : 0,
+        // D-042: the linked resource copies with the row —
+        // from the template at generation, from yesterday's
+        // one-off at carry-over. Dropping it here would
+        // silently unlink tasks overnight.
+        'item_id': itemId,
+        'url': url,
         // S7 (§R7.2): generated items carry DETERMINISTIC sync_ids
         // so the phone and the laptop generating the same morning
         // produce the SAME item identity and sync dedupes instead
@@ -253,6 +297,16 @@ class TodayStore {
     final templates = await _db.query('plan_templates',
         where: 'is_active = 1', orderBy: 'position ASC, id ASC');
     for (final t in templates) {
+      // D-042: weekday scheduling is a generation-time filter
+      // only. A skipped template produces NO row for this
+      // date; rows already generated for other dates are
+      // historical facts and never revisited.
+      final mask = t['weekdays'] as int?;
+      if (mask != null &&
+          mask != 127 &&
+          (mask >> (date.weekday - 1)) & 1 != 1) {
+        continue;
+      }
       await addItem(
         title: t['title'] as String,
         kind: PlanItemKind.routine,
@@ -260,6 +314,8 @@ class TodayStore {
         // Snapshot the template's core flag at generation time.
         countsCore: ((t['counts_core'] as int?) ?? 1) == 1,
         syncId: 'rt-${await _rowSyncId('plan_templates', t)}-$key',
+        itemId: t['item_id'] as int?,
+        url: t['url'] as String?,
       );
     }
 
@@ -277,6 +333,8 @@ class TodayStore {
           title: r['title'] as String,
           kind: PlanItemKind.oneoff,
           carried: true,
+          itemId: r['item_id'] as int?,
+          url: r['url'] as String?,
           // A carried one-off derives from yesterday's item:
           // deterministic id from the SOURCE item + this date, so
           // both devices carrying the same item dedupe too.
@@ -313,7 +371,8 @@ class TodayStore {
         where: 'id = ?', whereArgs: [item.id]);
   }
 
-  Future<DayPlanItem> addOneOff(DateTime date, String title) async {
+  Future<DayPlanItem> addOneOff(DateTime date, String title,
+      {int? itemId, String? url}) async {
     final planId = await ensurePlanFor(date);
     final id = await _db.insert('day_plan_items', {
       'day_plan_id': planId,
@@ -322,6 +381,8 @@ class TodayStore {
       'done': 0,
       'carried': 0,
       'counts_core': 0,
+      'item_id': itemId,
+      'url': url,
       'position':
           (await _maxPosition('day_plan_items', where: 'day_plan_id = ?', whereArgs: [planId])) + 1,
     });
@@ -333,6 +394,43 @@ class TodayStore {
 
   Future<void> deletePlanItem(int id) async {
     await _db.delete('day_plan_items', where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Rename one plan row (D-042). Per-day only: renaming a
+  /// routine row never touches its template (which keeps its
+  /// own rename in the Routine editor).
+  Future<void> renamePlanItem(int id, String title) async {
+    await _db.update('day_plan_items', {'title': title},
+        where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Set or clear a plan row's linked resource (D-042). One
+  /// resource per task: callers pass the item link XOR the
+  /// bare URL (both null clears the link entirely).
+  Future<void> setPlanItemLink(int id, {int? itemId, String? url}) async {
+    await _db.update(
+      'day_plan_items',
+      {'item_id': itemId, 'url': url},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// Set a template's schedule + linked resource (D-042).
+  /// [weekdays] null means every day. Applies to plans not
+  /// yet generated, like every template edit.
+  Future<void> updateTemplateLink(
+    int id, {
+    required int? weekdays,
+    required int? itemId,
+    required String? url,
+  }) async {
+    await _db.update(
+      'plan_templates',
+      {'weekdays': weekdays, 'item_id': itemId, 'url': url},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // ------------------------------------------------------------ week view

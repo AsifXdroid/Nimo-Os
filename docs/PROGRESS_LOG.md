@@ -1,3 +1,25 @@
+## 2026-11-01 — D-042: Today's Plan Phase 1 (test branch)
+- **Built to the owner's authorization (two discussion
+  rounds first):** plan sectioned into Daily To-do /
+  Today; × removed for a management sheet; one linked
+  resource per task (URL or Spaces note/link-card/quiz);
+  weekday scheduling; audio deferred to Phase 2; make-daily
+  deferred. Full reasoning in DECISIONS D-042.
+- **Schema v8, additive only** (weekdays/item_id/url on
+  plan_templates; item_id/url on day_plan_items), links
+  copied at generation + carry-over, sync registered
+  (item_id as _Fk + nullableFks; entity order parents-first;
+  day_plans.created_at materialised on import, not synced —
+  a latent fresh-plan import failure the new round-trip
+  test exposed and this change fixes).
+- **Gates: analyze clean; 559/559 tests executed and
+  passing** (545 baseline + 14 new: 8 store, 1 migration,
+  1 sync round-trip with shifted local ids, 4 widget).
+  One existing test touched: the sync migration fixture's
+  rewind now also drops the v8 columns (assertions
+  unchanged). APK via CI on the `test` branch. NOT merged
+  to main (owner's branch workflow).
+
 ## 2026-10-31 — D-041: status-bar inset fix (owner bug report)
 - **Root cause (investigated, not assumed):** edge-to-edge
   rendering + only-an-AppBar-insets-the-body. Of the app's

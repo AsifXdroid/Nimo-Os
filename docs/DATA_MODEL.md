@@ -59,6 +59,9 @@ day's plan (D-002).
 | position | INTEGER NOT NULL DEFAULT 0 | ordering |
 | is_active | INTEGER NOT NULL DEFAULT 1 | 0/1; inactive items don't generate |
 | created_at | INTEGER NOT NULL | epoch ms |
+| weekdays | INTEGER (v8, D-042) | 7-bit mask Mon–Sun; NULL = every day; a generation-time filter only |
+| item_id | INTEGER → items(id) ON DELETE SET NULL (v8) | optional linked resource (note / link card / quiz) |
+| url | TEXT (v8) | optional bare web/video link; wins over item_id for the row action |
 
 ### `day_plans` (TODAY)
 One row per calendar day that has a plan.
@@ -79,6 +82,8 @@ One row per calendar day that has a plan.
 | done | INTEGER NOT NULL DEFAULT 0 | 0/1, per-date (this row belongs to one day) |
 | carried | INTEGER NOT NULL DEFAULT 0 | 0/1; copied from previous day's unticked one-off (D-002) |
 | position | INTEGER NOT NULL DEFAULT 0 | ordering within the day |
+| item_id | INTEGER → items(id) ON DELETE SET NULL (v8, D-042) | linked resource, copied from the template at generation or the source one-off at carry-over |
+| url | TEXT (v8) | bare web/video link, copied the same way |
 
 ### `goals` (GOAL-basic)
 | column | type | notes |
@@ -549,6 +554,24 @@ append-only entity.
   schema): routine items `rt-<template sync_id>-<date>`, carried
   one-offs `co-<source item sync_id>-<date>` (§R7.2 dedupe).
 
+### Changed in v8 (D-042)
+- `plan_templates` += `weekdays INTEGER` (7-bit mask,
+  Mon–Sun; NULL = every day), `item_id INTEGER → items(id)
+  ON DELETE SET NULL`, `url TEXT` — weekday scheduling +
+  one optional linked resource per task.
+- `day_plan_items` += `item_id` / `url`, copied from the
+  template at generation and from the source one-off at
+  carry-over (code, tested both ways).
+- Sync contract (code, not schema): `item_id` rides as
+  `item_id_sync` via the `_Fk` mechanism on both entities
+  and is registered nullable on import (missing resource →
+  plain task, never quarantine); `weekdays` / `url` ride as
+  plain fields; `syncEntityOrder` is parents-first for the
+  new edge (items before plan_templates). `day_plans.created_at`
+  is NOT synced — it is materialised on import from the op
+  stamp (syncing it would make two devices that generated
+  the same morning conflict over a bookkeeping value).
+
 ## The sync package format (`nimo-sync` v1) — the device contract
 
 This format is a contract between the owner's two devices; both
@@ -641,3 +664,4 @@ anything newer than it understands.
 | 5 | S5 | questions, review_log, learn_sessions, packs (all with sync identity); marked_points += question_id → questions(id) ON DELETE SET NULL |
 | 6 | S7 | sync_base, sync_peers, sync_quarantine, sync_conflicts (all device-local machinery; no existing table changes) |
 | 7 | S7 review | sync_exported (last-sent state per row, split from sync_base so export never advances the shared base — review finding M1, D-033) |
+| 8 | D-042 | plan_templates += weekdays / item_id → items(id) SET NULL / url; day_plan_items += item_id / url (all additive, no backfill; links copied at generation + carry-over; item_id syncs as item_id_sync) |

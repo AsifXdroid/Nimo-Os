@@ -19,7 +19,7 @@ class AppDatabase {
   static Database? _db;
 
   /// The current schema version. Must equal _migrations.length.
-  static const int schemaVersion = 7;
+  static const int schemaVersion = 8;
 
   /// Migration SQL per version: _migrations[v - 1] upgrades to v.
   static const List<List<String>> _migrations = [
@@ -526,6 +526,23 @@ class AppDatabase {
         PRIMARY KEY (entity, sync_id)
       )
       ''',
+    ],
+    // v8 (D-042): task resources + weekday scheduling.
+    // plan_templates gains a weekday mask (NULL = every day)
+    // and an optional linked resource; day_plan_items gains
+    // the same optional resource (copied at generation /
+    // carry-over). item_id follows the template_id precedent:
+    // a real FK with ON DELETE SET NULL, so a deleted
+    // resource degrades the task to plain text, never a
+    // dangling row. Additive only — no data rewritten.
+    [
+      'ALTER TABLE plan_templates ADD COLUMN weekdays INTEGER',
+      'ALTER TABLE plan_templates ADD COLUMN item_id INTEGER '
+          'REFERENCES items(id) ON DELETE SET NULL',
+      'ALTER TABLE plan_templates ADD COLUMN url TEXT',
+      'ALTER TABLE day_plan_items ADD COLUMN item_id INTEGER '
+          'REFERENCES items(id) ON DELETE SET NULL',
+      'ALTER TABLE day_plan_items ADD COLUMN url TEXT',
     ],
   ];
 

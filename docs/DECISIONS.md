@@ -745,3 +745,59 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
   (commits `bb3cce1` + `4a1f197`); see the PROGRESS_LOG
   entry "Post-programme fixes". The design_preview pair is
   also fully deleted now (`09000d6c` + `93131f89`).
+
+## 2026-11-01 — D-042: Today's Plan — task system & resource integration (Phase 1)
+- **Owner-approved design (two discussion rounds, then an
+  implementation authorization):** the plan is SECTIONED —
+  "Daily To-do" (routine templates) above "Today" (one-offs)
+  in one scrolling list; the Today/This Week control stays
+  the only mode switch. One linked resource per task (a bare
+  web/video URL, or a Spaces note / link card / HTML quiz —
+  never a copy, never a checklist); resource actions never
+  complete the task. Audio is Phase 2 (no dependencies now).
+  One-off → daily conversion deferred.
+- **Schema v8 (additive only):** `plan_templates` +=
+  `weekdays INTEGER` (7-bit mask Mon–Sun; NULL = every day),
+  `item_id` → items(id) ON DELETE SET NULL, `url TEXT`;
+  `day_plan_items` += the same `item_id`/`url`. Weekday
+  scheduling is a GENERATION-TIME filter only — a skipped
+  template produces no row for that date, and generated rows
+  are never revisited, so schedule edits cannot rewrite
+  history (the D-013 snapshot principle, by construction).
+- **Copy points (the correctness core):** generation copies
+  the template's link into the row (as it already copied
+  `counts_core`); carry-over copies the link from yesterday's
+  one-off. Both are pinned by store tests.
+- **The × is gone.** Management lives in a bottom sheet
+  (long-press or the ⋯ button): open resource, edit title,
+  attach/change/remove link, and removal — one-off delete
+  and routine remove-from-today BOTH confirm first.
+  Removing a DONE CORE routine shows the explicit warning
+  (owner decision): it recalculates today's Done Score and
+  today may stop counting toward the streak — because
+  counted-ness is a fold over CURRENT rows; D-013 protects
+  against template edits, not row deletion. No scoring,
+  streak, Day Close or snapshot rules changed.
+- **Sync (the investigation's risk, confirmed and closed):**
+  `item_id` registered as an `_Fk` on both specs (travels
+  as `item_id_sync`), `url`/`weekdays` as plain fields, AND
+  both FKs added to the importer's `nullableFks` set — an
+  unresolvable resource degrades to a plain task, never a
+  quarantined row. `syncEntityOrder` reordered parents-first
+  for the new edge (projects/items ahead of plan_templates).
+  The mandated round-trip test (different local ids on the
+  receiving device) caught two further latent bugs, fixed in
+  the same change: a fresh plan import failed
+  `day_plans.created_at` NOT NULL (now materialised locally
+  from the op stamp — created_at deliberately NOT synced, or
+  two devices generating the same morning would conflict
+  over a bookkeeping timestamp), and the older sync-fixture
+  test needed its rewind extended for v8 columns.
+- **Tests:** plan_resources_test (8: weekday filter,
+  generation copy, carry-over copy, delete-degrades,
+  rename/link, snapshot guard, core-signal guard),
+  migration_v8_test (populated v7 → v8), plan_link_sync_test
+  (round-trip with shifted local ids), plan_sheet_test
+  (4 widget tests: sections, no ×, resource-open-without-
+  completing, confirmed delete, core warning). Existing
+  suites unchanged except the one sync-fixture rewind above.

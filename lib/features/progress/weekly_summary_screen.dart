@@ -130,17 +130,20 @@ class WeeklySummaryView extends StatelessWidget {
       );
     }
 
+    // D-039: the Sunday letter reads as ruled sections on the
+    // canvas — a serif head over a hairline — not stacked
+    // panels.
     Widget section(String title, List<Widget> children) => Padding(
-          padding: const EdgeInsets.only(bottom: Gap.md),
-          child: NeoPanel(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: theme.textTheme.titleMedium),
-                const SizedBox(height: Gap.sm),
-                ...children,
-              ],
-            ),
+          padding: const EdgeInsets.only(bottom: Gap.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: theme.textTheme.titleMedium),
+              const SizedBox(height: Space.s2),
+              Container(height: 1, color: scheme.outlineVariant),
+              const SizedBox(height: Gap.sm),
+              ...children,
+            ],
           ),
         );
 
@@ -319,10 +322,7 @@ class WeekSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = summary;
-    return NeoPanel(
-      padding: const EdgeInsets.symmetric(
-          horizontal: Space.s6, vertical: Space.s2),
-      child: NeoListRow(
+    return NeoListRow(
         icon: Icons.calendar_view_week_outlined,
         title: 'This week',
         sub: s.isEmpty
@@ -333,7 +333,6 @@ class WeekSummaryCard extends StatelessWidget {
                 '${s.majorPoints.isNotEmpty ? ' · ${s.majorPoints.length} major point${s.majorPoints.length == 1 ? '' : 's'}' : ''}',
         last: true,
         onTap: onOpen,
-      ),
     );
   }
 }

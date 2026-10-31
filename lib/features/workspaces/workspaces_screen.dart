@@ -207,17 +207,18 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
                   style: Theme.of(context).textTheme.bodyMedium,
                 )
               else
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  clipBehavior: Clip.none,
-                  mainAxisSpacing: Space.s3,
-                  crossAxisSpacing: Space.s3,
-                  childAspectRatio: 1.3,
+                // D-039: spaces are the concept's hairline ROWS
+                // with serif glyph squares — not a tile grid.
+                Column(
                   children: [
                     for (final ws in data.workspaces)
-                      _spaceCard(context, ws, data, ws.id == _selectedId),
+                      _spaceRow(
+                        context,
+                        ws,
+                        data,
+                        selected: ws.id == _selectedId,
+                        last: ws == data.workspaces.last,
+                      ),
                   ],
                 ),
               if (selected != null) ...[
@@ -228,21 +229,17 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
                 const SizedBox(height: Gap.lg),
                 const NeoSectionHead(title: 'Recently touched'),
                 const SizedBox(height: Space.s3),
-                NeoPanel(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: Space.s6, vertical: Space.s2),
-                  child: Column(
-                    children: [
-                      for (final r in data.recent)
-                        NeoListRow(
-                          icon: itemTypeDef(r.item.type).icon,
-                          title: r.item.title,
-                          sub: '${r.workspaceName} · ${r.projectName}',
-                          last: r == data.recent.last,
-                          onTap: () => _openItem(r.item),
-                        ),
-                    ],
-                  ),
+                Column(
+                  children: [
+                    for (final r in data.recent)
+                      NeoListRow(
+                        icon: itemTypeDef(r.item.type).icon,
+                        title: r.item.title,
+                        sub: '${r.workspaceName} · ${r.projectName}',
+                        last: r == data.recent.last,
+                        onTap: () => _openItem(r.item),
+                      ),
+                  ],
                 ),
               ],
             ],
@@ -252,47 +249,87 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
     );
   }
 
-  Widget _spaceCard(
-      BuildContext context, Workspace ws, _SpacesData data, bool selected) {
+  /// One space as an editorial row: a bordered square with
+  /// the space's serif initial, its name and counts, and a
+  /// chevron. Selected = the glyph square fills with the
+  /// container tint and a mint edge (the detail panel below
+  /// carries the selection's actions).
+  Widget _spaceRow(
+    BuildContext context,
+    Workspace ws,
+    _SpacesData data, {
+    required bool selected,
+    required bool last,
+  }) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final counts = data.counts[ws.id] ?? (projects: 0, items: 0);
-    final content = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(Icons.folder_outlined, size: 26, color: scheme.primary),
-        const SizedBox(height: Space.s5),
-        Text(
-          ws.name,
-          style: theme.textTheme.bodyMedium
-              ?.copyWith(fontWeight: FontWeight.w600),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: last
+              ? BorderSide.none
+              : BorderSide(color: scheme.outlineVariant),
         ),
-        const SizedBox(height: 2),
-        Text(
-          '${counts.projects} projects · ${counts.items} items'
-          '${ws.pinned ? ' · pinned' : ''}',
-          style: theme.textTheme.bodySmall
-              ?.copyWith(color: scheme.onSurfaceVariant),
-        ),
-      ],
-    );
-    if (selected) {
-      return InkWell(
-        borderRadius: BorderRadius.circular(RadiusToken.inset),
+      ),
+      child: InkWell(
         onTap: () => _select(ws),
-        child: Container(
-          decoration: neoWellDecoration(context),
-          padding: const EdgeInsets.all(Space.s4),
-          child: content,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: Space.s4),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? scheme.primaryContainer
+                      : scheme.surface,
+                  border: Border.all(
+                    color: selected ? scheme.primary : scheme.outline,
+                  ),
+                  borderRadius: BorderRadius.circular(RadiusToken.sm),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  ws.name.isEmpty ? '?' : ws.name[0].toUpperCase(),
+                  style: TextStyle(
+                    fontFamily: fontSerif,
+                    fontFamilyFallback: fontSerifFallback,
+                    fontSize: 20,
+                    color: selected
+                        ? scheme.onPrimaryContainer
+                        : scheme.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: Space.s4),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ws.name,
+                      style: theme.textTheme.titleSmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${counts.projects} projects · ${counts.items} items'
+                      '${ws.pinned ? ' · pinned' : ''}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right,
+                  size: 20, color: scheme.onSurfaceVariant),
+            ],
+          ),
         ),
-      );
-    }
-    return NeoRaisedSm(
-      padding: const EdgeInsets.all(Space.s4),
-      onTap: () => _select(ws),
-      child: content,
+      ),
     );
   }
 

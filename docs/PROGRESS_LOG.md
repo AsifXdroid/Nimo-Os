@@ -3,6 +3,31 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-31 — D-039 Stage 4: Progress, Spaces, Goals (main chat)
+- Progress: the Journey keeps its single justified hero
+  panel (the path art is the visual). The numbers/charts
+  card, the calendar and the archive leave their flat
+  panels for ruled canvas composition; the streak header
+  was already a canvas stat row.
+- Weekly summary: sections are now ruled canvas sections
+  (serif head over a hairline) instead of stacked panels —
+  the Sunday letter reads as a letter. The Progress-side
+  "This week" card becomes a bare hairline row.
+- Spaces: the 2-column tile grid becomes the concept's
+  ROWS — 48px bordered squares with serif initials, name,
+  counts, chevron; the selected space's square fills with
+  the container tint and a mint edge, and its detail panel
+  below is unchanged. Recently touched on the canvas.
+- Projects and project Items/Topics lists: canvas rows.
+- Goals: audited, no code change — goal cards (first
+  raised, rest flat) and the closing pace panel already
+  match the Editorial hierarchy under the Stage 1 kit;
+  serif/mono roles apply automatically. Item detail's quiz
+  panel likewise stands (single-object detail).
+- Verified here: `flutter analyze` clean; `flutter test`
+  **517/517**. Preview:
+  `files/nimo-editorial-stage4-progress-spaces-preview.html`.
+
 ## 2026-10-31 — D-039 Stage 3: Learn (main chat)
 - Learn hub: the pulse moves onto the DEEP FeaturePanel
   (serif title + mono "All topics" action on deep green,

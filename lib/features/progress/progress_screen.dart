@@ -297,9 +297,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   Widget _numbersCard(BuildContext context, _ProgressData data) {
     final theme = Theme.of(context);
-    return NeoPanel(
-      level: NeoSurfaceLevel.flat,
-      child: Column(
+    // D-039: charts sit on the canvas under their section
+    // head — no flat panel around them.
+    return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const NeoSectionHead(title: 'Two perspectives, kept separate'),
@@ -313,16 +313,13 @@ class _ProgressScreenState extends State<ProgressScreen> {
           const SizedBox(height: Gap.sm),
           EnjoymentChart(points: data.enjoyment),
         ],
-      ),
     );
   }
 
   Widget _calendarCard(BuildContext context) {
     final theme = Theme.of(context);
     final month = _monthCursor;
-    return NeoPanel(
-      level: NeoSurfaceLevel.flat,
-      child: Column(
+    return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -378,7 +375,6 @@ class _ProgressScreenState extends State<ProgressScreen> {
               },
             ),
         ],
-      ),
     );
   }
 
@@ -389,28 +385,19 @@ class _ProgressScreenState extends State<ProgressScreen> {
       for (final m in data.archive)
         if (m != currentMonday) m,
     ];
-    return NeoPanel(
-      level: NeoSurfaceLevel.flat,
-      padding: const EdgeInsets.symmetric(
-          horizontal: Space.s6, vertical: Space.s2),
-      child: Column(
+    return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(top: Space.s4, bottom: Space.s2),
-            child: NeoSectionHead(title: 'Past weekly summaries'),
-          ),
+          const NeoSectionHead(title: 'Past weekly summaries'),
+          const SizedBox(height: Space.s3),
           if (past.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: Space.s4),
-              child: Text(
+            Text(
                 'Summaries appear here as weeks pass — each Sunday '
                 'evening, this week\'s summary joins the archive.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-            ),
           for (final monday in past)
             NeoListRow(
               icon: Icons.calendar_view_week_outlined,
@@ -419,7 +406,6 @@ class _ProgressScreenState extends State<ProgressScreen> {
               onTap: () => _openSummary(monday),
             ),
         ],
-      ),
     );
   }
 }

@@ -94,10 +94,8 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
             padding: const EdgeInsets.fromLTRB(
                 Space.page, Gap.md, Space.page, Gap.lg),
             children: [
-              NeoPanel(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: Space.s6, vertical: Space.s2),
-                child: Column(
+              // D-039: project rows on the canvas (hairlines).
+              Column(
                   children: [
                     for (final prj in list)
                       NeoListRow(
@@ -121,7 +119,6 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                         ),
                       ),
                   ],
-                ),
               ),
             ],
           );

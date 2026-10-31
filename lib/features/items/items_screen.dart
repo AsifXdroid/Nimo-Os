@@ -280,33 +280,29 @@ class _ItemsScreenState extends State<ItemsScreen> {
                   Text('No topics in this project yet.',
                       style: Theme.of(context).textTheme.bodyMedium)
                 else
-                  NeoPanel(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: Space.s6, vertical: Space.s2),
-                    child: Column(
-                      children: [
-                        for (final t in _topics)
-                          NeoListRow(
-                            icon: Icons.lightbulb_outline,
-                            title: t.title,
-                            sub: t.status,
-                            last: t == _topics.last,
-                            onTap: () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => TopicDetailScreen(
-                                    store: widget.store,
-                                    learn: widget.learn!,
-                                    topic: t,
-                                  ),
+                  Column(
+                    children: [
+                      for (final t in _topics)
+                        NeoListRow(
+                          icon: Icons.lightbulb_outline,
+                          title: t.title,
+                          sub: t.status,
+                          last: t == _topics.last,
+                          onTap: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => TopicDetailScreen(
+                                  store: widget.store,
+                                  learn: widget.learn!,
+                                  topic: t,
                                 ),
-                              );
-                              _loadTopics();
-                            },
-                          ),
-                      ],
-                    ),
+                              ),
+                            );
+                            _loadTopics();
+                          },
+                        ),
+                    ],
                   ),
                 const SizedBox(height: Gap.lg),
                 const NeoSectionHead(title: 'Items'),
@@ -322,15 +318,11 @@ class _ItemsScreenState extends State<ItemsScreen> {
                   ),
                 )
               else
-                NeoPanel(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: Space.s6, vertical: Space.s2),
-                  child: Column(
-                    children: [
-                      for (final item in list)
-                        _itemRow(context, item, last: item == list.last),
-                    ],
-                  ),
+                Column(
+                  children: [
+                    for (final item in list)
+                      _itemRow(context, item, last: item == list.last),
+                  ],
                 ),
             ],
           );

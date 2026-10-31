@@ -5,6 +5,13 @@
 /// raw copy of the live files), and `library/…` (the §R6.4 tree,
 /// minus the backups folder itself).
 ///
+/// D-043 (P0): the manifest carries an OPTIONAL `db_sha256` —
+/// the SHA-256 of the snapshot file — verified at inspect time
+/// when present. Optional on purpose: backups written before
+/// D-043 have no digest and still inspect/restore (the staged
+/// snapshot's integrity_check remains the floor); readers older
+/// than D-043 ignore the unknown key, so format_version stays 1.
+///
 /// **Restore guard (D-011, implemented here in S4):**
 /// 1. An automatic pre-restore backup of the current state is
 ///    ALWAYS taken before anything is replaced.
@@ -24,6 +31,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
@@ -51,6 +59,7 @@ class BackupManifest {
     required this.schemaVersion,
     required this.exportedAt,
     required this.deviceId,
+    this.dbSha256,
   });
 
   final int formatVersion;
@@ -58,12 +67,17 @@ class BackupManifest {
   final int exportedAt;
   final String deviceId;
 
+  /// SHA-256 (hex) of the `database.sqlite` snapshot file, or
+  /// null for backups written before D-043.
+  final String? dbSha256;
+
   Map<String, Object?> toJson() => {
         'kind': 'nimo-backup',
         'format_version': formatVersion,
         'schema_version': schemaVersion,
         'exported_at': exportedAt,
         'device_id': deviceId,
+        if (dbSha256 != null) 'db_sha256': dbSha256,
       };
 
   factory BackupManifest.fromJson(Map<String, Object?> json) {
@@ -75,6 +89,7 @@ class BackupManifest {
       schemaVersion: json['schema_version']! as int,
       exportedAt: json['exported_at']! as int,
       deviceId: json['device_id']! as String,
+      dbSha256: json['db_sha256'] as String?,
     );
   }
 }
@@ -115,16 +130,17 @@ class BackupStore {
   static const int maxEntryBytes = 536870912; // 512 MiB
   static const int maxTotalEntryBytes = 2147483648; // 2 GiB
 
-  /// Library subfolders whose CONTENTS are replaced on restore
-  /// (backups/ is deliberately not one of them: wiping it would
-  /// destroy the pre-restore backup we just took).
-  static const List<String> _restoredSubdirs = [
-    'sources',
-    'media',
-    'packs',
-    'html_quizzes',
-    'sync',
-  ];
+  /// Library subfolders NEVER cleared on restore: `backups/`
+  /// (wiping it would destroy the pre-restore backup we just
+  /// took) and `.nimo/` (device-local library identity).
+  ///
+  /// D-043: the cleared set is DERIVED — every content subfolder
+  /// the app knows ([LibraryStore.subdirs]) plus every top-level
+  /// folder the backup itself carries — instead of the previous
+  /// hand-maintained list. The old list silently broke the day a
+  /// new content folder was added: its files would be exported
+  /// but never restored (the 2026-11-01 audit's latent trap).
+  static const Set<String> _neverClearedSubdirs = {'backups', '.nimo'};
 
   // ------------------------------------------------------------ export
 
@@ -152,6 +168,11 @@ class BackupStore {
         schemaVersion: AppDatabase.schemaVersion,
         exportedAt: stamp.millisecondsSinceEpoch,
         deviceId: await _deviceId(db),
+        // D-043: digest of the snapshot exactly as it will be
+        // zipped, so a damaged or tampered copy is caught at
+        // inspect time — before any restore begins.
+        dbSha256:
+            sha256.convert(await File(snapshotPath).readAsBytes()).toString(),
       );
       final manifestFile = File(p.join(staging.path, 'backup.json'));
       await manifestFile
@@ -222,8 +243,28 @@ class BackupStore {
           'understands ${AppDatabase.schemaVersion}). Update the '
           'app first.');
     }
-    if (archive.findFile('database.sqlite') == null) {
+    final snapshot = archive.findFile('database.sqlite');
+    if (snapshot == null) {
       throw BackupException('Backup is missing its database.');
+    }
+    // D-043: when the manifest carries a digest, the snapshot
+    // must match it. Content decompresses lazily — a corrupt
+    // entry throws here and is reported as an integrity failure.
+    if (manifest.dbSha256 != null) {
+      final String actual;
+      try {
+        actual = sha256.convert(snapshot.content).toString();
+      } catch (_) {
+        throw BackupException(
+            'Backup failed its integrity check (unreadable '
+            'database).');
+      }
+      if (actual != manifest.dbSha256) {
+        throw BackupException(
+            'Backup failed its integrity check — the database '
+            'does not match the manifest digest. The file may '
+            'be damaged; try another backup.');
+      }
     }
     return manifest;
   }
@@ -347,10 +388,17 @@ class BackupStore {
         await stagedDb.copy(live.path);
         copied = true;
 
-        // Rewrite the Library content: clear the restored
-        // subdirs, then write each backup entry through
-        // temp-then-rename.
-        for (final sub in _restoredSubdirs) {
+        // Rewrite the Library content: clear the derived set of
+        // content subdirs (see _neverClearedSubdirs), then write
+        // each backup entry through temp-then-rename.
+        final clearDirs = <String>{
+          ...LibraryStore.subdirs,
+          for (final entry in archive.files)
+            if (entry.name.startsWith('library/'))
+              entry.name.substring('library/'.length).split('/').first,
+        }..removeAll(_neverClearedSubdirs);
+        for (final sub in clearDirs) {
+          if (sub.isEmpty) continue;
           final dir = Directory(p.join(libraryRoot.path, sub));
           if (await dir.exists()) {
             await for (final entity in dir.list()) {

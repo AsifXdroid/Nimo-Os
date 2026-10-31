@@ -20,7 +20,6 @@ import '../../core/brand.dart';
 import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
-import 'backup_section.dart';
 import 'reminders.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -36,7 +35,7 @@ class SettingsScreen extends StatefulWidget {
   final ReminderController reminders;
 
   /// The S4 backup export/import section, wired by the shell.
-  final BackupSection backupSection;
+  final Widget backupSection;
 
   /// The S7 sync section, wired by the shell (optional so tests
   /// can mount Settings without a sync store).

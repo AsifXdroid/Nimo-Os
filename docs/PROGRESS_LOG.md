@@ -1,3 +1,24 @@
+## 2026-11-01 — D-043: External backup P0 (test branch)
+- **Owner priority change:** manual selective sync paused;
+  data preservation first (audit: debug-signed CI APKs can
+  never update each other; all data + backups live in
+  uninstall-erased app storage). P0 ships the
+  uninstall-surviving backup; signing (P1) and the one-time
+  migration (P2) follow separately.
+- **Built:** SAF channel in MainActivity (in-house, D-034
+  pattern) + ExternalBackupStore/Section — the existing zip
+  copied to a user-granted folder (Documents/Nimo/Backups),
+  `.partial` → verify → rename writes, nothing ever
+  overwritten or deleted; restore reuses the D-011 flow
+  verbatim. Manifest gains optional `db_sha256` (format
+  stays v1, legacy backups unaffected). Restore clear-set
+  derived instead of the fixed 5-folder list. No schema
+  change; sync untouched.
+- **Gates:** analyze clean; **573/573 executed** (559 + 14
+  new incl. the wipe-and-restore-from-external disaster
+  rehearsal). Kotlin verified by CI build after push;
+  on-device SAF behaviour is the owner's check.
+
 ## 2026-11-01 — D-042: Today's Plan Phase 1 (test branch)
 - **Built to the owner's authorization (two discussion
   rounds first):** plan sectioned into Daily To-do /

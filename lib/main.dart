@@ -45,6 +45,8 @@ import 'features/review/day_close_screen.dart';
 import 'features/review/review_store.dart';
 import 'features/settings/backup_section.dart';
 import 'features/settings/backup_store.dart';
+import 'features/settings/external_backup.dart';
+import 'features/settings/external_backup_section.dart';
 import 'features/settings/reminder_gateway.dart';
 import 'features/settings/reminders.dart';
 import 'features/settings/settings_screen.dart';
@@ -128,6 +130,12 @@ Future<void> bootstrap() async {
       // on Linux the capture entry points simply never fire, and
       // file import via the picker remains the capture route.
       shareService: Platform.isAndroid ? AppShareIntentService() : null,
+      // D-043 (P0): the external (SAF) backup is Android-only —
+      // the grant model is Android's; on desktop the Library
+      // already lives in user-controlled storage.
+      externalBackup: Platform.isAndroid
+          ? ExternalBackupStore(db, backup, MethodChannelSafBackup())
+          : null,
       onRestoreBackup: (zip, {required replaceConfirmed}) async {
         // D-011 restore: close → swap files under the guard → the
         // whole app re-bootstraps onto the restored database. The
@@ -221,6 +229,7 @@ class DailyLifeApp extends StatefulWidget {
     required this.backup,
     required this.onRestoreBackup,
     this.shareService,
+    this.externalBackup,
     this.progressStore,
     this.reminders,
     this.reminderRouter,
@@ -251,6 +260,10 @@ class DailyLifeApp extends StatefulWidget {
 
   /// Share-intent boundary; null in tests (no platform plugin).
   final ShareIntentService? shareService;
+
+  /// D-043 (P0): external backup store; null off Android (and in
+  /// tests that do not wire it) — the section is then omitted.
+  final ExternalBackupStore? externalBackup;
 
   /// Runs a guarded backup restore and restarts the app on the
   /// restored data (wired in bootstrap()).
@@ -302,6 +315,7 @@ class _DailyLifeAppState extends State<DailyLifeApp> {
         thumbnails: widget.thumbnails,
         backup: widget.backup,
         shareService: widget.shareService,
+        externalBackup: widget.externalBackup,
         onRestoreBackup: widget.onRestoreBackup,
         themeChoice: _themeChoice,
         onThemeChanged: _setThemeChoice,
@@ -344,6 +358,7 @@ class AppShell extends StatefulWidget {
     required this.backup,
     required this.onRestoreBackup,
     this.shareService,
+    this.externalBackup,
     this.progressStore,
     this.reminders,
     this.reminderRouter,
@@ -360,6 +375,9 @@ class AppShell extends StatefulWidget {
   final ThumbnailService thumbnails;
   final BackupStore backup;
   final ShareIntentService? shareService;
+
+  /// D-043 (P0): forwarded from the app widget; see there.
+  final ExternalBackupStore? externalBackup;
   final ProgressStore? progressStore;
   final ReminderController? reminders;
   final ReminderTapRouter? reminderRouter;
@@ -526,16 +544,34 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  BackupSection _backupSection() => BackupSection(
-    onExport: () => widget.backup.exportBackup(
-      db: widget.db,
-      libraryRoot: widget.learn.library.root,
-    ),
-    onInspect: (zip) => widget.backup.inspectBackup(zip),
-    onTargetHasData: () async =>
-        widget.backup.databaseHasUserData(await AppDatabase.databaseFilePath()),
-    onRestore: widget.onRestoreBackup,
-  );
+  Widget _backupSection() => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          BackupSection(
+            onExport: () => widget.backup.exportBackup(
+              db: widget.db,
+              libraryRoot: widget.learn.library.root,
+            ),
+            onInspect: (zip) => widget.backup.inspectBackup(zip),
+            onTargetHasData: () async => widget.backup
+                .databaseHasUserData(await AppDatabase.databaseFilePath()),
+            onRestore: widget.onRestoreBackup,
+          ),
+          // D-043 (P0): the uninstall-surviving copy, Android only.
+          if (widget.externalBackup != null) ...[
+            const SizedBox(height: Gap.lg),
+            ExternalBackupSection(
+              store: widget.externalBackup!,
+              libraryRoot: widget.learn.library.root,
+              onInspect: (zip) => widget.backup.inspectBackup(zip),
+              onTargetHasData: () async => widget.backup
+                  .databaseHasUserData(
+                      await AppDatabase.databaseFilePath()),
+              onRestore: widget.onRestoreBackup,
+            ),
+          ],
+        ],
+      );
 
   void _openTopics() {
     Navigator.of(context)

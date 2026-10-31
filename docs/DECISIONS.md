@@ -801,3 +801,63 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
   (4 widget tests: sections, no ×, resource-open-without-
   completing, confirmed delete, core warning). Existing
   suites unchanged except the one sync-fixture rewind above.
+
+## 2026-11-01 — D-043: External backup (P0) — the backup zip gains an uninstall-surviving destination
+- **Owner priority decision (2026-11-01):** manual selective
+  sync PAUSED (engine untouched, M1–M5 not started); data
+  preservation first, after the DATA_PRESERVATION_AUDIT found
+  (a) release builds are debug-signed per-CI-runner, so no APK
+  can update another, and (b) DB + Library + backups all live
+  in app-specific storage that uninstall erases. P0 = external
+  backup; P1 = permanent signing; P2 = one-time migration;
+  P3 = automatic backup. This entry is P0 only.
+- **Design: same zip, second destination.** BackupStore's
+  format is unchanged in kind (format_version stays 1);
+  `ExternalBackupStore` exports via the existing path, then
+  copies the zip into a user-granted Android SAF folder
+  (picker copy guides to Documents/Nimo/Backups). The SAF
+  grant is revoked by Android on uninstall — files survive;
+  a fresh install re-picks the folder once. P0 deletes
+  NOTHING in the external folder (no pruning).
+- **SAF via an in-house channel** (`app.dailylife/saf_backup`
+  in MainActivity.kt, D-034 precedent; no new dependency):
+  pickFolder (persistable grant), folderAccess, listBackups,
+  writeBackup (create `.partial` → stream → size-verify →
+  rename; an existing backup is never opened for writing),
+  copyBackupOut. Dart side behind `SafBackupChannel` (fakeable).
+- **Integrity:** manifest gains optional `db_sha256`
+  (SHA-256 of the VACUUM snapshot), verified at inspect when
+  present; digest-less legacy backups still inspect/restore;
+  pre-D-043 readers ignore the key.
+- **Library completeness fix (audit trap):** the restore
+  clear-set is DERIVED — LibraryStore.subdirs ∪ the backup's
+  own top-level folders, minus `backups/` and `.nimo/` —
+  replacing the hand-maintained 5-folder list that would have
+  silently skipped any future content folder (e.g. audio).
+  Today's behaviour for today's folders is byte-identical;
+  `.nimo` handling unchanged from before.
+- **UI:** Settings → Backup gains "Backup outside the app"
+  (Android only): no-folder state shows the uninstall warning;
+  granted state shows folder, last-backup line (or a no-backup
+  warning), Back Up Now, Restore from folder (list sheet →
+  the existing inspect → D-011 confirm → guarded restore
+  wiring, unchanged). SettingsScreen's backupSection type
+  widened BackupSection → Widget to carry both sections.
+- **No schema change** (folder URI + last-backup facts in
+  `app_settings`: `saf_backup.tree_uri/.folder_label/.last_at/
+  .last_name`). No sync changes. Scoring/streak/Day Close
+  untouched.
+- **Tests (14 new, all executed):** backup digest present +
+  tamper refused + legacy digest-less accepted + derived
+  restore-set round-trip (backup_store_test, 13 total);
+  external lifecycle over a fake channel — grant persist,
+  plain refusals, interrupted write leaves previous backup
+  byte-identical + partial unlisted, same-second name
+  disambiguation, truncated copy-out refused, DISASTER
+  REHEARSAL (wipe → restore from the external copy alone →
+  DB + Library identical) (external_backup_test, 7);
+  section widget states + guarded restore flow
+  (external_backup_section_test, 3). Full suite 573/573,
+  analyze clean. Kotlin compiles only in CI (VM Gradle
+  limitation) and SAF behaviour on a real device is
+  owner-verified — stated, not claimed.

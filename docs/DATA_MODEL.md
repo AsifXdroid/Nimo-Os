@@ -284,6 +284,18 @@ of the live files), `library/…` (the Library tree minus
 (pre-restore backup always; explicit replaces-everything
 confirmation over a non-empty DB) — see DECISIONS D-016.
 
+**D-043 (P0) additions, format version unchanged (1):** the
+manifest carries an optional `db_sha256` (SHA-256 of the
+snapshot; verified at inspect time when present — older
+backups have none and still restore; older readers ignore the
+key). The restore's Library clear-set is derived (every content
+subfolder the app knows plus every top-level folder the backup
+carries, except `backups/` and `.nimo/`) rather than a fixed
+list. The same zip is also copied to a user-granted SAF folder
+(typically `Documents/Nimo/Backups/`) so a copy survives
+uninstall; the folder URI + last-backup facts live in
+`app_settings` (`saf_backup.*`), no schema change.
+
 ## Schema v5 (Stage S5) — added tables & changes
 
 ### `questions` (LEARN)

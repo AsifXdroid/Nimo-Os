@@ -1,15 +1,20 @@
 package app.dailylife.daily_life_app
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.Parcelable
+import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.util.concurrent.Executors
 
 // D-034: share-intent capture is implemented in-house. The
 // receive_sharing_intent plugin this replaces is defective in
@@ -29,6 +34,14 @@ class MainActivity : FlutterActivity() {
     companion object {
         private const val METHOD_CHANNEL = "app.dailylife/share_intent"
         private const val EVENT_CHANNEL = "app.dailylife/share_intent/events"
+
+        // D-043 (P0): SAF backup channel — see the saf section
+        // below. In-house like the share capture (D-034): the
+        // backup zip logic stays in Dart (BackupStore); this
+        // channel only moves files in and out of the
+        // user-granted Documents tree.
+        private const val SAF_CHANNEL = "app.dailylife/saf_backup"
+        private const val REQ_PICK_FOLDER = 7331
     }
 
     // The share that launched the app (cold start).
@@ -69,6 +82,28 @@ class MainActivity : FlutterActivity() {
         )
         // Cold start: the launching intent may itself be a share.
         decodeShare(intent)?.let { initialShare = it }
+
+        MethodChannel(messenger, SAF_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "pickFolder" -> pickFolder(result)
+                "folderAccess" ->
+                    result.success(safFolderAccess(call.argument<String>("treeUri")))
+                "listBackups" -> safList(call.argument<String>("treeUri"), result)
+                "writeBackup" -> safWrite(
+                    call.argument<String>("treeUri"),
+                    call.argument<String>("sourcePath"),
+                    call.argument<String>("fileName"),
+                    result,
+                )
+                "copyBackupOut" -> safCopyOut(
+                    call.argument<String>("treeUri"),
+                    call.argument<String>("documentId"),
+                    call.argument<String>("destPath"),
+                    result,
+                )
+                else -> result.notImplemented()
+            }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -161,6 +196,228 @@ class MainActivity : FlutterActivity() {
             "shared-${System.currentTimeMillis()}"
         } else {
             safe
+        }
+    }
+
+    // ------------------------------------------------------ SAF (D-043)
+    //
+    // The external backup folder lives in shared storage under a
+    // Storage Access Framework tree grant the user makes once.
+    // Android revokes the grant on uninstall (the FILES survive;
+    // a fresh install asks for the folder again). This side only
+    // moves bytes — creating a document under a `.partial` name,
+    // streaming into it, verifying its size, and renaming it to
+    // the final backup name. An existing backup is never opened
+    // for writing, so an interrupted write cannot damage the
+    // last known-good backup.
+
+    private val safIo = Executors.newSingleThreadExecutor()
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var pendingPick: MethodChannel.Result? = null
+
+    private fun pickFolder(result: MethodChannel.Result) {
+        if (pendingPick != null) {
+            result.error("saf_busy", "A folder pick is already open.", null)
+            return
+        }
+        pendingPick = result
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+            addFlags(
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                    Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+            )
+        }
+        @Suppress("DEPRECATION")
+        startActivityForResult(intent, REQ_PICK_FOLDER)
+    }
+
+    @Deprecated("SAF picker result rides the activity result")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != REQ_PICK_FOLDER) return
+        val pending = pendingPick ?: return
+        pendingPick = null
+        val uri = data?.data
+        if (resultCode != Activity.RESULT_OK || uri == null) {
+            pending.success(null) // user cancelled — not an error
+            return
+        }
+        try {
+            contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+            )
+        } catch (e: Exception) {
+            pending.error(
+                "saf_grant_failed",
+                "Android did not grant lasting access to that folder.",
+                null,
+            )
+            return
+        }
+        pending.success(
+            mapOf(
+                "treeUri" to uri.toString(),
+                "label" to (safDisplayName(uri) ?: "Selected folder"),
+            )
+        )
+    }
+
+    private fun safDisplayName(treeUri: Uri): String? = try {
+        val docUri = DocumentsContract.buildDocumentUriUsingTree(
+            treeUri, DocumentsContract.getTreeDocumentId(treeUri))
+        contentResolver.query(
+            docUri,
+            arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+            null, null, null,
+        )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+    } catch (e: Exception) {
+        null
+    }
+
+    private fun safFolderAccess(treeUri: String?): Boolean {
+        if (treeUri == null) return false
+        return contentResolver.persistedUriPermissions.any {
+            it.uri.toString() == treeUri && it.isReadPermission && it.isWritePermission
+        }
+    }
+
+    private fun safPostError(
+        result: MethodChannel.Result, code: String, message: String?,
+    ) {
+        mainHandler.post {
+            result.error(code, message ?: "Storage operation failed.", null)
+        }
+    }
+
+    private fun safList(treeUriStr: String?, result: MethodChannel.Result) {
+        if (treeUriStr == null) {
+            result.error("saf_args", "Missing folder reference.", null)
+            return
+        }
+        safIo.execute {
+            try {
+                val tree = Uri.parse(treeUriStr)
+                val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
+                    tree, DocumentsContract.getTreeDocumentId(tree))
+                val entries = mutableListOf<Map<String, Any?>>()
+                contentResolver.query(
+                    childrenUri,
+                    arrayOf(
+                        DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                        DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                        DocumentsContract.Document.COLUMN_SIZE,
+                        DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+                        DocumentsContract.Document.COLUMN_MIME_TYPE,
+                    ),
+                    null, null, null,
+                )?.use { c ->
+                    while (c.moveToNext()) {
+                        entries.add(
+                            mapOf(
+                                "documentId" to c.getString(0),
+                                "name" to (c.getString(1) ?: ""),
+                                "sizeBytes" to
+                                    (if (c.isNull(2)) -1L else c.getLong(2)),
+                                "modifiedAt" to
+                                    (if (c.isNull(3)) 0L else c.getLong(3)),
+                                "isDirectory" to
+                                    (c.getString(4) ==
+                                        DocumentsContract.Document.MIME_TYPE_DIR),
+                            )
+                        )
+                    }
+                }
+                mainHandler.post { result.success(entries) }
+            } catch (e: Exception) {
+                safPostError(result, "saf_list_failed", e.message)
+            }
+        }
+    }
+
+    private fun safWrite(
+        treeUriStr: String?,
+        sourcePath: String?,
+        fileName: String?,
+        result: MethodChannel.Result,
+    ) {
+        if (treeUriStr == null || sourcePath == null || fileName == null) {
+            result.error("saf_args", "Missing backup write arguments.", null)
+            return
+        }
+        safIo.execute {
+            var created: Uri? = null
+            try {
+                val tree = Uri.parse(treeUriStr)
+                val parentDocUri = DocumentsContract.buildDocumentUriUsingTree(
+                    tree, DocumentsContract.getTreeDocumentId(tree))
+                val source = File(sourcePath)
+                created = DocumentsContract.createDocument(
+                    contentResolver, parentDocUri, "application/zip",
+                    "$fileName.partial",
+                ) ?: throw IllegalStateException(
+                    "The storage provider refused to create the backup file.")
+                val copied = contentResolver.openOutputStream(created)?.use { out ->
+                    source.inputStream().use { input -> input.copyTo(out) }
+                } ?: throw IllegalStateException(
+                    "Could not open the backup file for writing.")
+                if (copied != source.length()) {
+                    throw IllegalStateException(
+                        "The backup write was incomplete.")
+                }
+                val renamed = DocumentsContract.renameDocument(
+                    contentResolver, created, fileName)
+                    ?: throw IllegalStateException(
+                        "The storage provider refused to finalise the backup file.")
+                created = renamed
+                mainHandler.post {
+                    result.success(
+                        mapOf("name" to fileName, "sizeBytes" to source.length()))
+                }
+            } catch (e: Exception) {
+                // Best effort: remove the partial we created. Any
+                // pre-existing backup is untouched either way.
+                created?.let {
+                    try {
+                        DocumentsContract.deleteDocument(contentResolver, it)
+                    } catch (_: Exception) {
+                    }
+                }
+                safPostError(result, "saf_write_failed", e.message)
+            }
+        }
+    }
+
+    private fun safCopyOut(
+        treeUriStr: String?,
+        documentId: String?,
+        destPath: String?,
+        result: MethodChannel.Result,
+    ) {
+        if (treeUriStr == null || documentId == null || destPath == null) {
+            result.error("saf_args", "Missing backup read arguments.", null)
+            return
+        }
+        safIo.execute {
+            val dest = File(destPath)
+            try {
+                val tree = Uri.parse(treeUriStr)
+                val docUri = DocumentsContract.buildDocumentUriUsingTree(
+                    tree, documentId)
+                val copied = contentResolver.openInputStream(docUri)?.use { input ->
+                    dest.outputStream().use { out -> input.copyTo(out) }
+                } ?: throw IllegalStateException(
+                    "Could not open the selected backup.")
+                mainHandler.post { result.success(copied) }
+            } catch (e: Exception) {
+                try {
+                    if (dest.exists()) dest.delete()
+                } catch (_: Exception) {
+                }
+                safPostError(result, "saf_read_failed", e.message)
+            }
         }
     }
 

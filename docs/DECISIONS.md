@@ -532,7 +532,89 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
     changes, so the build-risk surface is unchanged from
     D-036's green CI run.
 
+- **D-038 (2026-10-31) — Visual-harmony refinement programme
+  (six stages), incorporating an audit correction and the
+  Hallmark skill.** The owner supplied a UI/UX refinement
+  brief and then approved the assistant's audited revision of
+  it (2026-10-31 10:16 IST), with clarifications:
+  - **Brief §4.1's premise was FALSE and is replaced.** The
+    brief claimed the app relies on a decorative handwritten
+    typeface; verified against the code, the app has never
+    shipped a custom font (no font assets, no font packages,
+    `fontFamily` only in the unpicked Plate C preview). The
+    impression came from generated design concepts. Typography
+    work therefore BUILDS a role system on the system sans —
+    no bundled font, no runtime font fetching (a bundled
+    display font is a separate future decision with its own
+    asset-delivery route; binary assets cannot travel the
+    connector snapshot route, D-007).
+  - **Surface hierarchy approved (supersedes D-037's
+    panel-everything outcome):** Level 0 canvas-direct
+    sections, Level 1 content surfaces (flat or raised),
+    Level 2 emphasis. Borders/shadows opt-in, not universal.
+  - **Learning card (supersedes D-037 call 3):** the literal
+    #62536F plum block is replaced in Stage 2 by a restrained
+    plum treatment / neutral surface with lavender branding.
+    Stage 1 already moved its colours into tokens
+    (`FeatureColors`).
+  - **Motion REOPENED (supersedes the D-036/D-037
+    exclusions):** Stage 6 implements the rev. 2 motion spec —
+    numeric transitions, progress animation, tick
+    micro-transitions, skeletons, warm session/Day Close
+    feedback, one major goal-completion celebration,
+    reduced-motion support. Mascot stays a static logo; no
+    expressions, poses or character animation (§5 of the
+    owner's clarifications).
+  - **Stage order:** 1 foundation → 2 Today → 3 Learn /
+    Progress / Spaces / Goals → 4 Settings → 5 theme parity →
+    6 motion + accessibility. Per stage: analyze + full suite
+    + report + in-chat preview where possible + push. Real
+    device screenshots are the owner's (the VM cannot render
+    the app). All business rules untouched.
+  - **Stage 1 (this entry's implementation):** `AppType` role
+    system in theme.dart (display / pageTitle / sectionHeading
+    / cardHeading 16·w600 NEW / body / caption / eyebrow /
+    statistic-tabular / technical 13), built on D-037's values
+    (body 15/16 kept; line heights added; action labels w600);
+    `AppIconSize` roles (18/20/24); `NeoSurfaceLevel`
+    (flat/raised/emphasis) on NeoPanel + NeoRaisedSm; new
+    `NeoSection` (Level-0 canvas grouping); kit components
+    moved onto the roles (NeoEyebrow, NeoScoreWell statistic,
+    NeoTag, NeoNotice, Learn pulse numbers). Verified: analyze
+    clean, tests **496/496** (4 new D-038 tests in
+    neo_theme_test.dart).
+  - **Test fix in the same stage (not a product change):**
+    sync_store_test's same-morning dedupe test used fixed
+    2026-10-30 dates while the stores stamp ops with the real
+    clock; once the calendar moved past 2026-10-30 the S7
+    future-date quarantine (>1 day) correctly held the ops and
+    the test failed. The scenario now anchors to the real
+    current day; product behaviour unchanged and arguably
+    proven by the failure.
+  - **Hallmark adopted as an audit lens (owner instruction
+    2026-10-31, `nutlope/hallmark` v2.0.0, installed as a
+    custom skill, scripts NOT run — it targets HTML/CSS; its
+    gates are applied to Flutter by translation, and this
+    project's DECISIONS.md is its "locked design.md", which
+    Hallmark's own pre-flight says overrides its defaults).**
+    Audit of the current app, evidence-based: CLEAN — no
+    invented metrics (all numbers come from stores), no
+    card-in-card (wells-in-panels are deliberate devices),
+    token discipline after Stage 1 (the learning card was the
+    only literal-colour cluster in production screens).
+    WAIVED ON THE RECORD — Floor 9 (no eyebrows / tracked
+    caps): NeoEyebrow is the owner's own prototype voice,
+    chosen twice; the audit's underlying point is noted, and
+    Stages 2–4 will thin eyebrows inside cards/wells (page
+    titles keep them as identity). NOTED (Reflex, app
+    translation) — Floor 10 middle-dot meta strings are used
+    widely for stats lines; Stages 3–4 will break 3+-fact
+    joins into stacked captions, keeping short two-part joins.
+    Floor 6/7 (focus visibility, reduced motion) land in
+    Stage 6, already approved there.
+
 ## Open — awaiting owner
 
-- D-037's interpretation calls 1–2 (accent, surfaces) stand
-  until the owner says otherwise; both are cheap to reverse.
+- D-037's interpretation call 1 (teal accent in both themes)
+  stands; call 2 (surfaces) and call 3 (plum learning card)
+  are superseded by D-038 above.

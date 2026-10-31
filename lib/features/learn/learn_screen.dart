@@ -184,12 +184,7 @@ class _LearnScreenState extends State<LearnScreen> {
             children: [
               Text(
                 number,
-                style: const TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: -1,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                ),
+                style: AppType.statistic(),
               ),
               Text(
                 label,

@@ -3,6 +3,36 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-31 — D-038 Stage 1: design-system foundation (main chat)
+- Owner approved the audited refinement programme (10:16 IST):
+  six stages; brief §4.1's handwritten-font premise corrected
+  on code evidence (no custom font has ever shipped); surface
+  hierarchy L0/L1/L2; learning-card plum superseded; motion
+  reopened for Stage 6. Full record: DECISIONS.md D-038.
+- Foundation landed: `AppType` typography roles on the system
+  sans (card-heading role new; line heights; semibold action
+  labels), `AppIconSize` roles, `NeoSurfaceLevel`
+  flat/raised/emphasis on NeoPanel + NeoRaisedSm, new
+  `NeoSection` (canvas-direct grouping), kit components on the
+  roles (eyebrow, score statistic, tag, notice, Learn pulse),
+  learning-card colours tokenised into `FeatureColors`.
+- Hallmark skill (nutlope/hallmark v2.0.0) installed as a
+  custom skill at the owner's instruction and applied as an
+  audit lens: clean on invented metrics / card-in-card / token
+  discipline; eyebrow rule waived on the record (owner's
+  prototype voice; thinning inside cards scheduled for
+  Stages 2–4); middle-dot stat strings noted for Stages 3–4.
+  Its scripts were not run (HTML/CSS tooling).
+- Test fix (no product change): the sync dedupe test's fixed
+  2026-10-30 scenario dates broke once the real calendar
+  passed them (S7 future-date quarantine held the ops, as
+  designed); the scenario now anchors to the real day.
+- Verified here: `flutter analyze` clean; `flutter test`
+  **496/496** (492 + 4 new). Preview:
+  `files/nimo-stage1-foundation-preview.html` in the goal
+  workspace (type roles + surface levels, both themes).
+- Next: Stage 2 — Today as the reference implementation.
+
 ## 2026-10-30 — D-037: Neo screens rebuilt, one by one (main chat)
 - Owner correction (22:26 IST): D-036 was a token/theme layer
   over unchanged layouts, not the Neo UI implementation asked

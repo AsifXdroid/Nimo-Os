@@ -9,6 +9,7 @@ import 'dart:io';
 
 import 'package:daily_life_app/core/brand.dart';
 import 'package:daily_life_app/core/db/app_database.dart';
+import 'package:daily_life_app/core/neo_ui.dart';
 import 'package:daily_life_app/core/theme.dart';
 import 'package:daily_life_app/features/settings/backup_section.dart';
 import 'package:daily_life_app/features/settings/reminders.dart';
@@ -86,6 +87,100 @@ void main() {
         expect(find.byType(NimoMark), findsOneWidget);
         expect(find.byType(CustomPaint), findsWidgets);
       }
+    });
+  });
+
+  group('Refinement foundation (D-038)', () {
+    test('type roles: card heading, caption, action labels', () {
+      for (final t in [AppTheme.neoDark(), AppTheme.neoLight()]) {
+        final tt = t.textTheme;
+        // Card-heading role (new): 16 / w600.
+        expect(tt.titleSmall!.fontSize, 16);
+        expect(tt.titleSmall!.fontWeight, FontWeight.w600);
+        // Section-heading role, unchanged from D-037.
+        expect(tt.titleMedium!.fontSize, 18);
+        expect(tt.titleMedium!.fontWeight, FontWeight.w600);
+        // Caption role floored at 13; body keeps 15/16.
+        expect(tt.bodySmall!.fontSize, 13);
+        expect(tt.bodyMedium!.fontSize, 15);
+        expect(tt.bodyLarge!.fontSize, 16);
+        // Action labels are semibold.
+        expect(tt.labelLarge!.fontWeight, FontWeight.w600);
+        // Role accessors resolve to the same slots.
+        expect(AppType.cardHeading(tt), tt.titleSmall);
+        expect(AppType.sectionHeading(tt), tt.titleMedium);
+        expect(AppType.pageTitle(tt), tt.headlineLarge);
+        expect(AppType.caption(tt), tt.bodySmall);
+      }
+    });
+
+    test('statistic role uses tabular figures; eyebrow is tracked', () {
+      final stat = AppType.statistic();
+      expect(stat.fontSize, 30);
+      expect(
+        stat.fontFeatures,
+        contains(const FontFeature.tabularFigures()),
+      );
+      expect(AppType.eyebrow.letterSpacing, 1.55);
+      expect(AppType.eyebrow.fontWeight, FontWeight.w600);
+      expect(AppType.technical.fontSize, 13);
+    });
+
+    testWidgets('surface levels: flat has no border/shadow, raised '
+        'does, emphasis uses the floating colour', (tester) async {
+      BoxDecoration decoFor(NeoSurfaceLevel level) {
+        final containers = tester
+            .widgetList<Container>(find.descendant(
+              of: find.byType(NeoPanel),
+              matching: find.byType(Container),
+            ))
+            .toList();
+        return containers.first.decoration! as BoxDecoration;
+      }
+
+      for (final level in NeoSurfaceLevel.values) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.neoDark(),
+            home: Scaffold(
+              body: NeoPanel(
+                level: level,
+                child: const Text('marker'),
+              ),
+            ),
+          ),
+        );
+        final deco = decoFor(level);
+        final scheme = AppTheme.neoDark().colorScheme;
+        switch (level) {
+          case NeoSurfaceLevel.flat:
+            expect(deco.boxShadow, isNull);
+            expect(deco.border, isNull);
+            expect(deco.color, scheme.surface);
+          case NeoSurfaceLevel.raised:
+            expect(deco.boxShadow, isNotNull);
+            expect(deco.border, isNotNull);
+            expect(deco.color, scheme.surface);
+          case NeoSurfaceLevel.emphasis:
+            expect(deco.boxShadow, isNotNull);
+            expect(deco.color, scheme.surfaceContainerHigh);
+        }
+      }
+    });
+
+    testWidgets('NeoSection groups on the canvas: head + child, '
+        'no panel container', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.neoDark(),
+          home: const Scaffold(
+            body: NeoSection(title: 'On canvas', child: Text('body')),
+          ),
+        ),
+      );
+      expect(find.text('On canvas'), findsOneWidget);
+      expect(find.text('body'), findsOneWidget);
+      expect(find.byType(NeoPanel), findsNothing);
     });
   });
 

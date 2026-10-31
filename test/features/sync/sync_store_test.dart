@@ -757,9 +757,15 @@ void main() {
     final todayA = TodayStore(a.db);
     await todayA.addTemplate('Read Quran');
     await todayA.addTemplate('Arabic');
-    await settle(a, b, now: DateTime(2026, 10, 30, 7));
+    // The scenario must live near the REAL clock: the stores
+    // stamp ops with wall-clock time, and the sync engine holds
+    // ops dated >1 day ahead of the import `now` in quarantine
+    // (S7). Fixed 2026-10-30 dates only passed while the suite
+    // ran on 2026-10-30 itself.
+    final day = DateTime.now();
+    await settle(a, b, now: day);
 
-    final date = DateTime(2026, 10, 30);
+    final date = DateTime(day.year, day.month, day.day);
     final itemsA = await TodayStore(a.db).planItems(date);
     final itemsB = await TodayStore(b.db).planItems(date);
     expect(itemsA, hasLength(2));
@@ -774,13 +780,13 @@ void main() {
     expect(idsA.every((id) => id.toString().startsWith('rt-')), isTrue);
 
     // Exchange both ways: still exactly 2 items per device.
-    await settle(a, b, now: DateTime(2026, 10, 30, 8));
+    await settle(a, b, now: day.add(const Duration(hours: 1)));
     expect(await countRows(a.db, 'day_plan_items'), 2);
     expect(await countRows(b.db, 'day_plan_items'), 2);
 
     // Toggle on B; the tick reaches A without a conflict copy.
     await TodayStore(b.db).toggleItem(itemsB.first);
-    await settle(a, b, now: DateTime(2026, 10, 30, 9));
+    await settle(a, b, now: day.add(const Duration(hours: 2)));
     final doneRows = await a.db.rawQuery(
       'SELECT COUNT(*) AS c FROM day_plan_items WHERE done = 1',
     );

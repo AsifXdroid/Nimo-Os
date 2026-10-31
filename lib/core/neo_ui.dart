@@ -1,11 +1,17 @@
-/// NEO UI kit (D-037) — the shared components of the Neo design,
-/// ported from the owner's prototype (`Figma_Neo.html`) and its
-/// dark adaptation. Screens compose these instead of raw Cards /
-/// ListTiles so the whole app reads as one design:
+/// NEO UI kit (D-037; surface hierarchy D-038) — the shared
+/// components of the Neo design, ported from the owner's
+/// prototype (`Figma_Neo.html`) and its dark adaptation.
+/// Screens compose these instead of raw Cards / ListTiles so
+/// the whole app reads as one design:
 ///
-///   • raised panels with the neumorphic dual shadow (light) /
-///     soft black drop + 1px outline (dark, per the dark file —
-///     its `--raised` also carries the outline ring);
+///   • a SURFACE HIERARCHY (D-038): Level 0 is the canvas
+///     itself — sections may sit on it directly ([NeoSection]),
+///     grouped by spacing and typography; Level 1 is the
+///     content surface ([NeoPanel] flat or raised); Level 2 is
+///     emphasis ([NeoPanel] emphasis). Borders and shadows are
+///     opt-in per component, never universal;
+///   • raised panels keep the neumorphic dual shadow (light) /
+///     soft black drop + 1px outline (dark, per the dark file);
 ///   • inset wells (score wells, progress tracks, checkboxes)
 ///     approximated with a top-left inner-shade gradient —
 ///     Flutter has no native inner shadow;
@@ -13,13 +19,26 @@
 ///     heads with a quiet text action, tinted rule notices.
 ///
 /// Functional accent stays TEAL in both themes (D-035/D-036,
-/// owner-approved); the one plum surface is the Today learning
-/// card, which both prototype files keep literally (#62536F).
+/// owner-approved). Lavender/plum is brand-only; the Today
+/// learning surface uses a restrained plum treatment (D-038
+/// supersedes D-037's literal #62536F block).
 library;
 
 import 'package:flutter/material.dart';
 
 import 'theme.dart';
+
+/// Surface levels (D-038 §4.3): how much separation a surface
+/// claims from the canvas.
+///
+///   flat     — Level 1, quiet: filled surface colour, NO
+///              border, NO shadow. Grouping without a box.
+///   raised   — Level 1, standard: the Neo raised treatment
+///              (dual shadow; outline ring in dark).
+///   emphasis — Level 2: the floating surface colour
+///              (surfaceContainerHigh) + raised treatment, for
+///              selected / featured content only.
+enum NeoSurfaceLevel { flat, raised, emphasis }
 
 bool _isDark(BuildContext context) =>
     Theme.of(context).brightness == Brightness.dark;
@@ -68,7 +87,10 @@ BoxDecoration neoWellDecoration(BuildContext context,
   );
 }
 
-/// A raised Neo panel (`--raised`, radius 24, padding 24).
+/// A Neo content panel (radius 24, padding 24). [level]
+/// selects the surface treatment (D-038): raised by default
+/// for continuity; flat where a section only needs quiet
+/// grouping; emphasis sparingly, for featured content.
 class NeoPanel extends StatelessWidget {
   const NeoPanel({
     super.key,
@@ -76,22 +98,38 @@ class NeoPanel extends StatelessWidget {
     this.padding = const EdgeInsets.all(Space.s6),
     this.radius = RadiusToken.card,
     this.onTap,
+    this.level = NeoSurfaceLevel.raised,
   });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
   final double radius;
   final VoidCallback? onTap;
+  final NeoSurfaceLevel level;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final decoration = BoxDecoration(
-      color: scheme.surface,
-      borderRadius: BorderRadius.circular(radius),
-      border: _isDark(context) ? Border.all(color: scheme.outline) : null,
-      boxShadow: neoRaisedShadows(context),
-    );
+    final decoration = switch (level) {
+      NeoSurfaceLevel.flat => BoxDecoration(
+          color: scheme.surface,
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      NeoSurfaceLevel.raised => BoxDecoration(
+          color: scheme.surface,
+          borderRadius: BorderRadius.circular(radius),
+          border:
+              _isDark(context) ? Border.all(color: scheme.outline) : null,
+          boxShadow: neoRaisedShadows(context),
+        ),
+      NeoSurfaceLevel.emphasis => BoxDecoration(
+          color: scheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(radius),
+          border:
+              _isDark(context) ? Border.all(color: scheme.outline) : null,
+          boxShadow: neoRaisedShadows(context),
+        ),
+    };
     final inner = Padding(padding: padding, child: child);
     if (onTap == null) {
       return Container(decoration: decoration, child: inner);
@@ -110,8 +148,9 @@ class NeoPanel extends StatelessWidget {
   }
 }
 
-/// A small raised surface (`--raised-sm`, radius 18): day cards,
-/// goal strips, space cards, streak pill.
+/// A small surface (`--raised-sm`, radius 18): day cards,
+/// goal strips, space cards, streak pill. [level] flat drops
+/// the shadow and border for quiet grouping (D-038).
 class NeoRaisedSm extends StatelessWidget {
   const NeoRaisedSm({
     super.key,
@@ -119,22 +158,32 @@ class NeoRaisedSm extends StatelessWidget {
     this.padding = const EdgeInsets.all(Space.s5),
     this.radius = RadiusToken.inset,
     this.onTap,
+    this.level = NeoSurfaceLevel.raised,
   });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
   final double radius;
   final VoidCallback? onTap;
+  final NeoSurfaceLevel level;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final decoration = BoxDecoration(
-      color: scheme.surface,
-      borderRadius: BorderRadius.circular(radius),
-      border: _isDark(context) ? Border.all(color: scheme.outline) : null,
-      boxShadow: neoRaisedSmShadows(context),
-    );
+    final decoration = level == NeoSurfaceLevel.flat
+        ? BoxDecoration(
+            color: scheme.surface,
+            borderRadius: BorderRadius.circular(radius),
+          )
+        : BoxDecoration(
+            color: level == NeoSurfaceLevel.emphasis
+                ? scheme.surfaceContainerHigh
+                : scheme.surface,
+            borderRadius: BorderRadius.circular(radius),
+            border:
+                _isDark(context) ? Border.all(color: scheme.outline) : null,
+            boxShadow: neoRaisedSmShadows(context),
+          );
     final inner = Padding(padding: padding, child: child);
     if (onTap == null) {
       return Container(decoration: decoration, child: inner);
@@ -174,7 +223,8 @@ class NeoWell extends StatelessWidget {
       );
 }
 
-/// The eyebrow / meta line: uppercase, tracked, quiet.
+/// The eyebrow / meta line: uppercase, tracked, quiet
+/// (the [AppType.eyebrow] role).
 class NeoEyebrow extends StatelessWidget {
   const NeoEyebrow(this.text, {super.key, this.color});
 
@@ -186,12 +236,44 @@ class NeoEyebrow extends StatelessWidget {
     final theme = Theme.of(context);
     return Text(
       text.toUpperCase(),
-      style: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 1.55,
+      style: AppType.eyebrow.copyWith(
         color: color ?? theme.colorScheme.onSurfaceVariant,
       ),
+    );
+  }
+}
+
+/// A Level-0 section (D-038): content grouped DIRECTLY on the
+/// canvas — a section head and its content, with no container,
+/// border or shadow. Use where a panel would only repeat the
+/// canvas; the grouping comes from spacing and typography.
+class NeoSection extends StatelessWidget {
+  const NeoSection({
+    super.key,
+    required this.title,
+    required this.child,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final String title;
+  final Widget child;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        NeoSectionHead(
+          title: title,
+          actionLabel: actionLabel,
+          onAction: onAction,
+        ),
+        const SizedBox(height: Space.s3),
+        child,
+      ],
     );
   }
 }
@@ -348,7 +430,7 @@ class NeoTag extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: theme.textTheme.labelSmall?.copyWith(
+        style: AppType.caption(theme.textTheme)?.copyWith(
           fontSize: 11,
           color: tint ? scheme.primary : scheme.onSurfaceVariant,
         ),
@@ -376,9 +458,8 @@ class NeoNotice extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(
-          fontSize: 13,
-          height: 1.7,
+        style: AppType.caption(Theme.of(context).textTheme)?.copyWith(
+          height: 1.6,
           color: dark ? const Color(0xFF5EEAD4) : const Color(0xFF0B5A4E),
         ),
       ),
@@ -392,7 +473,7 @@ class NeoGlyph extends StatelessWidget {
     super.key,
     required this.icon,
     this.size = 40,
-    this.iconSize = 20,
+    this.iconSize = AppIconSize.md,
   });
 
   final IconData icon;
@@ -476,7 +557,7 @@ class NeoListRow extends StatelessWidget {
           ),
           trailing ??
               Icon(Icons.chevron_right,
-                  size: 18, color: scheme.onSurfaceVariant),
+                  size: AppIconSize.sm, color: scheme.onSurfaceVariant),
         ],
       ),
     );
@@ -535,11 +616,7 @@ class NeoScoreWell extends StatelessWidget {
           Text.rich(
             TextSpan(
               text: value,
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.w500,
-                letterSpacing: -1,
-                fontFeatures: const [FontFeature.tabularFigures()],
+              style: AppType.statistic(size: 32).copyWith(
                 color: accentValue ? scheme.primary : null,
               ),
               children: [
@@ -639,7 +716,7 @@ class NeoStepperButton extends StatelessWidget {
         border: _isDark(context) ? Border.all(color: scheme.outline) : null,
         boxShadow: neoRaisedSmShadows(context),
       ),
-      child: Icon(icon, size: 20, color: scheme.onSurface),
+      child: Icon(icon, size: AppIconSize.md, color: scheme.onSurface),
     );
     if (onTap == null) return Opacity(opacity: 0.45, child: button);
     return InkWell(

@@ -13,6 +13,13 @@
 /// Surfaces are flattened Neo (1px outline + at most one soft
 /// shadow on floating chrome) — neumorphic inset wells have no
 /// faithful Flutter equivalent and are not imitated (audit §D3).
+///
+/// REFINEMENT (D-038, owner-approved 2026-10-31): Stage 1 of the
+/// visual-harmony programme adds (a) a typography ROLE system
+/// ([AppType]) over the system sans — the app has never shipped
+/// a custom font, and none is introduced; and (b) a surface
+/// hierarchy (canvas / content / emphasis) in the Neo kit, so
+/// borders and shadows become opt-in rather than universal.
 library;
 
 import 'package:flutter/material.dart';
@@ -77,6 +84,70 @@ abstract final class RadiusToken {
   static const double round = 999;
 }
 
+/// Typography ROLES (D-038 Stage 1) — the semantic layer over
+/// the Material [TextTheme]. Components ask for a role, never a
+/// raw size, so the hierarchy stays consistent across screens:
+///
+///   display        → the Today greeting (displayMedium)
+///   pageTitle      → screen headings (headlineLarge)
+///   sectionHeading → section heads (titleMedium)
+///   cardHeading    → headings inside cards (titleSmall)
+///   body / bodyLg  → running text (bodyMedium / bodyLarge)
+///   caption        → supporting descriptions (bodySmall)
+///   eyebrow        → uppercase meta lines (constant, below)
+///   statistic      → numbers with tabular figures (method)
+///   technical      → paths, ids, status detail (constant)
+///
+/// All roles use the system sans (Roboto on Android). No custom
+/// font is bundled and none is fetched at runtime (offline-first;
+/// a bundled display font is a separate future decision, D-038).
+abstract final class AppType {
+  static TextStyle? display(TextTheme t) => t.displayMedium;
+  static TextStyle? pageTitle(TextTheme t) => t.headlineLarge;
+  static TextStyle? sectionHeading(TextTheme t) => t.titleMedium;
+  static TextStyle? cardHeading(TextTheme t) => t.titleSmall;
+  static TextStyle? body(TextTheme t) => t.bodyMedium;
+  static TextStyle? bodyLarge(TextTheme t) => t.bodyLarge;
+  static TextStyle? caption(TextTheme t) => t.bodySmall;
+
+  /// Eyebrow / meta line: 12px, semibold, wide tracking.
+  /// Rendered uppercase by the caller (see NeoEyebrow).
+  static const TextStyle eyebrow = TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 1.55,
+    height: 1.3,
+  );
+
+  /// Statistic: tabular figures so numbers align and never
+  /// jitter as they change. [size] 30 by default (pulse cells),
+  /// 32 in score wells.
+  static TextStyle statistic({double size = 30}) => TextStyle(
+        fontSize: size,
+        fontWeight: FontWeight.w500,
+        letterSpacing: size >= 28 ? -1 : -0.5,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      );
+
+  /// Technical information: compact, even, readable — device
+  /// ids, file paths, sync status. Colour comes from the theme
+  /// at the use site.
+  static const TextStyle technical = TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.w400,
+    height: 1.45,
+    letterSpacing: 0.1,
+  );
+}
+
+/// Icon size roles (D-038): one family (Material outlined),
+/// three sizes — small inline, medium default, large feature.
+abstract final class AppIconSize {
+  static const double sm = 18;
+  static const double md = 20;
+  static const double lg = 24;
+}
+
 /// The Nimo brand family (D-035 Route A). These colours are for
 /// the logo and launcher icon ONLY — never functional UI.
 abstract final class BrandColors {
@@ -93,6 +164,17 @@ abstract final class BrandColors {
   /// Launcher-icon background: deep lavender-plum from the
   /// board's Dark icon variation (retires #2F6B4F, D-036).
   static const Color iconBackground = Color(0xFF38304F);
+}
+
+/// Feature-surface colours (D-038): the Today learning card's
+/// restrained plum surface and its on-surface text tones. Kept
+/// here so NO screen file carries literal colours (the token
+/// discipline the Hallmark audit checks). Plum is a brand-
+/// family surface, never the functional accent (Route A).
+abstract final class FeatureColors {
+  static const Color plumSurface = Color(0xFF62536F);
+  static const Color onPlum = Color(0xFFEDE7F1);
+  static const Color onPlumDim = Color(0xFFE0D8E6);
 }
 
 /// Semantic colours per brightness (Neo's semantic set, D-036).
@@ -158,24 +240,46 @@ abstract final class AppTheme {
       scaffoldBackgroundColor: scaffold,
     );
     final textTheme = base.textTheme.copyWith(
-      // Neo type discipline with the audit's phone fixes:
-      // body 15–16, small text floored at 12–13.
-      bodyLarge: base.textTheme.bodyLarge?.copyWith(fontSize: 16),
-      bodyMedium: base.textTheme.bodyMedium?.copyWith(fontSize: 15),
-      bodySmall: base.textTheme.bodySmall?.copyWith(fontSize: 13),
+      // Type roles (D-038, building on D-037's values): system
+      // sans throughout; hierarchy from size + weight + tracking,
+      // not colour. Body 15–16, small text floored at 12–13.
+      bodyLarge:
+          base.textTheme.bodyLarge?.copyWith(fontSize: 16, height: 1.45),
+      bodyMedium:
+          base.textTheme.bodyMedium?.copyWith(fontSize: 15, height: 1.45),
+      // Caption role: supporting descriptions, restrained.
+      bodySmall:
+          base.textTheme.bodySmall?.copyWith(fontSize: 13, height: 1.4),
       labelSmall: base.textTheme.labelSmall?.copyWith(fontSize: 12),
-      titleLarge: base.textTheme.titleLarge
-          ?.copyWith(fontSize: 22, fontWeight: FontWeight.w700),
+      // Action labels (buttons) read semibold, not medium.
+      labelLarge: base.textTheme.labelLarge
+          ?.copyWith(fontSize: 14, fontWeight: FontWeight.w600),
+      // Card-heading role (new in D-038): inside-panel headings,
+      // one step under section heads.
+      titleSmall: base.textTheme.titleSmall?.copyWith(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.2,
+        height: 1.3,
+      ),
       // Neo section heads are 18 / w600 / −0.35 (`.section-head`).
       titleMedium: base.textTheme.titleMedium?.copyWith(
         fontSize: 18,
         fontWeight: FontWeight.w600,
         letterSpacing: -0.35,
+        height: 1.3,
+      ),
+      titleLarge: base.textTheme.titleLarge?.copyWith(
+        fontSize: 22,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.4,
+        height: 1.25,
       ),
       headlineMedium: base.textTheme.headlineMedium?.copyWith(
         fontSize: 28,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.5,
+        height: 1.25,
       ),
       // Neo page titles (`.page-title h1` = --title 30) and the
       // Today greeting (--display 36).

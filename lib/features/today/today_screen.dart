@@ -732,7 +732,7 @@ class _TodayScreenState extends State<TodayScreen> {
     final total = data.dueCount + data.newCount;
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF62536F),
+        color: FeatureColors.plumSurface,
         borderRadius: BorderRadius.circular(RadiusToken.card),
         boxShadow: neoRaisedShadows(context),
       ),
@@ -748,7 +748,7 @@ class _TodayScreenState extends State<TodayScreen> {
               children: [
                 const NeoEyebrow(
                   'Pick up where you left off',
-                  color: Color(0xFFE0D8E6),
+                  color: FeatureColors.onPlumDim,
                 ),
                 const SizedBox(height: Space.s5),
                 Text(
@@ -770,7 +770,7 @@ class _TodayScreenState extends State<TodayScreen> {
                       : '${data.dueCount} cards due to revisit · '
                           '${data.newCount} new to explore.',
                   style: const TextStyle(
-                      color: Color(0xFFE0D8E6), fontSize: 13),
+                      color: FeatureColors.onPlumDim, fontSize: 13),
                 ),
                 const SizedBox(height: Space.s6),
                 Row(
@@ -779,7 +779,7 @@ class _TodayScreenState extends State<TodayScreen> {
                       child: Text(
                         'Measured in enjoyment, not minutes.',
                         style: TextStyle(
-                            color: Color(0xFFE0D8E6), fontSize: 12),
+                            color: FeatureColors.onPlumDim, fontSize: 12),
                       ),
                     ),
                     Container(
@@ -787,11 +787,11 @@ class _TodayScreenState extends State<TodayScreen> {
                       height: 46,
                       decoration: const BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Color(0xFFEDE7F1),
+                        color: FeatureColors.onPlum,
                       ),
                       child: IconButton(
                         icon: const Icon(Icons.arrow_forward,
-                            color: Color(0xFF62536F)),
+                            color: FeatureColors.plumSurface),
                         tooltip: 'Start a session',
                         onPressed: total > 0
                             ? _openLearnSession

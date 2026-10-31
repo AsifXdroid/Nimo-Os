@@ -279,13 +279,13 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
         onTap: () => _select(ws),
         child: Container(
           decoration: neoWellDecoration(context),
-          padding: const EdgeInsets.all(Space.s5),
+          padding: const EdgeInsets.all(Space.s4),
           child: content,
         ),
       );
     }
     return NeoRaisedSm(
-      padding: const EdgeInsets.all(Space.s5),
+      padding: const EdgeInsets.all(Space.s4),
       onTap: () => _select(ws),
       child: content,
     );

@@ -210,7 +210,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                 children: [
                   Icon(icon, size: 18, color: theme.colorScheme.primary),
                   const SizedBox(width: 4),
-                  Text(value, style: theme.textTheme.titleLarge),
+                  Text(value, style: AppType.statistic(size: 22)),
                 ],
               ),
               Text(label, style: theme.textTheme.labelSmall),
@@ -290,6 +290,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
   Widget _numbersCard(BuildContext context, _ProgressData data) {
     final theme = Theme.of(context);
     return NeoPanel(
+      level: NeoSurfaceLevel.flat,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -312,6 +313,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
     final theme = Theme.of(context);
     final month = _monthCursor;
     return NeoPanel(
+      level: NeoSurfaceLevel.flat,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -380,6 +382,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
         if (m != currentMonday) m,
     ];
     return NeoPanel(
+      level: NeoSurfaceLevel.flat,
       padding: const EdgeInsets.symmetric(
           horizontal: Space.s6, vertical: Space.s2),
       child: Column(

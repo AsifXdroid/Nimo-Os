@@ -70,21 +70,27 @@ class _GoalsScreenState extends State<GoalsScreen> {
                   'No goals yet — give your intention a direction.',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
-              for (final goal in list)
+              for (var i = 0; i < list.length; i++)
                 GoalCard(
-                  goal: goal,
+                  goal: list[i],
+                  // D-038 (§6.5): the first goal carries the
+                  // visual weight; later goals sit quieter.
+                  level: i == 0
+                      ? NeoSurfaceLevel.raised
+                      : NeoSurfaceLevel.flat,
                   onStep: (delta) async {
-                    await widget.goalsStore.step(goal, delta);
+                    await widget.goalsStore.step(list[i], delta);
                     setState(_reload);
                   },
                   onDelete: () async {
                     if (!await confirmDelete(context, 'goal')) return;
-                    await widget.goalsStore.deleteGoal(goal.id);
+                    await widget.goalsStore.deleteGoal(list[i].id);
                     setState(_reload);
                   },
                 ),
               const SizedBox(height: Gap.md),
               NeoPanel(
+                level: NeoSurfaceLevel.flat,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -131,11 +137,16 @@ class GoalCard extends StatelessWidget {
     required this.goal,
     required this.onStep,
     this.onDelete,
+    this.level = NeoSurfaceLevel.raised,
   });
 
   final Goal goal;
   final void Function(int delta) onStep;
   final VoidCallback? onDelete;
+
+  /// Surface emphasis (D-038): the first goal raised, the
+  /// rest flat.
+  final NeoSurfaceLevel level;
 
   @override
   Widget build(BuildContext context) {
@@ -144,6 +155,7 @@ class GoalCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: Space.s5),
       child: NeoRaisedSm(
+        level: level,
         radius: RadiusToken.card,
         padding: const EdgeInsets.all(Space.s6),
         child: Column(
@@ -155,8 +167,7 @@ class GoalCard extends StatelessWidget {
                 const SizedBox(width: Space.s4),
                 Expanded(
                   child: Text(goal.title,
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontSize: 16)),
+                      style: AppType.cardHeading(theme.textTheme)),
                 ),
                 Text(
                   '${(goal.fraction * 100).round()}%',

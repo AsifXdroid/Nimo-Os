@@ -3,6 +3,33 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-31 — D-038 Stage 3: Learn, Progress, Spaces, Goals (main chat)
+- Learn: the pulse panel shrinks to its content — with
+  nothing due and nothing new, the three zero cells collapse
+  (the import hint carries the state; the session button was
+  already disabled at zero). Packs and image-verify panels go
+  flat; the pulse stays the screen's raised element. Session
+  questions were verified already focal (titleLarge prompts
+  in question_cards.dart) — no change made there.
+- Progress: Journey stays the raised hero; numbers/charts,
+  calendar and archive panels go flat; the streak header's
+  values move to the tabular statistic role. The streak-rule
+  notice already sat on the canvas.
+- Spaces: workspace selector tiles compacted (padding
+  20→16, both states); the selected workspace panel stays
+  raised as the primary content.
+- Goals: first goal raised, later goals flat (§6.5 "later
+  goals visually quieter"); goal titles use the cardHeading
+  role; the pace note panel goes flat.
+- Topics & Library: Inbox/topic panels flat; the library
+  stats line loses its middle-dot join for two mini statistics
+  and the path takes the technical role (Hallmark thinning).
+- Verified here: `flutter analyze` clean; `flutter test`
+  **496/496** (widget_test's Learn anchor updated to the
+  compact pulse's enjoyment line). Preview:
+  `files/nimo-stage3-screens-preview.html`.
+- Next: Stage 4 — Settings refinement.
+
 ## 2026-10-31 — D-038 Stage 2: Today, the reference screen (main chat)
 - Daily progress merged: the streak pill and week strip are
   now ONE flat panel (streak row, hairline, week cells); when

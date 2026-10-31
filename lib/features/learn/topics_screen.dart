@@ -194,6 +194,7 @@ class _TopicsScreenState extends State<TopicsScreen> {
                   )
                 else
                   NeoPanel(
+                    level: NeoSurfaceLevel.flat,
                     padding: const EdgeInsets.symmetric(
                         horizontal: Space.s6, vertical: Space.s2),
                     child: Column(
@@ -211,6 +212,7 @@ class _TopicsScreenState extends State<TopicsScreen> {
                       style: theme.textTheme.bodyMedium)
                 else
                   NeoPanel(
+                    level: NeoSurfaceLevel.flat,
                     padding: const EdgeInsets.symmetric(
                         horizontal: Space.s6, vertical: Space.s2),
                     child: Column(
@@ -227,16 +229,29 @@ class _TopicsScreenState extends State<TopicsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '${_stats.files} files · '
-                        '${(_stats.bytes / 1024).toStringAsFixed(0)} KB',
-                        style: theme.textTheme.bodyMedium,
+                      // D-038: the middle-dot stat join becomes
+                      // two quiet facts; the path takes the
+                      // technical role.
+                      Row(
+                        children: [
+                          Text('${_stats.files}',
+                              style: AppType.statistic(size: 20)),
+                          const SizedBox(width: Space.s2),
+                          Text('files',
+                              style: theme.textTheme.bodySmall),
+                          const SizedBox(width: Space.s5),
+                          Text(
+                              '${(_stats.bytes / 1024).toStringAsFixed(0)} KB',
+                              style: AppType.statistic(size: 20)),
+                          const SizedBox(width: Space.s2),
+                          Text('in your library',
+                              style: theme.textTheme.bodySmall),
+                        ],
                       ),
                       const SizedBox(height: Space.s2),
                       Text(
                         widget.learn.library.rootPath,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant),
+                        style: AppType.technical,
                       ),
                       const SizedBox(height: Gap.md),
                       OutlinedButton.icon(

@@ -111,7 +111,10 @@ void main() {
       // Tapping Learn shows the LearnScreen landing.
       await tester.tap(learnDest);
       expect(await pollFor(find.text('Learn something that stays.')), isTrue);
-      expect(await pollFor(find.textContaining('due to revisit')), isTrue);
+      // D-038: with an empty library the pulse is compact (no
+      // zero cells) — its enjoyment line is the anchor now.
+      expect(await pollFor(find.textContaining('Measured in enjoyment')),
+          isTrue);
 
       // Switch to the Spaces tab: the Neo workbench screen.
       await tester.tap(find.text('Spaces'));

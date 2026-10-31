@@ -147,6 +147,7 @@ class _LearnScreenState extends State<LearnScreen> {
                 style: Theme.of(context).textTheme.bodyMedium)
           else
             NeoPanel(
+              level: NeoSurfaceLevel.flat,
               padding: const EdgeInsets.symmetric(
                   horizontal: Space.s6, vertical: Space.s2),
               child: Column(
@@ -204,14 +205,19 @@ class _LearnScreenState extends State<LearnScreen> {
                 widget.onOpenTopics == null ? null : 'All topics →',
             onAction: widget.onOpenTopics,
           ),
-          const SizedBox(height: Space.s5),
-          Row(
-            children: [
-              cell('$_due', 'due to revisit'),
-              cell('$_new', 'new to explore'),
-              cell('${_packs.length}', 'packs in your library'),
-            ],
-          ),
+          // D-038: the pulse shrinks to its content — with
+          // nothing due and nothing new, the three zero cells
+          // collapse and the hint below carries the state.
+          if (total > 0) ...[
+            const SizedBox(height: Space.s5),
+            Row(
+              children: [
+                cell('$_due', 'due to revisit'),
+                cell('$_new', 'new to explore'),
+                cell('${_packs.length}', 'packs in your library'),
+              ],
+            ),
+          ],
           const SizedBox(height: Space.s5),
           FilledButton(
             onPressed:
@@ -310,6 +316,7 @@ class _LearnScreenState extends State<LearnScreen> {
 
   Widget _verifyCard(BuildContext context) {
     return NeoPanel(
+      level: NeoSurfaceLevel.flat,
       padding: const EdgeInsets.symmetric(
           horizontal: Space.s6, vertical: Space.s2),
       child: NeoListRow(

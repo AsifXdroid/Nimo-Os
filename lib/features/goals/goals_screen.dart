@@ -42,7 +42,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: FutureBuilder<List<Goal>>(
+      body: PageTop(
+        child: FutureBuilder<List<Goal>>(
         future: _goals,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
@@ -130,6 +131,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
             ],
           );
         },
+      )
       ),
     );
   }

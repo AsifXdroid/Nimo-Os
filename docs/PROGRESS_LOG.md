@@ -1,3 +1,29 @@
+## 2026-10-31 — D-041: status-bar inset fix (owner bug report)
+- **Root cause (investigated, not assumed):** edge-to-edge
+  rendering + only-an-AppBar-insets-the-body. Of the app's
+  22 Scaffolds, exactly five lacked an AppBar: Learn (×2),
+  Progress, Spaces, Goals — the four NeoPageTitle
+  destinations. Their fixed top padding put the eyebrow
+  under the status icons (owner screenshots). Today +
+  all secondary screens were already correct via their
+  AppBars, which is why Today "handled it differently".
+- **Shared fix:** `PageTop` wrapper in the kit (SafeArea,
+  top only, with the convention documented on the class),
+  applied to the four screens' bodies. Viewport starts
+  below the status bar → scrolling can't slide content
+  under the indicators; inset consumed once (stripped
+  from the MediaQuery below); bottom nav untouched (the
+  shell's NavigationBar owns the gesture inset). No
+  per-screen padding hacks, no design changes.
+- **Regression tests:** 5 new in
+  `test/features/shared/page_top_test.dart`, covering all
+  five destinations, Settings as the AppBar control, two
+  inset values (tracks the system, not fixed), scrolling,
+  320dp + light theme — and mutation-verified (removing
+  PageTop from Goals fails them). Analyze clean,
+  **545/545**. APK build remains CI-only in this VM
+  (Gradle daemon dispatch, pre-compile; unchanged).
+
 ## 2026-10-31 — D-040: Today header — streak chip + greeting customization (main chat)
 - Owner brief (Stage 2 follow-on): make the Today header
   compact and customizable. **Header group in Customize

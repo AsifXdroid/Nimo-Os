@@ -131,7 +131,8 @@ class _ProgressScreenState extends State<ProgressScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: FutureBuilder<_ProgressData>(
+      body: PageTop(
+        child: FutureBuilder<_ProgressData>(
         future: _data,
         builder: (context, snapshot) {
           // An error must never spin forever (S6 review S3).
@@ -201,6 +202,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
             ],
           );
         },
+      )
       ),
     );
   }

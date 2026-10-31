@@ -117,10 +117,12 @@ class _LearnScreenState extends State<LearnScreen> {
   Widget build(BuildContext context) {
     if (!_loaded) {
       return const Scaffold(
-        body: Padding(
-          padding: EdgeInsets.fromLTRB(
-              Space.page, Gap.md, Space.page, Gap.lg),
-          child: DelayedSkeleton(skeleton: SkeletonList(panels: 2)),
+        body: PageTop(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+                Space.page, Gap.md, Space.page, Gap.lg),
+            child: DelayedSkeleton(skeleton: SkeletonList(panels: 2)),
+          ),
         ),
       );
     }
@@ -129,10 +131,11 @@ class _LearnScreenState extends State<LearnScreen> {
         if (p.arc != null) p,
     ];
     return Scaffold(
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-            Space.page, Gap.md, Space.page, Gap.lg),
-        children: [
+      body: PageTop(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+              Space.page, Gap.md, Space.page, Gap.lg),
+          children: [
           const NeoPageTitle(
             eyebrow: 'Curiosity, kept alive',
             heading: 'Learn something that stays.',
@@ -171,6 +174,7 @@ class _LearnScreenState extends State<LearnScreen> {
             _verifyCard(context),
           ],
         ],
+        ),
       ),
     );
   }

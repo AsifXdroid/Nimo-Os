@@ -265,6 +265,36 @@ class NeoSection extends StatelessWidget {
 
 /// Page heading block: eyebrow, big title, optional sub —
 /// the prototype's `.page-title`.
+/// Page top-inset convention (D-041): in edge-to-edge
+/// rendering the window draws under a transparent status
+/// bar. A screen WITH an AppBar is inset by the bar itself;
+/// a screen with a custom header (the NeoPageTitle
+/// destinations) must consume the top system inset
+/// explicitly, or its eyebrow fights the status icons.
+/// Wrap such a screen's Scaffold body in [PageTop]: the
+/// whole viewport starts below the status bar (so scrolled
+/// content never slides under the indicators either), and
+/// SafeArea strips the consumed inset from the MediaQuery
+/// below, so nothing applies it twice. This wrapper is the
+/// one shared fix — never substitute screen-specific top
+/// padding for it.
+class PageTop extends StatelessWidget {
+  const PageTop({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: true,
+      bottom: false,
+      left: false,
+      right: false,
+      child: child,
+    );
+  }
+}
+
 class NeoPageTitle extends StatelessWidget {
   const NeoPageTitle({
     super.key,

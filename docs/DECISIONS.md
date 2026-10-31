@@ -703,6 +703,38 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
   the no-gap offset check, the narrow-screen compact chip
   and both themes. Final: analyze clean, 540/540.**
 
+- **D-041 (2026-10-31) — Status-bar inset fix (owner bug
+  report, screenshots of Learn + Spaces).** Root cause: the
+  app renders edge-to-edge (transparent status bar, no
+  SystemChrome override anywhere), and a Scaffold body is
+  inset ONLY by an AppBar. Today and every secondary screen
+  have AppBars — safe. The four custom-header destinations
+  (Learn, Progress, Spaces, Goals) built their editorial
+  headers as body content with a fixed top padding, so
+  their eyebrow/title rendered UNDER the status indicators.
+  Not a spacing problem — a missing inset convention.
+  **Fix, once, shared:** `PageTop` in the kit
+  (`lib/core/neo_ui.dart`) — a SafeArea(top-only) wrapper
+  applied to those four screens' Scaffold bodies (both of
+  Learn's, incl. its loading state). The whole viewport now
+  starts below the status bar, so content also cannot
+  scroll under the indicators; the consumed inset is
+  stripped from the MediaQuery below (no double-apply).
+  AppBar screens deliberately untouched (the bar insets
+  itself; wrapping them would double-apply). The shell's
+  NavigationBar already handles the bottom/gesture inset.
+  No typography, palette or spacing changes. Regression
+  coverage: `test/features/shared/page_top_test.dart`
+  (5 tests: PageTop consumes the inset exactly once with a
+  no-wrapper control at dy 0; all five destinations' headers
+  clear a fake 47dp inset; the Learn viewport starts below
+  it and stays there while scrolling; the header position
+  TRACKS the inset, 24 vs 47 — proving it is not a fixed
+  pad; Settings as the AppBar/nested control; Spaces at
+  320dp in light). Mutation-checked: removing PageTop from
+  Goals makes the suite fail. Final: analyze clean,
+  545/545 (APK via CI, as always in this VM).**
+
 ## Open — awaiting owner
 
 - D-037's interpretation call 1 (teal accent in both themes)

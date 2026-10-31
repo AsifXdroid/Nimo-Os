@@ -638,7 +638,17 @@ class _AppShellState extends State<AppShell> {
           onOpenWeeklySummary: _openWeeklySummary,
         ),
       },
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: Container(
+        // D-039: the shell's one hairline — the concept's ruled
+        // nav edge.
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
+          ),
+        ),
+        child: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => _select(_destinations[i].id),
         destinations: [
@@ -649,6 +659,7 @@ class _AppShellState extends State<AppShell> {
               label: d.label,
             ),
         ],
+        ),
       ),
     );
   }

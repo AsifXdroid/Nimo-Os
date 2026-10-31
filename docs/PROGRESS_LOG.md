@@ -3,6 +3,45 @@
 Newest first. Each entry: date, feature IDs / stage, what changed,
 what was verified (and how), what remains open.
 
+## 2026-10-31 — D-039 Stage 2: app shell + Today (main chat)
+- Shell: the bottom nav gains the concept's ruled edge (a
+  hairline above the bar); labels stay sentence-case (tests
+  tap them by name) in the Stage 1 mono styling.
+- Today, recomposed on the canvas: the date is now the
+  concept's mono uppercase chip; the dead search placeholder
+  button (disabled since S2, "Coming soon") is REMOVED per
+  the brief §7 — no decorative controls; Settings remains.
+- Daily progress leaves its panel: streak row + hairline +
+  week-as-type (today = filled mint circle; done days now
+  dotted in deep mint/secondary, was tertiary).
+- The plan is a TIMELINE: hairline rail through 11px node
+  marks (filled mint when done), checks moved to the right
+  edge as circles; no clock times (the model has none).
+  Track/count, Today/This-week toggle, add field and the
+  if–then block unchanged in behaviour. The week view also
+  sits on the canvas now.
+- Learning card = the PAPER FeaturePanel: mono desk label,
+  serif headline, counts as the quiet sub, "Measured in
+  enjoyment, not minutes." preserved verbatim (test anchor),
+  round outline arrow still starts a session in one tap.
+  The lavender tile/arrow treatment is retired (it belonged
+  to the superseded restrained-plum direction). Topics &
+  Library is a canvas hairline row, not a panel.
+- Day Close = the concept's RULED BAND: hairlines above and
+  below, circled moon mark, serif title, one solid
+  FilledButton (Begin Day Close / Close yesterday /
+  Revisit reflection); the late-window "Close today instead"
+  stays beside it.
+- Pinned spaces: circle avatars become bordered squares with
+  a serif initial (the concept's space glyph treatment).
+- Scores wells, quick-add, Sunday card, Recently touched,
+  goal strips: composition unchanged (they inherit the
+  Stage 1 kit); Customize Home and every section toggle
+  preserved.
+- Verified here: `flutter analyze` clean; `flutter test`
+  **517/517**. Preview:
+  `files/nimo-editorial-stage2-today-preview.html`.
+
 ## 2026-10-31 — D-039 Stage 1: Editorial design-system foundation (main chat)
 - Stage 0 approved by the owner as-is; font Route A chosen
   (bundle the real faces; owner supplies the .ttf files).

@@ -114,6 +114,33 @@ class _ItemsScreenState extends State<ItemsScreen> {
       await _addHtmlQuiz();
       return;
     }
+    if (def.key == ItemType.note) {
+      // Notes open immediately (Spaces & Notebook brief):
+      // an empty row now, the editor derives the title from
+      // what gets written, and a still-empty note is
+      // discarded on exit. Other types keep title-first
+      // creation (owner decision Q6).
+      final item = await widget.store.createItem(
+        widget.project.id,
+        type: def.key,
+        title: '',
+      );
+      setState(_reload);
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ItemDetailScreen(
+            store: widget.store,
+            item: item,
+            learn: widget.learn,
+            thumbnails: widget.thumbnails,
+          ),
+        ),
+      );
+      setState(_reload);
+      return;
+    }
     final title = await promptText(context,
         title: 'New ${def.label.toLowerCase()}', label: 'Title');
     if (title == null || title.isEmpty) return;

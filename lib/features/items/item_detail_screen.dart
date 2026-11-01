@@ -5,6 +5,7 @@
 /// jump to the card's topic).
 library;
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:file_selector/file_selector.dart';
@@ -15,6 +16,7 @@ import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../learn/learn_services.dart';
 import '../learn/topic_detail_screen.dart';
+import '../quick_add/quick_add_service.dart';
 import '../shared_ui.dart';
 import '../store.dart';
 import 'html_quiz/html_quiz_player_screen.dart';
@@ -42,9 +44,16 @@ class ItemDetailScreen extends StatefulWidget {
   State<ItemDetailScreen> createState() => _ItemDetailScreenState();
 }
 
+/// The note editor's save state, shown in its top bar. It
+/// reflects real persistence: a write is in flight, the last
+/// write landed, edits are waiting, or a remote version has
+/// paused saving until the user decides.
+enum _NoteSaveStatus { saved, unsaved, saving, conflict }
+
 class _ItemDetailScreenState extends State<ItemDetailScreen>
     with WidgetsBindingObserver {
   late final TextEditingController _bodyController;
+  late final TextEditingController _titleController;
 
   // Concurrent-edit detection for notes (Spaces amendment
   // §7, applied to the existing editor): a baseline snapshot
@@ -61,26 +70,60 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
   bool _remoteNewer = false;
   Item? _remoteItem;
 
+  // Autosave (Spaces & Notebook brief, 2026-11-01): edits
+  // debounce into a write; leaving the editor or background
+  // flushes whatever is pending. A brand-new note that was
+  // created empty and is still empty at exit is discarded
+  // instead of saved — no empty rows.
+  Timer? _debounce;
+  _NoteSaveStatus _status = _NoteSaveStatus.saved;
+  bool _isBrandNewEmpty = false;
+  bool _suppressEdit = false;
+  bool _disposed = false;
+
+  bool get _isNote => widget.item.type == ItemType.note;
+
   @override
   void initState() {
     super.initState();
     _bodyController = TextEditingController(text: widget.item.note ?? '');
+    _titleController = TextEditingController(text: widget.item.title);
+    _isBrandNewEmpty = widget.item.title.isEmpty &&
+        (widget.item.note ?? '').isEmpty;
     _setBaseline(widget.item);
+    if (_isNote) {
+      _bodyController.addListener(_onEdit);
+      _titleController.addListener(_onEdit);
+    }
     WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    _disposed = true;
+    _debounce?.cancel();
     WidgetsBinding.instance.removeObserver(this);
+    if (_isNote) {
+      // Flush pending edits (or discard a still-empty new
+      // note). Fire-and-forget: the store write proceeds
+      // while the route finishes popping.
+      unawaited(_flushPending());
+      _bodyController.removeListener(_onEdit);
+      _titleController.removeListener(_onEdit);
+    }
     _bodyController.dispose();
+    _titleController.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed &&
-        widget.item.type == ItemType.note) {
+    if (!_isNote) return;
+    if (state == AppLifecycleState.resumed) {
       _checkRemote();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      unawaited(_flushPending());
     }
   }
 
@@ -115,34 +158,118 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
       _baseHlc = fresh.updatedHlc;
       return _remoteNewer;
     }
-    if (!mounted) return true;
+    if (!mounted) {
+      _remoteNewer = true;
+      _remoteItem = fresh;
+      _status = _NoteSaveStatus.conflict;
+      return true;
+    }
     setState(() {
       _remoteNewer = true;
       _remoteItem = fresh;
+      _status = _NoteSaveStatus.conflict;
     });
     return true;
   }
 
-  Future<void> _saveNote(Item item) async {
-    if (await _checkRemote()) return; // warning is showing
-    await widget.store.updateItem(item.id, note: _bodyController.text);
-    // A local save moves neither the stamp nor title/payload;
-    // the baseline's note follows what we wrote.
-    _baseNote = _bodyController.text;
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Saved')),
-    );
+  void _setStatus(_NoteSaveStatus status) {
+    if (!_disposed && mounted) {
+      setState(() => _status = status);
+    } else {
+      _status = status;
+    }
+  }
+
+  /// The title a save would persist: what the user typed, or
+  /// — while the title field is empty — the body's first
+  /// line. The editor never stores an empty title.
+  String get _effectiveTitle {
+    final typed = _titleController.text.trim();
+    if (typed.isNotEmpty) return typed;
+    return QuickAddService.deriveNoteTitle(_bodyController.text);
+  }
+
+  bool get _isDirty =>
+      _effectiveTitle != _baseTitle || _bodyController.text != _baseNote;
+
+  void _onEdit() {
+    if (_suppressEdit || _disposed) return;
+    if (_remoteNewer) return; // paused until Reload / Keep mine
+    if (_status != _NoteSaveStatus.unsaved) {
+      _setStatus(_NoteSaveStatus.unsaved);
+    }
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 900), () {
+      unawaited(_autosave());
+    });
+  }
+
+  Future<void> _autosave() async {
+    if (_disposed || !_isNote || _remoteNewer) return;
+    if (!_isDirty) {
+      _setStatus(_NoteSaveStatus.saved);
+      return;
+    }
+    // The D-046 check runs before EVERY autosave write.
+    if (await _checkRemote()) return; // conflict — banner shows
+    await _writeNow();
+  }
+
+  Future<void> _writeNow() async {
+    _setStatus(_NoteSaveStatus.saving);
+    final title = _effectiveTitle;
+    final body = _bodyController.text;
+    try {
+      await widget.store
+          .updateItem(widget.item.id, title: title, note: body);
+    } catch (_) {
+      // Leave the state unsaved; the next edit or the exit
+      // flush retries. Never claim a save that did not land.
+      _setStatus(_NoteSaveStatus.unsaved);
+      return;
+    }
+    // A local save moves neither the stamp nor the payload;
+    // the baseline follows what we wrote.
+    _baseTitle = title;
+    _baseNote = body;
+    _setStatus(_NoteSaveStatus.saved);
+  }
+
+  /// Flush on exit / backgrounding. A remote version is
+  /// never overwritten from here: if the check finds one,
+  /// the write is withheld (the warning was the user's
+  /// chance to decide while the editor was open).
+  Future<void> _flushPending() async {
+    _debounce?.cancel();
+    if (!_isNote || _remoteNewer) return;
+    if (_isBrandNewEmpty &&
+        _titleController.text.trim().isEmpty &&
+        _bodyController.text.trim().isEmpty) {
+      // Created empty, abandoned empty: leave no row.
+      try {
+        await widget.store.deleteItem(widget.item.id);
+      } catch (_) {
+        // Nothing sensible to surface while disposing.
+      }
+      return;
+    }
+    if (!_isDirty) return;
+    if (await _checkRemote()) return;
+    await _writeNow();
   }
 
   void _reloadRemote() {
     final remote = _remoteItem;
     if (remote == null) return;
+    _suppressEdit = true;
+    _titleController.text = remote.title;
     _bodyController.text = remote.note ?? '';
+    _suppressEdit = false;
     _setBaseline(remote);
     setState(() {
       _remoteNewer = false;
       _remoteItem = null;
+      _status = _NoteSaveStatus.saved;
     });
   }
 
@@ -152,6 +279,13 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
     setState(() {
       _remoteNewer = false;
       _remoteItem = null;
+      _status = _NoteSaveStatus.unsaved;
+    });
+    // The next write carries the local version over the
+    // remote one — the accepted whole-note LWW.
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 900), () {
+      unawaited(_autosave());
     });
   }
 
@@ -169,7 +303,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
         children: [
           Text(
             'This note was changed on another device. '
-            'Saving will replace that version.',
+            'Your edits are paused until you choose.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: scheme.onErrorContainer,
                 ),
@@ -186,13 +320,34 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
     );
   }
 
+  String get _statusText => switch (_status) {
+        _NoteSaveStatus.saved => 'Saved',
+        _NoteSaveStatus.saving => 'Saving…',
+        _NoteSaveStatus.unsaved => 'Unsaved changes',
+        _NoteSaveStatus.conflict => 'Changed on another device',
+      };
+
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
+    if (_isNote) {
+      // The notebook: a compact top bar carrying the save
+      // status, and the document itself below.
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(
+            _statusText,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+        ),
+        body: _noteDocument(item),
+      );
+    }
     return Scaffold(
       appBar: AppBar(title: Text(item.title)),
       body: switch (item.type) {
-        ItemType.note => _noteBody(item),
         ItemType.checklist => _ChecklistBody(store: widget.store, item: item),
         ItemType.linkCard => _LinkCardBody(
             store: widget.store,
@@ -206,34 +361,75 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
     );
   }
 
-  Widget _noteBody(Item item) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          Space.page, Gap.md, Space.page, Gap.md),
-      child: Column(
-        children: [
-          if (_remoteNewer) ...[
-            _remoteWarning(context),
-            const SizedBox(height: 12),
-          ],
-          Expanded(
-            child: TextField(
-              controller: _bodyController,
-              maxLines: null,
-              expands: true,
-              decoration: const InputDecoration(
-                hintText: 'Write your note…',
-                border: OutlineInputBorder(),
+  /// The document: a Playfair title field and a borderless,
+  /// top-aligned body on the open canvas — no outlined box,
+  /// no card. Reading width is capped on wide screens so
+  /// lines stay comfortable.
+  Widget _noteDocument(Item item) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Column(
+      children: [
+        if (_remoteNewer)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+                Space.page, Gap.sm, Space.page, 0),
+            child: _remoteWarning(context),
+          ),
+        Expanded(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    Space.page, Gap.sm, Space.page, Gap.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: _titleController,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontFamily: fontSerif,
+                        fontFamilyFallback: fontSerifFallback,
+                      ),
+                      decoration: const InputDecoration(
+                        hintText: 'Untitled note',
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      maxLines: 2,
+                      minLines: 1,
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: Gap.sm),
+                    Container(height: 1, color: scheme.outlineVariant),
+                    const SizedBox(height: Gap.sm),
+                    Expanded(
+                      child: TextField(
+                        controller: _bodyController,
+                        autofocus: _isBrandNewEmpty,
+                        maxLines: null,
+                        expands: true,
+                        textAlignVertical: TextAlignVertical.top,
+                        keyboardType: TextInputType.multiline,
+                        style: theme.textTheme.bodyLarge
+                            ?.copyWith(height: 1.5),
+                        decoration: const InputDecoration(
+                          hintText: 'Start writing your thoughts…',
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          FilledButton(
-            onPressed: () => _saveNote(item),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

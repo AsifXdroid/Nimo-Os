@@ -1,9 +1,11 @@
-// NOTE EDITOR — concurrent-edit warning (Spaces amendment
-// §7): a remote version arriving while the editor is open is
-// detected by comparing the row's title, note, payload and
-// updated_hlc against the open-time baseline. Save is
-// withheld until the user picks Reload or Keep mine; an
-// export echo (stamp moved, content identical) stays silent.
+// NOTE EDITOR — concurrent-edit warning under AUTOSAVE
+// (Spaces amendment §7 + Spaces & Notebook brief): a remote
+// version arriving while the editor is open is detected by
+// comparing title, note, payload and updated_hlc against
+// the open-time baseline before every autosave write. The
+// write is withheld and saving pauses until the user picks
+// Reload or Keep mine; an export echo (stamp moved, content
+// identical) stays silent and the autosave proceeds.
 //
 // The "remote" change is simulated by writing the row
 // directly, exactly as a sync apply would: new content plus
@@ -22,12 +24,12 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
-  late Database db;
+  late dynamic db;
   late Store store;
   late Item note;
 
   Future<bool> pollFor(WidgetTester tester, Finder finder) async {
-    for (var i = 0; i < 30; i++) {
+    for (var i = 0; i < 40; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 100));
       await tester.pump();
       if (finder.evaluate().isNotEmpty) return true;
@@ -36,7 +38,7 @@ void main() {
   }
 
   Future<bool> pollUntil(Future<bool> Function() check) async {
-    for (var i = 0; i < 30; i++) {
+    for (var i = 0; i < 40; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 100));
       if (await check()) return true;
     }
@@ -74,49 +76,51 @@ void main() {
   Future<String?> storedNote() async =>
       (await store.itemById(note.id)).note;
 
-  String editorText(WidgetTester tester) =>
-      tester.widget<TextField>(find.byType(TextField)).controller!.text;
+  Finder bodyField() => find.byType(TextField).last;
+  Finder warning() => find.textContaining('changed on another device');
 
-  final warning = find.textContaining('changed on another device');
+  String bodyText(WidgetTester tester) =>
+      tester.widget<TextField>(bodyField()).controller!.text;
 
-  testWidgets('remote change: Save is withheld, Reload loads the remote',
+  testWidgets('remote change: autosave is withheld, Reload loads it',
       (tester) async {
     await tester.runAsync(() async {
       await seedAndPump(tester);
       await simulateRemoteEdit(noteText: 'remote version');
 
-      await tester.tap(find.text('Save'));
-      expect(await pollFor(tester, warning), isTrue);
-      // The save did not overwrite the remote version.
+      // A local edit triggers the debounced autosave, whose
+      // pre-write check finds the remote version.
+      await tester.enterText(bodyField(), 'local edit');
+      expect(await pollFor(tester, warning()), isTrue);
       expect(await storedNote(), 'remote version');
-      expect(editorText(tester), 'original');
+      expect(bodyText(tester), 'local edit');
 
       await tester.tap(find.text('Reload'));
       expect(await pollUntil(() async {
         await tester.pump();
-        return warning.evaluate().isEmpty;
+        return warning().evaluate().isEmpty;
       }), isTrue);
-      expect(editorText(tester), 'remote version');
+      expect(bodyText(tester), 'remote version');
     });
   });
 
-  testWidgets('Keep mine: the next Save overwrites the remote (LWW)',
+  testWidgets('Keep mine: autosave then overwrites the remote (LWW)',
       (tester) async {
     await tester.runAsync(() async {
       await seedAndPump(tester);
       await simulateRemoteEdit(noteText: 'remote version');
 
-      await tester.tap(find.text('Save'));
-      expect(await pollFor(tester, warning), isTrue);
+      await tester.enterText(bodyField(), 'local edit');
+      expect(await pollFor(tester, warning()), isTrue);
 
       await tester.tap(find.text('Keep mine'));
       expect(await pollUntil(() async {
         await tester.pump();
-        return warning.evaluate().isEmpty;
+        return warning().evaluate().isEmpty;
       }), isTrue);
-
-      await tester.tap(find.text('Save'));
-      expect(await pollUntil(() async => await storedNote() == 'original'),
+      // The resumed autosave writes the local version.
+      expect(
+          await pollUntil(() async => await storedNote() == 'local edit'),
           isTrue);
     });
   });
@@ -127,10 +131,12 @@ void main() {
       await seedAndPump(tester);
       await simulateRemoteEdit(stampOnly: true);
 
-      await tester.tap(find.text('Save'));
+      await tester.enterText(bodyField(), 'local edit');
+      expect(
+          await pollUntil(() async => await storedNote() == 'local edit'),
+          isTrue);
+      expect(warning(), findsNothing);
       expect(await pollFor(tester, find.text('Saved')), isTrue);
-      expect(warning, findsNothing);
-      expect(await storedNote(), 'original');
     });
   });
 }

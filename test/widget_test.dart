@@ -128,9 +128,12 @@ void main() {
       expect(await pollFor(find.textContaining('Measured in enjoyment')),
           isTrue);
 
-      // Switch to the Spaces tab: the Neo workbench screen.
+      // Switch to the Spaces tab: the simple landing
+      // (compact header, workspace list, visit recents).
       await tester.tap(find.text('Spaces'));
-      expect(await pollFor(find.text('Spaces to think and make.')), isTrue);
+      expect(
+          await pollFor(find.text('Your workspaces, projects and pages.')),
+          isTrue);
       expect(await pollFor(find.textContaining('No workspaces yet')),
           isTrue);
     });

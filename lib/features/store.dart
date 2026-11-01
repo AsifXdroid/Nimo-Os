@@ -11,6 +11,8 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 
 import '../core/db/app_database.dart';
+import '../core/ids.dart';
+import 'workspaces/recent_projects.dart';
 
 // ---------------------------------------------------------------- WS
 
@@ -67,6 +69,7 @@ class Project {
     required this.sortOrder,
     required this.createdAt,
     required this.updatedAt,
+    this.syncId,
   });
 
   final int id;
@@ -76,6 +79,11 @@ class Project {
   final int createdAt;
   final int updatedAt;
 
+  /// The project's sync identity, when the row carries it.
+  /// Device-local visit history keys on this (not the local
+  /// id) so recents survive a restore.
+  final String? syncId;
+
   factory Project.fromRow(Map<String, Object?> r) => Project(
         id: r['id'] as int,
         workspaceId: r['workspace_id'] as int,
@@ -83,6 +91,7 @@ class Project {
         sortOrder: r['sort_order'] as int,
         createdAt: r['created_at'] as int,
         updatedAt: r['updated_at'] as int,
+        syncId: r['sync_id'] as String?,
       );
 }
 
@@ -273,6 +282,44 @@ class Store {
     return (await _db.query('projects', where: 'id = ?', whereArgs: [id]))
         .map(Project.fromRow)
         .single;
+  }
+
+  /// The stored project-visit history, most recent first
+  /// (see [recordProjectVisit]).
+  Future<List<({String syncId, int visitedAt})>> recentProjectVisits() =>
+      RecentProjects.readVisits(_db);
+
+  /// SPACES: record that a project was opened, for the
+  /// visit-based Recent Projects on the Spaces landing.
+  /// Device-local history (never syncs) — see RecentProjects.
+  Future<void> recordProjectVisit(int projectId) async {
+    final rows = await _db.query('projects',
+        columns: ['sync_id', 'updated_hlc'],
+        where: 'id = ?',
+        whereArgs: [projectId],
+        limit: 1);
+    if (rows.isEmpty) return;
+    var syncId = rows.single['sync_id'];
+    if (syncId is! String || syncId.isEmpty) {
+      // A project created this session may not carry its
+      // sync identity yet (the open-time backfill assigns
+      // it). Assign exactly what the backfill would — the
+      // row keeps this id from here on — so the visit can
+      // key on a stable identity.
+      syncId = newUuid();
+      final device = await AppDatabase.deviceId(_db);
+      await _db.update(
+        'projects',
+        {
+          'sync_id': syncId,
+          'updated_hlc': rows.single['updated_hlc'] ??
+              formatHlc(AppDatabase.nowMs(), 0, device),
+        },
+        where: 'id = ?',
+        whereArgs: [projectId],
+      );
+    }
+    await RecentProjects.recordVisit(_db, syncId);
   }
 
   Future<void> renameProject(int id, String name) async {

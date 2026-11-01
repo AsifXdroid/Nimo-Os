@@ -1,9 +1,12 @@
-/// SPACES — the Neo workbench (D-037): workspace cards on top,
-/// the selected workspace's projects as in-page accordions with
-/// their items inside (the prototype's depth cut — an item is
-/// one tap from this page), and recently touched items below.
-/// The classic ProjectsScreen route still exists (Home's pinned
-/// spaces and project management open it).
+/// SPACES — the landing (Spaces & Notebook brief,
+/// 2026-11-01): a simple place to find and open work.
+///
+/// A compact header, the workspace list (tap opens the
+/// workspace's own screen), and Recent Projects from REAL
+/// visit history (recorded when a project opens — never
+/// derived from edits). No expanded panels, no accordions,
+/// no dashboard counts: Spaces → Workspace → Project → Page
+/// is plain click-to-open navigation.
 library;
 
 import 'package:flutter/material.dart';
@@ -11,28 +14,23 @@ import 'package:flutter/material.dart';
 import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
-import '../items/item_detail_screen.dart';
-import '../items/item_registry.dart';
 import '../items/items_screen.dart';
 import '../items/link_card/thumbnail_service.dart';
 import '../learn/learn_services.dart';
 import '../projects/projects_screen.dart';
 import '../shared_ui.dart';
 import '../store.dart';
+import 'recent_projects.dart';
 
-/// Everything the Spaces page renders, loaded in one pass.
+/// Everything the landing renders, loaded in one pass.
 class _SpacesData {
-  const _SpacesData({
-    required this.workspaces,
-    required this.counts,
-    required this.recent,
-  });
+  const _SpacesData({required this.workspaces, required this.recents});
 
   final List<Workspace> workspaces;
 
-  /// workspaceId → (project count, item count) for the cards.
-  final Map<int, ({int projects, int items})> counts;
-  final List<RecentItem> recent;
+  /// Visited projects, resolved against live rows (stale
+  /// sync ids dropped), most recent first, display-capped.
+  final List<({Project project, String workspaceName})> recents;
 }
 
 class WorkspacesScreen extends StatefulWidget {
@@ -55,9 +53,6 @@ class WorkspacesScreen extends StatefulWidget {
 
 class _WorkspacesScreenState extends State<WorkspacesScreen> {
   late Future<_SpacesData> _data;
-  int? _selectedId;
-  Future<List<({Project project, List<Item> items})>>? _selection;
-  final Set<int> _expanded = {};
 
   @override
   void initState() {
@@ -71,98 +66,62 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
 
   Future<_SpacesData> _load() async {
     final workspaces = await widget.store.workspaces();
-    final counts = <int, ({int projects, int items})>{};
-    for (final ws in workspaces) {
-      counts[ws.id] = (
-        projects: (await widget.store.projects(ws.id)).length,
-        items: await widget.store.itemCountForWorkspace(ws.id),
-      );
-    }
-    final recent = await widget.store.recentItems(limit: 5);
-    if (workspaces.isNotEmpty &&
-        !workspaces.any((w) => w.id == _selectedId)) {
-      // UX refinement (2026-11-01): land on the space the
-      // user actually uses, not blindly the first one. A
-      // pinned space wins (explicit choice); otherwise the
-      // space holding the most items — captures land in the
-      // Inbox project's space, rarely the first, and an
-      // empty first space made Spaces read as empty while
-      // content sat elsewhere.
-      var initial = workspaces.first;
+    final visits = await widget.store.recentProjectVisits();
+    final recents = <({Project project, String workspaceName})>[];
+    if (visits.isNotEmpty) {
+      // Resolve sync ids against live rows; a visit whose
+      // project no longer exists (deleted, not yet restored)
+      // simply drops out.
+      final bySyncId = <String, ({Project project, String workspaceName})>{};
       for (final ws in workspaces) {
-        if (ws.pinned) {
-          initial = ws;
-          break;
-        }
-      }
-      if (!initial.pinned) {
-        for (final ws in workspaces) {
-          if ((counts[ws.id]?.items ?? 0) >
-              (counts[initial.id]?.items ?? 0)) {
-            initial = ws;
+        for (final prj in await widget.store.projects(ws.id)) {
+          final sid = prj.syncId;
+          if (sid != null) {
+            bySyncId[sid] = (project: prj, workspaceName: ws.name);
           }
         }
       }
-      _selectedId = initial.id;
-      _selection = _loadSelection(initial.id);
+      for (final v in visits) {
+        final hit = bySyncId[v.syncId];
+        if (hit != null) {
+          recents.add(hit);
+          if (recents.length >= RecentProjects.maxShown) break;
+        }
+      }
     }
-    return _SpacesData(
-        workspaces: workspaces, counts: counts, recent: recent);
+    return _SpacesData(workspaces: workspaces, recents: recents);
   }
 
-  Future<List<({Project project, List<Item> items})>>
-      _loadSelection(int workspaceId) async {
-    final projects = await widget.store.projects(workspaceId);
-    final result = <({Project project, List<Item> items})>[];
-    for (final prj in projects) {
-      result.add(
-          (project: prj, items: await widget.store.items(prj.id)));
-    }
-    if (result.isNotEmpty && _expanded.isEmpty) {
-      _expanded.add(result.first.project.id);
-    }
-    return result;
-  }
-
-  void _select(Workspace ws) {
-    if (ws.id == _selectedId) return;
-    setState(() {
-      _selectedId = ws.id;
-      _expanded.clear();
-      _selection = _loadSelection(ws.id);
-    });
-  }
-
-  Future<void> _openItem(Item item) async {
+  Future<void> _openWorkspace(Workspace ws) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ItemDetailScreen(
+        builder: (_) => ProjectsScreen(
           store: widget.store,
-          item: item,
+          workspace: ws,
           learn: widget.learn,
           thumbnails: widget.thumbnails,
         ),
       ),
     );
     if (!mounted) return;
-    setState(() {
-      _reload();
-      if (_selectedId != null) {
-        _selection = _loadSelection(_selectedId!);
-      }
-    });
+    setState(_reload);
   }
 
-  Future<void> _newProject(Workspace ws) async {
-    final name = await promptText(context, title: 'New project');
-    if (name == null || name.isEmpty) return;
-    await widget.store.createProject(ws.id, name);
+  Future<void> _openProject(Project prj) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ItemsScreen(
+          store: widget.store,
+          project: prj,
+          learn: widget.learn,
+          thumbnails: widget.thumbnails,
+        ),
+      ),
+    );
     if (!mounted) return;
-    setState(() {
-      _reload();
-      _selection = _loadSelection(ws.id);
-    });
+    setState(_reload);
   }
 
   Future<void> _add() async {
@@ -172,16 +131,45 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
     setState(_reload);
   }
 
-  Future<void> _menu(Workspace ws) async {
-    final action = await showRowMenu(context);
+  /// Every workspace management action the old expanded
+  /// panel carried, on long-press: rename, pin/unpin, delete.
+  Future<void> _workspaceActions(Workspace ws) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Rename'),
+              onTap: () => Navigator.pop(context, 'rename'),
+            ),
+            ListTile(
+              leading: Icon(
+                  ws.pinned ? Icons.push_pin : Icons.push_pin_outlined),
+              title: Text(ws.pinned ? 'Unpin from Home' : 'Pin to Home'),
+              onTap: () => Navigator.pop(context, 'pin'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline),
+              title: const Text('Delete'),
+              onTap: () => Navigator.pop(context, 'delete'),
+            ),
+          ],
+        ),
+      ),
+    );
     if (!mounted || action == null) return;
     switch (action) {
-      case RowAction.rename:
+      case 'rename':
         final name = await promptText(context,
             title: 'Rename workspace', initial: ws.name);
         if (name == null || name.isEmpty) return;
         await widget.store.renameWorkspace(ws.id, name);
-      case RowAction.delete:
+      case 'pin':
+        await widget.store.setWorkspacePinned(ws.id, !ws.pinned);
+      case 'delete':
         if (!await confirmDelete(context, 'workspace')) return;
         await widget.store.deleteWorkspace(ws.id);
     }
@@ -190,104 +178,89 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Scaffold(
       body: PageTop(
         child: FutureBuilder<_SpacesData>(
-        future: _data,
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Padding(
-              padding: EdgeInsets.fromLTRB(
+          future: _data,
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Padding(
+                padding: EdgeInsets.fromLTRB(
+                    Space.page, Gap.md, Space.page, Gap.lg),
+                child: DelayedSkeleton(skeleton: SkeletonList(panels: 2)),
+              );
+            }
+            final data = snapshot.data!;
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(
                   Space.page, Gap.md, Space.page, Gap.lg),
-              child: DelayedSkeleton(skeleton: SkeletonList(panels: 2)),
-            );
-          }
-          final data = snapshot.data!;
-          Workspace? selected;
-          for (final w in data.workspaces) {
-            if (w.id == _selectedId) selected = w;
-          }
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(
-                Space.page, Gap.md, Space.page, Gap.lg),
-            children: [
-              const NeoPageTitle(
-                eyebrow: 'Your personal workbench',
-                heading: 'Spaces to think and make.',
-                sub: 'Keep the things you’re building close.',
-              ),
-              const SizedBox(height: Gap.lg),
-              NeoSectionHead(
-                title: 'Your spaces',
-                actionLabel: '+ New space',
-                onAction: _add,
-              ),
-              const SizedBox(height: Space.s3),
-              if (data.workspaces.isEmpty)
+              children: [
                 Text(
-                  'A clear starting point. No workspaces yet — '
-                  'create one to begin.',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                )
-              else
-                // D-039: spaces are the concept's hairline ROWS
-                // with serif glyph squares — not a tile grid.
-                Column(
-                  children: [
-                    for (final ws in data.workspaces)
-                      _spaceRow(
-                        context,
-                        ws,
-                        data,
-                        selected: ws.id == _selectedId,
-                        last: ws == data.workspaces.last,
-                      ),
-                  ],
+                  'Spaces',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontFamily: fontSerif,
+                    fontFamilyFallback: fontSerifFallback,
+                  ),
                 ),
-              if (selected != null) ...[
+                const SizedBox(height: Gap.sm),
+                Text(
+                  'Your workspaces, projects and pages.',
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(color: scheme.onSurfaceVariant),
+                ),
                 const SizedBox(height: Gap.lg),
-                _selectedPanel(context, selected),
-              ],
-              if (data.recent.isNotEmpty) ...[
-                const SizedBox(height: Gap.lg),
-                const NeoSectionHead(title: 'Recently touched'),
+                NeoSectionHead(
+                  title: 'Your spaces',
+                  actionLabel: '+ New space',
+                  onAction: _add,
+                ),
                 const SizedBox(height: Space.s3),
-                Column(
-                  children: [
-                    for (final r in data.recent)
-                      NeoListRow(
-                        icon: itemTypeDef(r.item.type).icon,
-                        title: r.item.title,
-                        sub: '${r.workspaceName} · ${r.projectName}',
-                        last: r == data.recent.last,
-                        onTap: () => _openItem(r.item),
-                      ),
-                  ],
-                ),
+                if (data.workspaces.isEmpty)
+                  Text(
+                    'No workspaces yet — create one to begin.',
+                    style: theme.textTheme.bodyMedium,
+                  )
+                else
+                  Column(
+                    children: [
+                      for (final ws in data.workspaces)
+                        _spaceRow(context, ws,
+                            last: ws == data.workspaces.last),
+                    ],
+                  ),
+                if (data.recents.isNotEmpty) ...[
+                  const SizedBox(height: Gap.lg),
+                  const NeoSectionHead(title: 'Recent projects'),
+                  const SizedBox(height: Space.s3),
+                  Column(
+                    children: [
+                      for (final r in data.recents)
+                        NeoListRow(
+                          icon: Icons.folder_open_outlined,
+                          title: r.project.name,
+                          sub: r.workspaceName,
+                          last: r == data.recents.last,
+                          onTap: () => _openProject(r.project),
+                        ),
+                    ],
+                  ),
+                ],
               ],
-            ],
-          );
-        },
-      ),
+            );
+          },
+        ),
       ),
     );
   }
 
-  /// One space as an editorial row: a bordered square with
-  /// the space's serif initial, its name and counts, and a
-  /// chevron. Selected = the glyph square fills with the
-  /// container tint and a mint edge (the detail panel below
-  /// carries the selection's actions).
-  Widget _spaceRow(
-    BuildContext context,
-    Workspace ws,
-    _SpacesData data, {
-    required bool selected,
-    required bool last,
-  }) {
+  /// One space as a quiet row: serif initial square, name,
+  /// chevron. Tap opens the workspace; long-press manages it.
+  Widget _spaceRow(BuildContext context, Workspace ws,
+      {required bool last}) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final counts = data.counts[ws.id] ?? (projects: 0, items: 0);
     return Container(
       decoration: BoxDecoration(
         border: Border(
@@ -297,21 +270,18 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
         ),
       ),
       child: InkWell(
-        onTap: () => _select(ws),
+        onTap: () => _openWorkspace(ws),
+        onLongPress: () => _workspaceActions(ws),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: Space.s4),
           child: Row(
             children: [
               Container(
-                width: 48,
-                height: 48,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
-                  color: selected
-                      ? scheme.primaryContainer
-                      : scheme.surface,
-                  border: Border.all(
-                    color: selected ? scheme.primary : scheme.outline,
-                  ),
+                  color: scheme.surface,
+                  border: Border.all(color: scheme.outline),
                   borderRadius: BorderRadius.circular(RadiusToken.sm),
                 ),
                 alignment: Alignment.center,
@@ -320,236 +290,28 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
                   style: TextStyle(
                     fontFamily: fontSerif,
                     fontFamilyFallback: fontSerifFallback,
-                    fontSize: 20,
-                    color: selected
-                        ? scheme.onPrimaryContainer
-                        : scheme.primary,
+                    fontSize: 18,
+                    color: scheme.primary,
                   ),
                 ),
               ),
               const SizedBox(width: Space.s4),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      ws.name,
-                      style: theme.textTheme.titleSmall,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${counts.projects} projects · ${counts.items} items'
-                      '${ws.pinned ? ' · pinned' : ''}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant),
-                    ),
-                  ],
+                child: Text(
+                  ws.name,
+                  style: theme.textTheme.titleSmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if (ws.pinned)
+                Icon(Icons.push_pin_outlined,
+                    size: 16, color: scheme.onSurfaceVariant),
               Icon(Icons.chevron_right,
                   size: 20, color: scheme.onSurfaceVariant),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _selectedPanel(BuildContext context, Workspace ws) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return NeoPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(ws.name, style: theme.textTheme.titleMedium),
-              ),
-              IconButton(
-                icon: Icon(
-                    ws.pinned ? Icons.push_pin : Icons.push_pin_outlined),
-                tooltip: ws.pinned ? 'Unpin from Home' : 'Pin to Home',
-                onPressed: () async {
-                  await widget.store.setWorkspacePinned(ws.id, !ws.pinned);
-                  setState(_reload);
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.more_vert),
-                onPressed: () => _menu(ws),
-              ),
-            ],
-          ),
-          Text(
-            'Workspace → project → item. Open a project to see '
-            'what’s inside.',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: Space.s3),
-          FutureBuilder<List<({Project project, List<Item> items})>>(
-            future: _selection,
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: Space.s4),
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              }
-              final entries = snapshot.data!;
-              if (entries.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: Space.s3),
-                  child: Text(
-                    'A clear starting point. No projects in this '
-                    'space yet.',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                );
-              }
-              return Column(
-                children: [
-                  for (final e in entries)
-                    _projectAccordion(context, e,
-                        last: e == entries.last),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: Space.s3),
-          Wrap(
-            spacing: Space.s2,
-            children: [
-              TextButton(
-                onPressed: () => _newProject(ws),
-                child: const Text('+ New project'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ProjectsScreen(
-                      store: widget.store,
-                      workspace: ws,
-                      learn: widget.learn,
-                      thumbnails: widget.thumbnails,
-                    ),
-                  ),
-                ),
-                child: const Text('All projects →'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _projectAccordion(
-    BuildContext context,
-    ({Project project, List<Item> items}) entry, {
-    bool last = false,
-  }) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final prj = entry.project;
-    final expanded = _expanded.contains(prj.id);
-    return Container(
-      decoration: last
-          ? null
-          : BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: scheme.outlineVariant),
-              ),
-            ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: () => setState(() {
-              if (expanded) {
-                _expanded.remove(prj.id);
-              } else {
-                _expanded.add(prj.id);
-              }
-            }),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: Space.s4),
-              child: Row(
-                children: [
-                  Icon(Icons.folder_open_outlined,
-                      size: 20, color: scheme.primary),
-                  const SizedBox(width: Space.s3),
-                  Expanded(
-                    child: Text(
-                      prj.name,
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  Text(
-                    '${entry.items.length} items',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: scheme.onSurfaceVariant),
-                  ),
-                  const SizedBox(width: Space.s2),
-                  Icon(
-                    expanded ? Icons.expand_less : Icons.expand_more,
-                    size: 20,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (expanded) ...[
-            if (entry.items.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: Space.s3),
-                child: Text(
-                  'A clear starting point. No items in this '
-                  'project yet.',
-                  style: theme.textTheme.bodyMedium,
-                ),
-              ),
-            for (final item in entry.items)
-              NeoListRow(
-                icon: itemTypeDef(item.type).icon,
-                title: item.title,
-                sub: itemTypeDef(item.type).label,
-                last: item == entry.items.last,
-                onTap: () => _openItem(item),
-              ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ItemsScreen(
-                        store: widget.store,
-                        project: prj,
-                        learn: widget.learn,
-                        thumbnails: widget.thumbnails,
-                      ),
-                    ),
-                  );
-                  if (!mounted) return;
-                  setState(() {
-                    _reload();
-                    _selection = _loadSelection(prj.workspaceId);
-                  });
-                },
-                child: const Text('Manage project →'),
-              ),
-            ),
-          ],
-        ],
       ),
     );
   }

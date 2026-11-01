@@ -7,6 +7,8 @@
 /// Both appear only when the learn services are wired in.
 library;
 
+import 'dart:async';
+
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
@@ -65,6 +67,10 @@ class _ItemsScreenState extends State<ItemsScreen> {
   @override
   void initState() {
     super.initState();
+    // Opening a project IS a visit — the Spaces landing's
+    // Recent Projects reads this history. Fire-and-forget:
+    // a history write must never block or fail the screen.
+    unawaited(widget.store.recordProjectVisit(widget.project.id));
     _reload();
   }
 

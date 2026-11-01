@@ -1,3 +1,17 @@
+## 2026-11-01 — D-048: Spaces & Notebook (3 commits, test branch)
+- **Spaces (a0320b9d + delete 72ddc37b):** landing rewritten
+  as a simple click-to-open list; visit-based Recent
+  Projects (device-local, sync_id-keyed); ProjectsScreen /
+  ItemsScreen serve as the workspace / project screens.
+- **Notes (46b88262):** document editor — editable title,
+  borderless body, debounced autosave + status, exit flush,
+  empty-note discard, derived titles; concurrent-edit check
+  before every write; ItemsScreen creates notes immediately.
+- **Integration:** full-path test (Spaces → project → new
+  note → editor → derived-title row); PopScope exit flush so
+  the list below never reloads stale; D-048 decision.
+  Formatting toolbar deferred (plain-text model).
+
 ## 2026-11-01 — D-047: UX refinement (3 commits, test branch)
 - **Today (6569b468):** inline task composer removed
   (duplicated global Quick Add); floating + and the

@@ -80,6 +80,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
   bool _isBrandNewEmpty = false;
   bool _suppressEdit = false;
   bool _disposed = false;
+  bool _popping = false;
 
   bool get _isNote => widget.item.type == ItemType.note;
 
@@ -332,17 +333,30 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
     final item = widget.item;
     if (_isNote) {
       // The notebook: a compact top bar carrying the save
-      // status, and the document itself below.
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(
-            _statusText,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+      // status, and the document itself below. The pop is
+      // intercepted so the pending flush (or the empty-note
+      // discard) COMPLETES before the screen below reloads —
+      // the project list never shows a stale title.
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) async {
+          if (didPop || _popping) return;
+          _popping = true;
+          final navigator = Navigator.of(context);
+          await _flushPending();
+          if (mounted) navigator.pop(result);
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(
+              _statusText,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
           ),
+          body: _noteDocument(item),
         ),
-        body: _noteDocument(item),
       );
     }
     return Scaffold(

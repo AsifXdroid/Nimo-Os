@@ -11,6 +11,7 @@ import 'dart:io';
 
 import 'package:daily_life_app/core/db/app_database.dart';
 import 'package:daily_life_app/core/theme.dart';
+import 'package:daily_life_app/features/items/items_screen.dart';
 import 'package:daily_life_app/features/store.dart';
 import 'package:daily_life_app/features/workspaces/recent_projects.dart';
 import 'package:daily_life_app/features/workspaces/workspaces_screen.dart';
@@ -44,6 +45,16 @@ void main() {
     fail('Timed out waiting for $f');
   }
 
+  /// Finish route transitions (clock-driven: plain pumps and
+  /// real delays alone leave a pushed screen mid-slide, with
+  /// its buttons still off-screen) and let FFI futures land.
+  Future<void> settle(WidgetTester tester) async {
+    for (var i = 0; i < 12; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
   Widget app(Store store) => MaterialApp(
         theme: AppTheme.forPlate(AppPlate.midnight),
         home: WorkspacesScreen(store: store),
@@ -72,23 +83,21 @@ void main() {
       await pumpUntil(tester, find.text('Personal'));
 
       await tester.tap(find.text('Personal'));
+      await settle(tester);
       await pumpUntil(tester, find.text('Biology'));
       expect(find.text('Biology'), findsOneWidget);
 
       await tester.tap(find.text('Biology'));
+      await settle(tester);
       await pumpUntil(tester, find.text('Cell notes'));
       expect(find.text('Cell notes'), findsOneWidget);
 
       // Back to the landing: the visit is now a recent.
       // (Pushed routes keep their Back buttons in the test
-      // tree; tap the topmost, then let the route transition
-      // settle before tapping the next one.)
+      // tree; the topmost route's is the last one.)
       Future<void> backAndWait(Finder marker) async {
         await tester.tap(find.byType(BackButton).last);
-        for (var i = 0; i < 15; i++) {
-          await Future<void>.delayed(const Duration(milliseconds: 80));
-          await tester.pump();
-        }
+        await settle(tester);
         await pumpUntil(tester, marker);
       }
 
@@ -96,6 +105,46 @@ void main() {
       await backAndWait(find.text('Recent projects'));
       expect(find.text('Recent projects'), findsOneWidget);
       expect(find.text('Biology'), findsOneWidget);
+    });
+  });
+
+  testWidgets('full path: Spaces → workspace → project → new '
+      'note opens the editor at once and saves', (tester) async {
+    await tester.runAsync(() async {
+      final store = await seed();
+      await tester.pumpWidget(app(store));
+      await pumpUntil(tester, find.text('Personal'));
+      await tester.tap(find.text('Personal'));
+      await settle(tester);
+      await pumpUntil(tester, find.text('Biology'));
+      await tester.tap(find.text('Biology'));
+      await settle(tester);
+      await pumpUntil(tester, find.text('Cell notes'));
+
+      // Add → Note: no title prompt, the editor opens directly.
+      // (Target the project screen's own FAB — the workspace
+      // screen's is still in the tree below it.)
+      await tester.tap(find.descendant(
+        of: find.byType(ItemsScreen),
+        matching: find.byType(FloatingActionButton),
+      ));
+      await settle(tester);
+      await pumpUntil(tester, find.text('Add item'));
+      // The item rows also carry a small "Note" type tag;
+      // the sheet's entry is the ListTile.
+      await tester.tap(find.widgetWithText(ListTile, 'Note'));
+      await settle(tester);
+      await pumpUntil(tester, find.text('Start writing your thoughts…'));
+      expect(find.text('New note'), findsNothing);
+
+      await tester.enterText(
+          find.byType(TextField).last, 'Photosynthesis\nLight reactions');
+      await tester.tap(find.byType(BackButton).last);
+      await settle(tester);
+      // Back on the project, the note is listed under the
+      // title derived from its first line.
+      await pumpUntil(tester, find.text('Photosynthesis'));
+      expect(find.text('Photosynthesis'), findsOneWidget);
     });
   });
 

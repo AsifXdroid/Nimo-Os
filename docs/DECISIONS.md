@@ -1045,3 +1045,48 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
 - **Tests (5 new):** Today composer absence + row intact;
   Learn topics surfaced + empty-state first action;
   Spaces content-wins selection + pinned-wins selection.
+
+## 2026-11-01 — D-048: Spaces & Notebook — simple navigation, document editor
+
+- **Spaces landing rewritten:** compact header + workspace
+  rows (glyph initial, name, chevron) and nothing else.
+  Expanded panels, project accordions, item counts and
+  "Recently touched" are REMOVED. Tap opens ProjectsScreen
+  (the workspace screen); its rows open ItemsScreen (the
+  project screen). Long-press carries every former panel
+  action: Rename / Pin·Unpin / Delete.
+- **Recent Projects are real visits** (owner decision Q5,
+  now built): one device-local app_settings key
+  (`spaces.recent_project_visits.v1`, sync_id-keyed, 10
+  stored / 5 shown), recorded when a project opens
+  (ItemsScreen → Store.recordProjectVisit, which assigns
+  the project's sync identity exactly as the open-time
+  backfill would when a same-session project lacks one).
+  Stale ids resolve out at read. The D-047 initial-selection
+  logic is superseded — there is no selection state left.
+- **Note editor is a document:** compact top bar carrying
+  the SAVE STATUS (Saved / Saving… / Unsaved changes /
+  Changed on another device), a Playfair title field, a
+  borderless top-aligned body, reading width capped at
+  720dp. Debounced AUTOSAVE (900 ms) + exit/background
+  flush; the pop is intercepted so the flush completes
+  before the screen below reloads. The editor never stores
+  an empty title (typed, else derived from the body, else
+  "Untitled note"). The D-046 concurrent-edit check runs
+  before EVERY autosave write; saving pauses on conflict
+  until Reload / Keep mine.
+- **Immediate note creation:** ItemsScreen's note branch
+  creates an empty row and opens the editor at once
+  (checklists and other types keep title-first creation,
+  Q6). A brand-new note still empty at exit is discarded;
+  existing notes never are.
+- **Formatting controls NOT built:** notes are plain text
+  in the data model; markers would corrupt existing notes.
+  Rich text needs its own architecture decision.
+- **Tests:** spaces_landing (4: simple list, visit recents
+  flow, full-path integration, history cap/dedupe),
+  note_editor (7: presentation, autosave, rapid edits,
+  title autosave, exit flush, discard, derivation,
+  no-discard for existing), concurrent-edit suite reworked
+  for autosave (3). D-047's selection test deleted with
+  the model it tested. No schema change, no new dependency.

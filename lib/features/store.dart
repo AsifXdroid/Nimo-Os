@@ -107,6 +107,7 @@ class Item {
     required this.sortOrder,
     required this.createdAt,
     required this.updatedAt,
+    this.updatedHlc,
   });
 
   final int id;
@@ -121,6 +122,12 @@ class Item {
   final int createdAt;
   final int updatedAt;
 
+  /// The row's sync stamp, when the query carried it. Local
+  /// store writes never move it; a remote sync apply does —
+  /// which is what makes concurrent-edit detection possible
+  /// (see item_detail_screen.dart).
+  final String? updatedHlc;
+
   factory Item.fromRow(Map<String, Object?> r) => Item(
         id: r['id'] as int,
         projectId: r['project_id'] as int,
@@ -134,6 +141,7 @@ class Item {
         sortOrder: r['sort_order'] as int,
         createdAt: r['created_at'] as int,
         updatedAt: r['updated_at'] as int,
+        updatedHlc: r['updated_hlc'] as String?,
       );
 }
 

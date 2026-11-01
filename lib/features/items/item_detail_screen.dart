@@ -5,6 +5,8 @@
 /// jump to the card's topic).
 library;
 
+import 'dart:convert';
+
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -40,19 +42,148 @@ class ItemDetailScreen extends StatefulWidget {
   State<ItemDetailScreen> createState() => _ItemDetailScreenState();
 }
 
-class _ItemDetailScreenState extends State<ItemDetailScreen> {
+class _ItemDetailScreenState extends State<ItemDetailScreen>
+    with WidgetsBindingObserver {
   late final TextEditingController _bodyController;
+
+  // Concurrent-edit detection for notes (Spaces amendment
+  // §7, applied to the existing editor): a baseline snapshot
+  // of the row as opened — title, note, payload and the sync
+  // stamp. Local store writes never move updated_hlc; a
+  // winning remote sync apply rewrites it together with the
+  // content. A stamp change WITH a content change is a newer
+  // remote version; a stamp change alone is an export echo
+  // and stays silent.
+  String? _baseTitle;
+  String? _baseNote;
+  String? _basePayloadJson;
+  String? _baseHlc;
+  bool _remoteNewer = false;
+  Item? _remoteItem;
 
   @override
   void initState() {
     super.initState();
     _bodyController = TextEditingController(text: widget.item.note ?? '');
+    _setBaseline(widget.item);
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _bodyController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        widget.item.type == ItemType.note) {
+      _checkRemote();
+    }
+  }
+
+  static String? _payloadJson(Item item) =>
+      item.payload == null ? null : jsonEncode(item.payload);
+
+  void _setBaseline(Item item) {
+    _baseTitle = item.title;
+    _baseNote = item.note;
+    _basePayloadJson = _payloadJson(item);
+    _baseHlc = item.updatedHlc;
+  }
+
+  /// Re-read the row and compare it with the baseline.
+  /// Returns true when a newer remote version is present
+  /// (and the warning should be showing).
+  Future<bool> _checkRemote() async {
+    if (widget.item.type != ItemType.note) return false;
+    final Item fresh;
+    try {
+      fresh = await widget.store.itemById(widget.item.id);
+    } catch (_) {
+      return _remoteNewer; // row unreadable — leave state as-is
+    }
+    if (fresh.updatedHlc == _baseHlc) return _remoteNewer;
+    final contentChanged = fresh.title != _baseTitle ||
+        fresh.note != _baseNote ||
+        _payloadJson(fresh) != _basePayloadJson;
+    if (!contentChanged) {
+      // Export echo: our own export stamped the row; the
+      // content is exactly what we last saw. Absorb silently.
+      _baseHlc = fresh.updatedHlc;
+      return _remoteNewer;
+    }
+    if (!mounted) return true;
+    setState(() {
+      _remoteNewer = true;
+      _remoteItem = fresh;
+    });
+    return true;
+  }
+
+  Future<void> _saveNote(Item item) async {
+    if (await _checkRemote()) return; // warning is showing
+    await widget.store.updateItem(item.id, note: _bodyController.text);
+    // A local save moves neither the stamp nor title/payload;
+    // the baseline's note follows what we wrote.
+    _baseNote = _bodyController.text;
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Saved')),
+    );
+  }
+
+  void _reloadRemote() {
+    final remote = _remoteItem;
+    if (remote == null) return;
+    _bodyController.text = remote.note ?? '';
+    _setBaseline(remote);
+    setState(() {
+      _remoteNewer = false;
+      _remoteItem = null;
+    });
+  }
+
+  void _keepMine() {
+    final remote = _remoteItem;
+    if (remote != null) _setBaseline(remote);
+    setState(() {
+      _remoteNewer = false;
+      _remoteItem = null;
+    });
+  }
+
+  Widget _remoteWarning(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(Space.s3),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer,
+        borderRadius: BorderRadius.circular(RadiusToken.sm),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'This note was changed on another device. '
+            'Saving will replace that version.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: scheme.onErrorContainer,
+                ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(onPressed: _reloadRemote, child: const Text('Reload')),
+              TextButton(onPressed: _keepMine, child: const Text('Keep mine')),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -81,6 +212,10 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
           Space.page, Gap.md, Space.page, Gap.md),
       child: Column(
         children: [
+          if (_remoteNewer) ...[
+            _remoteWarning(context),
+            const SizedBox(height: 12),
+          ],
           Expanded(
             child: TextField(
               controller: _bodyController,
@@ -94,14 +229,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
           ),
           const SizedBox(height: 12),
           FilledButton(
-            onPressed: () async {
-              await widget.store
-                  .updateItem(item.id, note: _bodyController.text);
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Saved')),
-              );
-            },
+            onPressed: () => _saveNote(item),
             child: const Text('Save'),
           ),
         ],

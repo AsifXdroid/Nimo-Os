@@ -1,3 +1,23 @@
+## 2026-11-01 — D-046: Note concurrent-edit warning + CI analyze fix (test branch)
+- **Concurrent-edit warning for notes** (Spaces amendment
+  §7, applied to the existing editor per owner
+  instruction): the editor snapshots title, note, payload
+  and `updated_hlc` at open and re-checks on resume and
+  before every Save. Stamp + content change = newer
+  remote version → non-modal warning, Save withheld,
+  **Reload** / **Keep mine** (LWW). Stamp-only change =
+  export echo, absorbed silently. `Item` carries
+  `updatedHlc` now. No schema change.
+- **CI fix:** run #42 (D-045) FAILED at the Analyze step —
+  an info-level `unnecessary_import` in the new Quick Add
+  test file as pushed (the local incremental analyze had
+  reported clean; CI's fresh analyze caught it). The
+  redundant import is removed here; fresh local analyze
+  is clean.
+- **Gates:** analyze clean; **602/602 executed** (599 +
+  3 new editor tests: save withheld + Reload, Keep mine
+  LWW, echo silence). Test branch only; main untouched.
+
 ## 2026-11-01 — D-045: Navigation redesign — Direction + global Quick Add (test branch)
 - **Four destinations** (supersedes D-021's five): Today ·
   Learn · Spaces · Direction. Goals and Progress are

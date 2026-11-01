@@ -987,3 +987,27 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
   Direction/Progress end-to-end), the Direction host (tabs,
   initial tab) and the Quick Add service (task/note/resource
   homes, derived titles, URL rejection).
+
+## 2026-11-01 — D-046: Concurrent-edit warning for notes
+
+- Applies the Spaces amendment §7 design to the existing
+  note editor (ahead of Stage 0's autosave, per owner
+  instruction). The editor snapshots the row at open —
+  **title, note, payload and `updated_hlc`** (note content
+  lives in `items.note`, so a payload-only comparison
+  would miss real changes) — and re-reads the row on app
+  resume and before every Save.
+- A stamp change **with** a content change = a newer
+  remote version: a non-modal warning shows **Reload**
+  (discard local edits, load remote) and **Keep mine**
+  (explicitly retain local; the next save overwrites —
+  whole-note LWW, as approved). Save is withheld while
+  the warning is undecided. A stamp change **without** a
+  content change is an export echo and is absorbed
+  silently — no false warnings.
+- `Item` now carries `updatedHlc` (parsed when the row
+  provides it). No schema change, no merge machinery.
+- **Tests (3 new, widget):** remote change withholds the
+  save + Reload loads the remote; Keep mine then Save
+  overwrites (LWW); stamp-only echo never warns and the
+  save proceeds.

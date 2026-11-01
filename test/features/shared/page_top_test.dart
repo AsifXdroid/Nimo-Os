@@ -227,9 +227,9 @@ void main() {
           thumbnails: s.thumbs,
         ),
       );
-      await _pumpUntil(tester, find.text('YOUR PERSONAL WORKBENCH'));
+      await _pumpUntil(tester, find.text('Your workspaces, projects and pages.'));
       expect(
-          tester.getTopLeft(find.text('YOUR PERSONAL WORKBENCH')).dy,
+          tester.getTopLeft(find.text('Your workspaces, projects and pages.')).dy,
           greaterThanOrEqualTo(47));
 
       // Goals — custom header, PageTop.
@@ -306,9 +306,9 @@ void main() {
         ),
         theme: AppTheme.neoLight(),
       );
-      await _pumpUntil(tester, find.text('YOUR PERSONAL WORKBENCH'));
+      await _pumpUntil(tester, find.text('Your workspaces, projects and pages.'));
       expect(
-          tester.getTopLeft(find.text('YOUR PERSONAL WORKBENCH')).dy,
+          tester.getTopLeft(find.text('Your workspaces, projects and pages.')).dy,
           greaterThanOrEqualTo(47));
       expect(tester.takeException(), isNull);
     });

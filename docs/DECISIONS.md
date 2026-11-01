@@ -1011,3 +1011,37 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
   save + Reload loads the remote; Keep mine then Save
   overwrites (LWW); stamp-only echo never warns and the
   save proceeds.
+
+## 2026-11-01 — D-047: UX refinement — Today composer, Learn topics, Spaces selection
+
+- **Today:** the inline "Add a task for today…" composer
+  (field + add button in the plan section) is REMOVED —
+  it duplicated the global Quick Add capture. Task
+  creation lives on the shell's floating + sheet and the
+  hub's quick-add row, both running the shared Quick Add
+  workflow (D-045). The row itself is unchanged: its Goal
+  and Checklist actions exist nowhere in the global sheet
+  and are NOT lost. Empty-plan copy updated ("Use the +
+  button…"). Reclaimed space goes to the plan itself.
+- **Learn:** the landing now surfaces the owner's topics
+  (the actual learning material: sources, reading,
+  mark-a-point) instead of packs only. Topics were fully
+  implemented but reachable only via a small "All topics
+  →" link, so a topics library with zero imported packs
+  read as an empty Learn. The landing lists up to five
+  topics (same rows as Topics & Library, opening the same
+  detail page), offers New topic as the empty-state first
+  action, and the pulse's zero-state hint points at the
+  topics when they exist. Packs, sessions and the engine
+  are untouched; nothing is fabricated.
+- **Spaces:** the landing's initial workspace selection
+  is no longer blindly the first workspace: a pinned
+  space wins, otherwise the space holding the most items
+  (captures land in the Inbox project's space, rarely the
+  first). An empty first space made Spaces read as empty
+  while content sat elsewhere. No schema change, no
+  visit tracking (that remains Spaces Stage 0 scope), no
+  fabricated content.
+- **Tests (5 new):** Today composer absence + row intact;
+  Learn topics surfaced + empty-state first action;
+  Spaces content-wins selection + pinned-wins selection.

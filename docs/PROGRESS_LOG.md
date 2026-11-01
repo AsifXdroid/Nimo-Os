@@ -1,3 +1,20 @@
+## 2026-11-01 — D-047: UX refinement (3 commits, test branch)
+- **Today (6569b468):** inline task composer removed
+  (duplicated global Quick Add); floating + and the
+  quick-add row (Task/Goal/Note/Checklist) carry capture;
+  empty-plan copy updated. 1 new widget test.
+- **Learn (355bb21d):** topics surface on the landing
+  (cap 5, same rows/detail as Topics & Library), New
+  topic first action when empty, topics-aware pulse
+  hint. Cause: landing was packs-only; the owner's real
+  material sat behind a small text link. 2 new tests.
+- **Spaces (this commit):** initial workspace selection
+  prefers pinned, then most items — the first space is
+  no longer selected blind. Cause: an empty first space
+  hid content held elsewhere. 2 new tests.
+- **Gates:** analyze clean at every phase; full suite
+  re-run before push (see CI). Main untouched.
+
 ## 2026-11-01 — D-046: Note concurrent-edit warning + CI analyze fix (test branch)
 - **Concurrent-edit warning for notes** (Spaces amendment
   §7, applied to the existing editor per owner

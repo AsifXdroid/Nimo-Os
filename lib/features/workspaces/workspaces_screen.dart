@@ -81,8 +81,30 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
     final recent = await widget.store.recentItems(limit: 5);
     if (workspaces.isNotEmpty &&
         !workspaces.any((w) => w.id == _selectedId)) {
-      _selectedId = workspaces.first.id;
-      _selection = _loadSelection(workspaces.first.id);
+      // UX refinement (2026-11-01): land on the space the
+      // user actually uses, not blindly the first one. A
+      // pinned space wins (explicit choice); otherwise the
+      // space holding the most items — captures land in the
+      // Inbox project's space, rarely the first, and an
+      // empty first space made Spaces read as empty while
+      // content sat elsewhere.
+      var initial = workspaces.first;
+      for (final ws in workspaces) {
+        if (ws.pinned) {
+          initial = ws;
+          break;
+        }
+      }
+      if (!initial.pinned) {
+        for (final ws in workspaces) {
+          if ((counts[ws.id]?.items ?? 0) >
+              (counts[initial.id]?.items ?? 0)) {
+            initial = ws;
+          }
+        }
+      }
+      _selectedId = initial.id;
+      _selection = _loadSelection(initial.id);
     }
     return _SpacesData(
         workspaces: workspaces, counts: counts, recent: recent);

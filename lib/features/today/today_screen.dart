@@ -187,18 +187,11 @@ class _TodayScreenState extends State<TodayScreen> {
   /// to complete on the latest load (celebrated once).
   final Map<int, double> _prevGoalFractions = {};
   final Set<int> _justCompleted = {};
-  final _addController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _reload();
-  }
-
-  @override
-  void dispose() {
-    _addController.dispose();
-    super.dispose();
   }
 
   void _reload() {
@@ -283,15 +276,6 @@ class _TodayScreenState extends State<TodayScreen> {
   }
 
   // ------------------------------------------------------------ actions
-
-  Future<void> _addOneOff(String title) async {
-    final t = title.trim();
-    if (t.isEmpty) return;
-    await widget.todayStore.addOneOff(DateTime.now(), t);
-    await _afterPlanEdit();
-    _addController.clear();
-    setState(_reload);
-  }
 
   /// D-045: the shared Quick Add capture workflow — the same
   /// operations the shell's Quick Add sheet runs.
@@ -1270,8 +1254,8 @@ class _TodayScreenState extends State<TodayScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: Space.s4),
             child: Text(
-                'Nothing planned yet. Add a task below, or build '
-                'your routine template.',
+                'Nothing planned yet. Use the + button to add a '
+                'task, or build your routine template.',
                 style: theme.textTheme.bodyMedium),
           )
         else ...[
@@ -1300,26 +1284,6 @@ class _TodayScreenState extends State<TodayScreen> {
                 noRoutinesAtAll: false),
           ],
         ],
-        const SizedBox(height: Space.s4),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _addController,
-                decoration: const InputDecoration(
-                  hintText: 'Add a task for today…',
-                  border: InputBorder.none,
-                ),
-                onSubmitted: _addOneOff,
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.add),
-              tooltip: 'Add task',
-              onPressed: () => _addOneOff(_addController.text),
-            ),
-          ],
-        ),
         Container(
           decoration: BoxDecoration(
             border: Border(

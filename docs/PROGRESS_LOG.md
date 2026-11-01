@@ -1,3 +1,31 @@
+## 2026-11-01 — D-045: Navigation redesign — Direction + global Quick Add (test branch)
+- **Four destinations** (supersedes D-021's five): Today ·
+  Learn · Spaces · Direction. Goals and Progress are
+  Direction's internal tabs (Goals default), hosted
+  untouched — own Scaffold/PageTop/titles preserved; the
+  host adds a hairline text tab strip and applies PageTop
+  once. Switching keeps the standing disposal behaviour;
+  back behaviour unchanged.
+- **Streak chip** opens Direction on Progress via a
+  one-shot shell request (token-keyed host state; manual
+  entries clear it). Chip semantics updated.
+- **Chrome:** hairline bottom bar below 720dp;
+  NavigationRail at ≥720dp (first width adaptation in the
+  shell). Quick Add: floating + on mobile, rail leading
+  action on wide — one sheet: Task / Quick note / Save
+  resource. Today's quick-add row runs the same workflow
+  (Goal/Checklist buttons unchanged).
+- **Capture homes:** Task → today; Quick note → Inbox
+  project (title from first line, full text as body, Open
+  on the confirmation); Save resource → Inbox link card
+  after URL validation. No schema change, no new entity.
+- **Preserved:** reminder routing, share-intent drain,
+  backup/sync builders, onboarding gate.
+- **Gates:** analyze clean; **599/599 executed** (589
+  baseline + 10 new: Quick Add service 5, Direction host 2,
+  shell chrome 3 — rail, sheet, chip end-to-end). Test
+  branch only; main untouched.
+
 ## 2026-11-01 — D-044: Routine visibility + "Build your Nimo" onboarding (test branch)
 - **Bug diagnosed first (report delivered before building):**
   the owner's two active routines missed Today because

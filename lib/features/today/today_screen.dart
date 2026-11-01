@@ -16,12 +16,15 @@ import '../../core/theme.dart';
 import '../goals/goals_store.dart';
 import '../items/item_detail_screen.dart';
 import '../items/item_registry.dart';
+import '../items/link_card/link_card_service.dart';
 import '../items/link_card/thumbnail_service.dart';
 import '../learn/learn_services.dart';
 import '../learn/session_composer.dart';
 import '../learn/session_screen.dart';
 import '../progress/progress_store.dart';
 import '../progress/weekly_summary.dart';
+import '../quick_add/quick_add_service.dart';
+import '../quick_add/quick_add_sheet.dart';
 import '../review/day_close_screen.dart';
 import '../review/review_store.dart';
 import '../shared_ui.dart';
@@ -290,10 +293,45 @@ class _TodayScreenState extends State<TodayScreen> {
     setState(_reload);
   }
 
+  /// D-045: the shared Quick Add capture workflow — the same
+  /// operations the shell's Quick Add sheet runs.
+  QuickAddService get _quickAdd => QuickAddService(
+        store: widget.store,
+        todayStore: widget.todayStore,
+        learnStore: widget.learn.store,
+        linkCards: LinkCardService(
+            widget.store, widget.learn.store, widget.thumbnails),
+      );
+
   Future<void> _quickAddTask() async {
-    final title =
-        await promptText(context, title: 'Add task for today', label: 'Task');
-    if (title != null) await _addOneOff(title);
+    if (await quickAddTaskFlow(context, service: _quickAdd)) {
+      await _afterPlanEdit();
+      setState(_reload);
+    }
+  }
+
+  /// D-045: the row's Note button runs the shared quick-note
+  /// capture (Inbox project, title derived from the text),
+  /// like the shell sheet — not the old picker chain.
+  Future<void> _quickAddNote() async {
+    await quickAddNoteFlow(
+      context,
+      service: _quickAdd,
+      onOpenItem: (item) async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ItemDetailScreen(
+              store: widget.store,
+              item: item,
+              learn: widget.learn,
+              thumbnails: widget.thumbnails,
+            ),
+          ),
+        );
+        if (mounted) setState(_reload);
+      },
+    );
   }
 
   Future<void> _quickAddGoal() async {
@@ -623,8 +661,8 @@ class _TodayScreenState extends State<TodayScreen> {
   /// Compact by design (mono micro-label, visually secondary
   /// to the brand); on narrow screens (< 360dp) it reduces to
   /// the flame and the number. A full-height tap target, and
-  /// tapping opens Progress, where the streak detail lives,
-  /// when the shell provides the callback.
+  /// tapping opens Direction on its Progress tab, where the
+  /// streak detail lives, when the shell provides the callback.
   Widget _streakChip(BuildContext context, StreakState streak) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
@@ -635,7 +673,7 @@ class _TodayScreenState extends State<TodayScreen> {
       container: true,
       button: widget.onOpenProgress != null,
       label: 'Current streak: $label'
-          '${widget.onOpenProgress != null ? '. Opens Progress.' : ''}',
+          '${widget.onOpenProgress != null ? '. Opens Progress in Direction.' : ''}',
       child: InkWell(
         onTap: widget.onOpenProgress,
         borderRadius: BorderRadius.circular(RadiusToken.round),
@@ -786,8 +824,7 @@ class _TodayScreenState extends State<TodayScreen> {
       children: [
         button(Icons.add_task_outlined, 'Task', _quickAddTask),
         button(Icons.flag_outlined, 'Goal', _quickAddGoal),
-        button(Icons.note_outlined, 'Note',
-            () => _quickAddItem(ItemType.note)),
+        button(Icons.note_outlined, 'Note', _quickAddNote),
         button(Icons.checklist_outlined, 'Checklist',
             () => _quickAddItem(ItemType.checklist)),
       ],

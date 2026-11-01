@@ -947,3 +947,43 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
   (The first full run showed one timing flake in the
   pre-existing D-043 sheet test under parallel load; it
   passed standalone and in the clean re-run.)
+
+## 2026-11-01 — D-045: Navigation — four destinations, Direction (Goals + Progress), global Quick Add
+
+- **Destinations (supersedes D-021's five):** Today · Learn ·
+  Spaces · **Direction**. Goals and Progress are internal
+  tabs of Direction (Goals default), hosted exactly as built
+  — own Scaffold, PageTop and titles untouched; the host adds
+  a hairline-ruled text tab strip (no pills, D-039) and
+  applies PageTop once. Destination switching keeps the
+  standing disposal behaviour (no keep-alive, no per-tab
+  navigators, back behaviour unchanged).
+- **One-shot tab request:** Today's streak chip opens
+  Direction on its Progress tab — the shell holds a request
+  + token that keys a fresh DirectionScreen; manual
+  Direction entries clear the request, so it never sticks.
+- **Chrome:** the D-039 hairline bottom bar below 720dp;
+  NavigationRail at 720dp and above (the shell's first width
+  adaptation — desktop previously got the phone bar). Same
+  destination ids and selection state drive both.
+- **Quick Add is one workflow, two surfaces:** the shell's
+  floating + (rail leading action on wide) opens a sheet
+  with exactly Task / Quick note / Save resource; Today's
+  quick-add row invokes the same operations (its Goal and
+  Checklist buttons are unchanged). Homes: Task → today's
+  plan; Quick note and Save resource → the **Inbox project**
+  (the app's capture home — Android shares land there too).
+  Quick note derives its title from the first line and files
+  the full text as the body; Save resource is a link card
+  (topic auto-created, as always) after `isValidWebUrl`.
+  No new entity, no schema change, no project-less resource.
+- **Preserved verbatim:** reminder routing, share-intent
+  drain, backup/sync section builders, onboarding gate —
+  all shell responsibilities outside the destination list.
+- **Tests:** widget smoke updated (4 destinations, Direction
+  → Goals → Progress tab; phone surface pinned so the bar —
+  not the rail — is under test); new suites for the shell
+  chrome (rail at width, Quick Add sheet, streak chip →
+  Direction/Progress end-to-end), the Direction host (tabs,
+  initial tab) and the Quick Add service (task/note/resource
+  homes, derived titles, URL rejection).

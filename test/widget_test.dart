@@ -35,6 +35,12 @@ void main() {
     // Everything runs inside runAsync: even opening the FFI database
     // deadlocks if awaited in the test body's fake-async zone.
     await tester.runAsync(() async {
+      // D-045: a phone-width surface, so the shell shows the
+      // bottom bar (the rail takes over at 720dp and above).
+      tester.view.physicalSize = const Size(1170, 2532);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+
       Future<bool> pollFor(Finder finder) async {
         for (var i = 0; i < 30; i++) {
           await Future<void>.delayed(const Duration(milliseconds: 100));
@@ -66,7 +72,9 @@ void main() {
 
       // S4's Topics & Library card sits above the plan card, so
       // scroll the plan card into the ListView's built region.
-      for (var i = 0; i < 6; i++) {
+      // (More drags than the old default surface needed: at
+      // phone width the hub stacks taller.)
+      for (var i = 0; i < 12; i++) {
         if (find.text("Today's plan").evaluate().isNotEmpty) break;
         await tester.drag(find.byType(ListView), const Offset(0, -300));
         await Future<void>.delayed(const Duration(milliseconds: 100));
@@ -76,7 +84,7 @@ void main() {
 
       // Customize Home sits at the bottom of the scrolling hub:
       // drag up until it is built, then it must exist exactly once.
-      for (var i = 0; i < 6; i++) {
+      for (var i = 0; i < 12; i++) {
         if (find.text('Customize Home').evaluate().isNotEmpty) break;
         await tester.drag(find.byType(ListView), const Offset(0, -300));
         await Future<void>.delayed(const Duration(milliseconds: 100));
@@ -84,19 +92,23 @@ void main() {
       }
       expect(find.text('Customize Home'), findsOneWidget);
 
-      // S6: the bottom bar has all 5 D-021 destinations,
-      // including Progress between Learn and Spaces.
+      // D-045: the bottom bar has 4 destinations; Progress
+      // lives inside Direction as its second tab.
       final navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
-      expect(navBar.destinations, hasLength(5));
-      final progressDest = find.descendant(
+      expect(navBar.destinations, hasLength(4));
+      final directionDest = find.descendant(
         of: find.byType(NavigationBar),
-        matching: find.text('Progress'),
+        matching: find.text('Direction'),
       );
-      expect(await pollFor(progressDest), isTrue);
+      expect(await pollFor(directionDest), isTrue);
 
-      // Tapping Progress shows the Journey screen (fresh-user
-      // empty state on this empty database).
-      await tester.tap(progressDest);
+      // Direction opens on Goals by default…
+      await tester.tap(directionDest);
+      expect(await pollFor(find.text('Keep becoming.')), isTrue);
+
+      // …and its Progress tab shows the Journey screen
+      // (fresh-user empty state on this empty database).
+      await tester.tap(find.text('Progress'));
       expect(await pollFor(find.text('Your journey path')), isTrue);
 
       // Back to Today for the Learn flow below.

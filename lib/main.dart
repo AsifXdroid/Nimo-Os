@@ -27,8 +27,10 @@ import 'package:sqflite/sqflite.dart';
 import 'core/db/app_database.dart';
 import 'core/platform_init.dart';
 import 'core/theme.dart';
-import 'features/goals/goals_screen.dart';
+import 'features/direction/direction_screen.dart';
 import 'features/goals/goals_store.dart';
+import 'features/items/item_detail_screen.dart';
+import 'features/items/link_card/link_card_service.dart';
 import 'features/items/link_card/thumbnail_service.dart';
 import 'features/learn/capture_service.dart';
 import 'features/learn/learn_screen.dart';
@@ -37,8 +39,9 @@ import 'features/learn/learn_store.dart';
 import 'features/learn/library_store.dart';
 import 'features/learn/share_confirm_sheet.dart';
 import 'features/learn/topics_screen.dart';
-import 'features/progress/progress_screen.dart';
 import 'features/progress/progress_store.dart';
+import 'features/quick_add/quick_add_service.dart';
+import 'features/quick_add/quick_add_sheet.dart';
 import 'features/progress/weekly_summary_screen.dart';
 import 'features/projects/projects_screen.dart';
 import 'features/review/day_close_screen.dart';
@@ -426,15 +429,25 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
+  // D-045: four destinations — Goals and Progress live inside
+  // Direction as internal tabs (supersedes the D-021 five).
   static const List<_Destination> _destinations = [
     _Destination('today', 'Today', Icons.today_outlined, Icons.today),
     _Destination('learn', 'Learn', Icons.school_outlined, Icons.school),
-    _Destination('progress', 'Progress', Icons.route_outlined, Icons.route),
     _Destination('spaces', 'Spaces', Icons.folder_outlined, Icons.folder),
-    _Destination('goals', 'Goals', Icons.flag_outlined, Icons.flag),
+    _Destination(
+        'direction', 'Direction', Icons.explore_outlined, Icons.explore),
   ];
 
   String _destId = 'today';
+
+  /// D-045 one-shot Direction tab request (streak chip →
+  /// Progress). [_directionToken] keys the DirectionScreen so
+  /// a request always lands on a fresh state; a manual
+  /// Direction entry clears the request (see [_select]), so
+  /// the request never sticks.
+  DirectionTab? _directionRequest;
+  int _directionToken = 0;
 
   /// Effective PROGRESS store: the wired one, or a plain wrapper
   /// over the same db (stores are stateless) for tests.
@@ -449,7 +462,47 @@ class _AppShellState extends State<AppShell> {
 
   int get _index => _destinations.indexWhere((d) => d.id == _destId);
 
-  void _select(String id) => setState(() => _destId = id);
+  void _select(String id) => setState(() {
+        _destId = id;
+        if (id == 'direction') _directionRequest = null;
+      });
+
+  /// D-045: Today's streak chip opens Direction directly on
+  /// its Progress tab.
+  void _openDirectionProgress() => setState(() {
+        _directionRequest = DirectionTab.progress;
+        _directionToken++;
+        _destId = 'direction';
+      });
+
+  /// D-045: the shared Quick Add capture workflow (also used
+  /// by Today's quick-add row).
+  QuickAddService get _quickAdd => QuickAddService(
+        store: widget.store,
+        todayStore: widget.todayStore,
+        learnStore: widget.learn.store,
+        linkCards: LinkCardService(
+            widget.store, widget.learn.store, widget.thumbnails),
+      );
+
+  void _openQuickAdd() => showQuickAddSheet(
+        context,
+        service: _quickAdd,
+        onOpenItem: _openItemDetail,
+      );
+
+  void _openItemDetail(Item item) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ItemDetailScreen(
+          store: widget.store,
+          item: item,
+          learn: widget.learn,
+          thumbnails: widget.thumbnails,
+        ),
+      ),
+    );
+  }
 
   StreamSubscription<SharedCapture>? _shareSub;
   final List<SharedCapture> _pendingShares = [];
@@ -672,26 +725,29 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: switch (_destId) {
-        'learn' => LearnScreen(
+    final body = switch (_destId) {
+      'learn' => LearnScreen(
           learn: widget.learn,
           reviewStore: widget.reviewStore,
           store: widget.store,
           onOpenTopics: _openTopics,
         ),
-        'progress' => ProgressScreen(
-          progressStore: _progress,
-          todayStore: widget.todayStore,
-          reviewStore: widget.reviewStore,
-        ),
-        'spaces' => WorkspacesScreen(
+      'spaces' => WorkspacesScreen(
           store: widget.store,
           learn: widget.learn,
           thumbnails: widget.thumbnails,
         ),
-        'goals' => GoalsScreen(goalsStore: widget.goalsStore),
-        _ => TodayScreen(
+      'direction' => DirectionScreen(
+          // Keyed by the one-shot token: a streak-chip request
+          // always rebuilds the host on its Progress tab.
+          key: ValueKey('direction-$_directionToken'),
+          goalsStore: widget.goalsStore,
+          progressStore: _progress,
+          todayStore: widget.todayStore,
+          reviewStore: widget.reviewStore,
+          initialTab: _directionRequest ?? DirectionTab.goals,
+        ),
+      _ => TodayScreen(
           store: widget.store,
           todayStore: widget.todayStore,
           goalsStore: widget.goalsStore,
@@ -704,32 +760,85 @@ class _AppShellState extends State<AppShell> {
           progressStore: _progress,
           onOpenSettings: _openSettings,
           onOpenWeeklySummary: _openWeeklySummary,
-          onOpenProgress: () => _select('progress'),
+          onOpenProgress: _openDirectionProgress,
         ),
-      },
-      bottomNavigationBar: Container(
-        // D-039: the shell's one hairline — the concept's ruled
-        // nav edge.
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
+    };
+    // D-045: one Quick Add action at every destination root —
+    // a restrained floating + on mobile, the rail's leading
+    // action on wide layouts.
+    final addButton = FloatingActionButton(
+      onPressed: _openQuickAdd,
+      tooltip: 'Quick add',
+      child: const Icon(Icons.add),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // D-045: NavigationRail at 720dp and above (desktop);
+        // the hairline-ruled bottom bar below it.
+        if (constraints.maxWidth >= 720) {
+          return Scaffold(
+            body: Row(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      right: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
+                    ),
+                  ),
+                  child: NavigationRail(
+                    selectedIndex: _index,
+                    onDestinationSelected: (i) =>
+                        _select(_destinations[i].id),
+                    labelType: NavigationRailLabelType.all,
+                    leading: Padding(
+                      padding: const EdgeInsets.only(bottom: Space.s2),
+                      child: addButton,
+                    ),
+                    destinations: [
+                      for (final d in _destinations)
+                        NavigationRailDestination(
+                          icon: Icon(d.icon),
+                          selectedIcon: Icon(d.selectedIcon),
+                          label: Text(d.label),
+                        ),
+                    ],
+                  ),
+                ),
+                Expanded(child: body),
+              ],
+            ),
+          );
+        }
+        return Scaffold(
+          body: body,
+          floatingActionButton: addButton,
+          bottomNavigationBar: Container(
+            // D-039: the shell's one hairline — the concept's ruled
+            // nav edge.
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+              ),
+            ),
+            child: NavigationBar(
+              selectedIndex: _index,
+              onDestinationSelected: (i) => _select(_destinations[i].id),
+              destinations: [
+                for (final d in _destinations)
+                  NavigationDestination(
+                    icon: Icon(d.icon),
+                    selectedIcon: Icon(d.selectedIcon),
+                    label: d.label,
+                  ),
+              ],
             ),
           ),
-        ),
-        child: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => _select(_destinations[i].id),
-        destinations: [
-          for (final d in _destinations)
-            NavigationDestination(
-              icon: Icon(d.icon),
-              selectedIcon: Icon(d.selectedIcon),
-              label: d.label,
-            ),
-        ],
-        ),
-      ),
+        );
+      },
     );
   }
 }

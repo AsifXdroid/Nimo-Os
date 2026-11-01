@@ -12,13 +12,16 @@ import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../review/review_store.dart';
+import '../shared_ui.dart';
 import '../store.dart';
 import 'image_verify_screen.dart';
 import 'learn_engine_store.dart';
 import 'learn_services.dart';
+import 'learn_store.dart';
 import 'pack_import_ui.dart';
 import 'session_composer.dart';
 import 'session_screen.dart';
+import 'topic_detail_screen.dart';
 
 class LearnScreen extends StatefulWidget {
   const LearnScreen({
@@ -45,6 +48,8 @@ class _LearnScreenState extends State<LearnScreen> {
   int _due = 0;
   int _new = 0;
   List<PackRecord> _packs = const [];
+  List<Topic> _topics = const [];
+  Map<int, String> _projectNames = const {};
   List<LearnQuestion> _verifyPending = const [];
 
   /// packId → DUE count alone (the boss gate: ≥ 5). Fresh
@@ -66,6 +71,13 @@ class _LearnScreenState extends State<LearnScreen> {
     final due = await _engine.dueCount();
     final fresh = await _engine.newCount();
     final packs = await _engine.allPacks();
+    final topics = await widget.learn.store.allTopics();
+    final names = <int, String>{};
+    for (final ws in await widget.store.workspaces()) {
+      for (final prj in await widget.store.projects(ws.id)) {
+        names[prj.id] = prj.name;
+      }
+    }
     final pending = await _engine.verifyPendingQuestions();
     final dueCounts = <String, int>{};
     for (final pack in packs) {
@@ -76,10 +88,40 @@ class _LearnScreenState extends State<LearnScreen> {
       _due = due;
       _new = fresh;
       _packs = packs;
+      _topics = topics;
+      _projectNames = names;
       _verifyPending = pending;
       _packDueCounts = dueCounts;
       _loaded = true;
     });
+  }
+
+  Future<void> _openTopic(Topic topic) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TopicDetailScreen(
+          store: widget.store,
+          learn: widget.learn,
+          topic: topic,
+        ),
+      ),
+    );
+    _load();
+  }
+
+  /// Same first step as Topics & Library: a topic in the
+  /// Inbox, opened straight into its detail page.
+  Future<void> _newTopic() async {
+    final title =
+        await promptText(context, title: 'New topic', label: 'Title');
+    if (title == null || title.isEmpty || !mounted) return;
+    final topic = await widget.learn.store.createTopic(
+      projectId: await widget.learn.store.inboxProjectId(),
+      title: title,
+    );
+    if (!mounted) return;
+    await _openTopic(topic);
   }
 
   Future<void> _openSession(SessionKind kind, {String? packId}) async {
@@ -149,6 +191,10 @@ class _LearnScreenState extends State<LearnScreen> {
             const SizedBox(height: Space.s3),
             for (final pack in arcPacks) _continueCard(context, pack),
           ],
+          const SizedBox(height: Gap.lg),
+          const NeoSectionHead(title: 'Your topics'),
+          const SizedBox(height: Space.s3),
+          _topicsSection(context),
           const SizedBox(height: Gap.lg),
           const NeoSectionHead(title: 'Your packs'),
           const SizedBox(height: Space.s3),
@@ -270,14 +316,73 @@ class _LearnScreenState extends State<LearnScreen> {
           if (total == 0) ...[
             const SizedBox(height: Space.s3),
             Text(
-              'Import a pack or mark points while reading to '
-              'create cards.',
+              _topics.isNotEmpty
+                  ? 'Open a topic below to read, and mark points '
+                      'while reading to create cards.'
+                  : 'Import a pack or mark points while reading to '
+                      'create cards.',
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: ed.onDeep),
             ),
           ],
         ],
       ),
+    );
+  }
+
+  /// The owner's own material, on the landing itself (UX
+  /// refinement, 2026-11-01): topics used to live only behind
+  /// the pulse panel's "All topics →" link, so a library of
+  /// topics with no imported packs read as an empty Learn.
+  /// Rows mirror Topics & Library and open the same detail
+  /// page; the list caps at five, with the full list one tap
+  /// away through the shell's Topics route.
+  Widget _topicsSection(BuildContext context) {
+    if (_topics.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'No topics yet. Add one to learn from your own '
+            'material: a PDF, a text file, a link.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: Space.s3),
+          OutlinedButton.icon(
+            onPressed: _newTopic,
+            icon: const Icon(Icons.lightbulb_outline),
+            label: const Text('New topic'),
+          ),
+        ],
+      );
+    }
+    final shown = _topics.take(5).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final t in shown)
+          NeoListRow(
+            icon: t.triggerUrl != null
+                ? Icons.link
+                : Icons.lightbulb_outline,
+            title: t.title,
+            sub: [
+              _projectNames[t.projectId] ?? '',
+              t.status,
+              if (t.track != null) t.track!,
+            ].where((s) => s.isNotEmpty).join(' · '),
+            last: t == shown.last && _topics.length <= 5,
+            onTap: () => _openTopic(t),
+          ),
+        if (_topics.length > 5 && widget.onOpenTopics != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: widget.onOpenTopics,
+              child: const Text('All topics →'),
+            ),
+          ),
+      ],
     );
   }
 

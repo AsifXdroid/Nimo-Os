@@ -28,26 +28,16 @@ Future<bool> quickAddTaskFlow(
   return true;
 }
 
-/// Prompt for note text and file it in the Inbox project. The
-/// confirmation offers Open, which calls [onOpenItem] with the
-/// created note.
+/// Create an instant note in the Inbox project and immediately
+/// open the editor for writing.
 Future<bool> quickAddNoteFlow(
   BuildContext context, {
   required QuickAddService service,
   required void Function(Item item) onOpenItem,
 }) async {
-  final text = await promptText(context,
-      title: 'Quick note', label: 'Note', maxLines: 5);
-  if (text == null || text.isEmpty || !context.mounted) return false;
-  final item = await service.addQuickNote(text);
+  final item = await service.createInstantNote();
   if (!context.mounted) return true;
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-    content: const Text('Saved to your Inbox.'),
-    action: SnackBarAction(
-      label: 'Open',
-      onPressed: () => onOpenItem(item),
-    ),
-  ));
+  onOpenItem(item);
   return true;
 }
 

@@ -301,11 +301,13 @@ class NeoPageTitle extends StatelessWidget {
     required this.eyebrow,
     required this.heading,
     this.sub,
+    this.compact = false,
   });
 
   final String eyebrow;
   final String heading;
   final String? sub;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -314,10 +316,15 @@ class NeoPageTitle extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         NeoEyebrow(eyebrow),
-        const SizedBox(height: Space.s3),
-        Text(heading, style: theme.textTheme.headlineLarge),
+        SizedBox(height: compact ? Space.s2 : Space.s3),
+        Text(
+          heading,
+          style: compact
+              ? theme.textTheme.headlineMedium
+              : theme.textTheme.headlineLarge,
+        ),
         if (sub != null) ...[
-          const SizedBox(height: Space.s2),
+          SizedBox(height: compact ? Space.s1 : Space.s2),
           Text(
             sub!,
             style: theme.textTheme.bodyMedium
@@ -347,11 +354,19 @@ class NeoSectionHead extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
       children: [
-        Expanded(child: Text(title, style: theme.textTheme.titleMedium)),
+        Flexible(child: Text(title, style: theme.textTheme.titleMedium)),
         if (actionLabel != null)
           TextButton(
             onPressed: onAction,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: Space.s2),
+              minimumSize: const Size(0, 36),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
             child: Text(
               actionLabel!,
               style: AppType.eyebrow.copyWith(
@@ -554,6 +569,7 @@ class NeoListRow extends StatelessWidget {
     this.leading,
     this.trailing,
     this.onTap,
+    this.onLongPress,
     this.last = false,
   });
 
@@ -563,6 +579,7 @@ class NeoListRow extends StatelessWidget {
   final Widget? leading;
   final Widget? trailing;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final bool last;
 
   @override
@@ -616,8 +633,12 @@ class NeoListRow extends StatelessWidget {
             ),
       child: row,
     );
-    if (onTap == null) return divided;
-    return InkWell(onTap: onTap, child: divided);
+    if (onTap == null && onLongPress == null) return divided;
+    return InkWell(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: divided,
+    );
   }
 }
 
@@ -890,6 +911,71 @@ class NeoStepperButton extends StatelessWidget {
       child: tooltip == null
           ? button
           : Tooltip(message: tooltip!, child: button),
+    );
+  }
+}
+
+/// A compact information icon button that opens a clean, readable bottom sheet
+/// explaining a setting or feature without cluttering the screen with paragraphs.
+class NeoInfoButton extends StatelessWidget {
+  const NeoInfoButton({
+    super.key,
+    required this.title,
+    required this.message,
+    this.tooltip = 'More information',
+  });
+
+  final String title;
+  final String message;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return IconButton(
+      icon: Icon(Icons.info_outline, size: 18, color: scheme.onSurfaceVariant),
+      tooltip: tooltip,
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      onPressed: () => showModalBottomSheet<void>(
+        context: context,
+        builder: (ctx) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+                Space.page, Gap.md, Space.page, Gap.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                        fontFamily: fontSerif,
+                        fontFamilyFallback: fontSerifFallback,
+                      ),
+                ),
+                const SizedBox(height: Gap.sm),
+                Text(
+                  message,
+                  style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(ctx).colorScheme.onSurface,
+                        height: 1.45,
+                      ),
+                ),
+                const SizedBox(height: Gap.lg),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Got it'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

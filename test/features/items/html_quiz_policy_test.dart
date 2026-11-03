@@ -132,11 +132,13 @@ void main() {
   });
 
   group('item registry — html_quiz', () {
-    test('itemTypeDef(html_quiz) resolves to label HTML quiz', () {
+    // D-049: type renamed from 'HTML quiz' → 'HTML'. The DB key
+    // (html_quiz) is unchanged — no migration needed.
+    test('itemTypeDef(html_quiz) resolves to label HTML', () {
       final def = itemTypeDef(ItemType.htmlQuiz);
       expect(def.key, 'html_quiz');
-      expect(def.label, 'HTML quiz');
-      expect(itemTypeDef('html_quiz').label, 'HTML quiz');
+      expect(def.label, 'HTML');
+      expect(itemTypeDef('html_quiz').label, 'HTML');
     });
   });
 }

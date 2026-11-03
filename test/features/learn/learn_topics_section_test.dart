@@ -104,10 +104,6 @@ void main() {
       await pumpUntil(tester, find.text('Your topics'));
       expect(find.text('Arabic greetings'), findsOneWidget);
       expect(find.text('Negotiation basics'), findsOneWidget);
-      // Packs are still honestly empty (further down the
-      // page), and the pulse hint now points at the topics
-      // instead of only at packs.
-      expect(find.textContaining('Open a topic below'), findsOneWidget);
       await scrollUntil(tester, find.textContaining('No packs yet'));
       expect(find.textContaining('No packs yet'), findsOneWidget);
     });

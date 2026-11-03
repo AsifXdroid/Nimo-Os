@@ -140,49 +140,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (widget.themeChoice != null &&
               widget.onThemeChanged != null) ...[
             // D-039: Appearance is a canvas section, not a panel.
-            const NeoSectionHead(title: 'Appearance'),
+            Row(
+              children: [
+                const Expanded(
+                  child: NeoSectionHead(title: 'Appearance'),
+                ),
+                NeoInfoButton(
+                  title: 'Appearance',
+                  message: 'The Editorial design, in dark or light. Dark is '
+                      'Nimo\'s home; light is there whenever you want it.',
+                ),
+              ],
+            ),
             const SizedBox(height: Gap.sm),
-            Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'The Editorial design, in dark or light. Dark is '
-                    'Nimo\'s home; light is there whenever you want it.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: Gap.sm),
-                  SegmentedButton<AppThemeChoice>(
-                    segments: const [
-                      ButtonSegment(
-                        value: AppThemeChoice.dark,
-                        icon: Icon(Icons.dark_mode_outlined),
-                        label: Text('Dark'),
-                      ),
-                      ButtonSegment(
-                        value: AppThemeChoice.light,
-                        icon: Icon(Icons.light_mode_outlined),
-                        label: Text('Light'),
-                      ),
-                    ],
-                    selected: {widget.themeChoice!},
-                    onSelectionChanged: (sel) =>
-                        widget.onThemeChanged!(sel.first),
-                  ),
-                ],
+            SegmentedButton<AppThemeChoice>(
+              segments: const [
+                ButtonSegment(
+                  value: AppThemeChoice.dark,
+                  icon: Icon(Icons.dark_mode_outlined),
+                  label: Text('Dark'),
+                ),
+                ButtonSegment(
+                  value: AppThemeChoice.light,
+                  icon: Icon(Icons.light_mode_outlined),
+                  label: Text('Light'),
+                ),
+              ],
+              selected: {widget.themeChoice!},
+              onSelectionChanged: (sel) =>
+                  widget.onThemeChanged!(sel.first),
             ),
             const SizedBox(height: Gap.lg),
           ],
-          const NeoSectionHead(title: 'Gentle reminders'),
-          const SizedBox(height: Gap.sm),
-          Text(
-            'Gentle nudges, off by default. They are scheduled '
-            'inexactly — one may arrive a little after its time — '
-            'and nothing depends on them.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+          Row(
+            children: [
+              const Expanded(
+                child: NeoSectionHead(title: 'Gentle reminders'),
+              ),
+              NeoInfoButton(
+                title: 'Gentle reminders',
+                message: 'Gentle nudges, off by default. They are scheduled '
+                    'inexactly — one may arrive a little after its time — '
+                    'and nothing depends on them.',
+              ),
+            ],
           ),
           if (Platform.isLinux || Platform.isWindows || Platform.isMacOS)
             Padding(

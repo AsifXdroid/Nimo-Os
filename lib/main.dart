@@ -26,6 +26,7 @@ import 'package:sqflite/sqflite.dart';
 
 import 'core/db/app_database.dart';
 import 'core/platform_init.dart';
+import 'core/glass_ui.dart';
 import 'core/theme.dart';
 import 'features/direction/direction_screen.dart';
 import 'features/goals/goals_store.dart';
@@ -436,7 +437,7 @@ class _AppShellState extends State<AppShell> {
     _Destination('learn', 'Learn', Icons.school_outlined, Icons.school),
     _Destination('spaces', 'Spaces', Icons.folder_outlined, Icons.folder),
     _Destination(
-        'direction', 'Direction', Icons.explore_outlined, Icons.explore),
+        'direction', 'Progress', Icons.insights_outlined, Icons.insights),
   ];
 
   String _destId = 'today';
@@ -745,7 +746,7 @@ class _AppShellState extends State<AppShell> {
           progressStore: _progress,
           todayStore: widget.todayStore,
           reviewStore: widget.reviewStore,
-          initialTab: _directionRequest ?? DirectionTab.goals,
+          initialTab: _directionRequest ?? DirectionTab.progress,
         ),
       _ => TodayScreen(
           store: widget.store,
@@ -811,20 +812,36 @@ class _AppShellState extends State<AppShell> {
             ),
           );
         }
+        final dark = Theme.of(context).brightness == Brightness.dark;
         return Scaffold(
           body: body,
           floatingActionButton: addButton,
           bottomNavigationBar: Container(
-            // D-039: the shell's one hairline — the concept's ruled
-            // nav edge.
             decoration: BoxDecoration(
+              color: dark
+                  ? GlassTokens.darkGlassPrimary
+                  : GlassTokens.lightGlassPrimary,
               border: Border(
                 top: BorderSide(
-                  color: Theme.of(context).colorScheme.outlineVariant,
+                  color: dark
+                      ? GlassTokens.darkRimHighlight
+                      : Theme.of(context).colorScheme.outlineVariant,
+                  width: 1.0,
                 ),
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: dark
+                      ? const Color(0x33000000)
+                      : const Color(0x0F000000),
+                  blurRadius: 16,
+                  offset: const Offset(0, -4),
+                ),
+              ],
             ),
             child: NavigationBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
               selectedIndex: _index,
               onDestinationSelected: (i) => _select(_destinations[i].id),
               destinations: [

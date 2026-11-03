@@ -53,7 +53,7 @@ void main() {
       expect(await pollFor(tester, find.text('Keep becoming.')), isTrue);
       expect(find.text('Your journey path'), findsNothing);
 
-      await tester.tap(find.text('Progress'));
+      await tester.tap(find.text('Journey'));
       expect(await pollFor(tester, find.text('Your journey path')), isTrue);
 
       await tester.tap(find.text('Goals'));

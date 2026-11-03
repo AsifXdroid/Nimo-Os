@@ -62,7 +62,14 @@ class _RoutineScreenState extends State<RoutineScreen> {
     final title =
         await promptText(context, title: 'New routine item', label: 'Title');
     if (title == null || title.isEmpty) return;
-    await widget.todayStore.addTemplate(title);
+    final t = await widget.todayStore.addTemplate(title);
+    final now = DateTime.now();
+    final result = await widget.todayStore.addRoutineToToday(t.id, now);
+    if (mounted && result == AddRoutineResult.added) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('“$title” added to today\'s plan.')),
+      );
+    }
     setState(_reload);
   }
 

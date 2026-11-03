@@ -66,12 +66,12 @@ void main() {
       expect(find.byType(NavigationBar), findsNothing);
       expect(find.byTooltip('Quick add'), findsOneWidget);
 
-      final directionDest = find.descendant(
+      final progressDest = find.descendant(
         of: find.byType(NavigationRail),
-        matching: find.text('Direction'),
+        matching: find.text('Progress'),
       );
-      await tester.tap(directionDest);
-      expect(await pollFor(tester, find.text('Keep becoming.')), isTrue);
+      await tester.tap(progressDest);
+      expect(await pollFor(tester, find.text('Your journey path')), isTrue);
     });
   });
 

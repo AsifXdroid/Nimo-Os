@@ -50,6 +50,17 @@ class QuickAddService {
     );
   }
 
+  /// Create an instant blank note in the Inbox project ready for
+  /// immediate writing. If abandoned empty, the editor cleans it up.
+  Future<Item> createInstantNote() async {
+    final inbox = await learnStore.ensureInboxProject();
+    return store.createItem(
+      inbox.id,
+      type: ItemType.note,
+      title: '',
+    );
+  }
+
   /// Save a web resource as a link card in the Inbox project.
   /// Returns null when [url] is not a valid web URL.
   Future<Item?> addResource(String url) async {

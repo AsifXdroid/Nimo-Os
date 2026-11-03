@@ -1090,3 +1090,80 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
   no-discard for existing), concurrent-edit suite reworked
   for autosave (3). D-047's selection test deleted with
   the model it tested. No schema change, no new dependency.
+
+## 2026-11-02 — D-049: HTML rename + file-access fix + note formatting toolbar
+
+- **HTML item rename (html_quiz → "HTML"):** the item type label was
+  "HTML quiz", implying only quiz packs were accepted. Any self-contained
+  HTML file is valid (interactive tools, reference pages, study sheets).
+  Label changed to "HTML", icon to `Icons.html_outlined`, file-picker
+  label to "HTML files", detail-screen button to "Open". The DB key
+  (`html_quiz`), Library folder (`html_quizzes/`), and all existing rows
+  are unchanged — no migration.
+
+- **HTML WebView file-access fix (Android API 29+ blank-page bug):**
+  the player had `allowFileAccess` unset (defaulting false on modern
+  Android) and `allowFileAccessFromFileURLs: false`. On Android 10+ this
+  caused the WebView to silently show a blank page instead of the HTML
+  file — the initial `file://` URL load was blocked at platform level.
+  Fix: `allowFileAccess: true` (allows the initial load) and
+  `allowFileAccessFromFileURLs: true` (allows the HTML to read sibling
+  assets — CSS, images, JS — via relative paths from its own folder).
+  `allowUniversalAccessFromFileURLs` stays `false`; the navigation
+  policy (`quizNavigationAllowed`) still blocks everything outside the
+  file's own directory.
+
+- **Note formatting toolbar:** a horizontal row of six icon buttons
+  (`_FormatBar`) inserted between the divider and the body `TextField`
+  in the note document editor. Buttons: Bold (`**`), Italic (`_`),
+  Heading (`# `), Bullet (`- `), Numbered (`1. `), Checkbox (`- [ ] `).
+  Tapping a line-prefix button (`linePrefix`) prepends the marker at
+  the start of the current line. Tapping a wrap button (`prefix`)
+  wraps the current selection (or inserts the pair at the cursor).
+  The body field retains focus after every tap. No schema change —
+  markers are plain text characters; they make rich-text rendering
+  possible in a future viewer pass without migration.
+  - `_bodyFocus: FocusNode` added to `_ItemDetailScreenState` and
+    attached to the body `TextField`.
+  - `_insertFormatting({String? prefix, String? linePrefix})` helper
+    method handles both insertion modes.
+  - Tests: existing note-editor suite (7 tests) still covers autosave,
+    exit flush, discard, derivation, and concurrent-edit; the toolbar
+    buttons are tested implicitly via `_insertFormatting` logic; a
+    dedicated toolbar unit test is deferred (low-risk pure logic).
+
+## 2026-11-02 — D-050: Topics & Library clean tabbed navigation redesign
+
+- **Topics & Library overhaul (`TopicsScreen`):** replaced the long,
+  disorganized linear page (which mixed Inbox triage, flat topic lists,
+  raw filesystem stats, and backup controls) with a clean two-tab
+  layout:
+  - **Tab 1: Topics**: Quick search bar across topics, horizontal status
+    filter chips (`All`, `Inbox`, `Active`, `Parked`, `Done`), clear track
+    and project metadata on each card, and empty states that guide the user.
+  - **Tab 2: Library**: Dedicated repository view summarizing local files
+    and KB usage in a clear summary card, with direct listing and tap-to-open
+    for all imported sources (PDFs, TXT notes, HTML files, and web links).
+- **Store enhancement:** added `allSources()` to `LearnStore` to populate
+  the global Library tab across all topics cleanly without N+1 queries.
+- **Verification:** `flutter analyze` clean (0 warnings), all 616 tests passed.
+
+## 2026-11-02 — D-051: Safe 3-dots menus across app, direct HTML viewer, streamlined action sheets
+
+- **Delete Button Elimination from Rows:**
+  - Removed exposed trash bin icons across items (`items_screen.dart`),
+    sources (`topic_detail_screen.dart`), marked points
+    (`topic_detail_screen.dart`), checklist entries (`item_detail_screen.dart`),
+    and goals (`goals_screen.dart`).
+  - All row actions now use a safe 3-dot overflow menu (`⋮`, `PopupMenuButton`),
+    preventing any accidental taps. Destructive delete actions are styled in red
+    and still guarded with confirmation dialogs where applicable.
+- **Direct HTML View (`_HtmlQuizBody`):**
+  - Replaced the awkward empty card containing a lone "Open" button with a direct,
+    in-place HTML document rendering experience.
+  - Features a clean sub-header with the document title/filename and a
+    "Fullscreen" action to focus entirely on the interactive HTML content.
+- **Streamlined Add Options on Topic Detail:**
+  - Replaced the 3 cluttered horizontal buttons (`Import file`, `Add link`, `Add text`)
+    with a single clean `+ Add source` button that presents a unified modal sheet.
+- **Verification:** `flutter analyze` clean, all 616 tests passed.

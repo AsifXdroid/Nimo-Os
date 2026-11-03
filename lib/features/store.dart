@@ -137,6 +137,8 @@ class Item {
   /// (see item_detail_screen.dart).
   final String? updatedHlc;
 
+  bool get isPinned => (payload?['pinned'] as bool?) ?? false;
+
   factory Item.fromRow(Map<String, Object?> r) => Item(
         id: r['id'] as int,
         projectId: r['project_id'] as int,
@@ -240,6 +242,60 @@ class Store {
     return rows.single['c'] as int;
   }
 
+  // --- inbox (Milestone 2.1 canonical resolver) ---
+  static const String inboxProjectKey = 'inbox_project_id';
+
+  /// Find the existing Inbox project without side effects.
+  /// Returns null when no mapping exists in app_settings or the pointer dangles.
+  Future<Project?> getInboxProject() async {
+    final rows = await _db.query('app_settings',
+        where: 'key = ?', whereArgs: [inboxProjectKey], limit: 1);
+    if (rows.isNotEmpty) {
+      final id = int.tryParse(rows.first['value']! as String);
+      if (id != null) {
+        final found = await _db.query('projects',
+            where: 'id = ?', whereArgs: [id], limit: 1);
+        if (found.isNotEmpty) return Project.fromRow(found.first);
+      }
+    }
+    return null;
+  }
+
+  /// Ensure the Inbox project exists (PLAN.md R2.2).
+  /// Found again if already mapped; created once if absent or dangling.
+  /// Lives in the default workspace — the first by sort order — creating
+  /// an "Inbox" workspace + project when the app has none yet.
+  Future<Project> ensureInboxProject() async {
+    final existing = await getInboxProject();
+    if (existing != null) return existing;
+    final wsList = await workspaces();
+    final ws = wsList.isNotEmpty
+        ? wsList.first
+        : await createWorkspace('Inbox');
+    final project = await createProject(ws.id, 'Inbox');
+    await _db.insert(
+      'app_settings',
+      {'key': inboxProjectKey, 'value': '${project.id}'},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    return project;
+  }
+
+  /// Total count of captured content items in the Inbox.
+  /// Counts rows in `items` table for the Inbox project (notes,
+  /// checklists, link cards, HTML items).
+  /// Excludes topic records from the Learn feature.
+  /// Returns 0 when no Inbox mapping exists yet.
+  Future<int> inboxItemCount() async {
+    final inbox = await getInboxProject();
+    if (inbox == null) return 0;
+    final itemRows = await _db.rawQuery(
+      'SELECT COUNT(*) AS c FROM items WHERE project_id = ?',
+      [inbox.id],
+    );
+    return itemRows.single['c'] as int;
+  }
+
   /// Latest items across all projects, newest activity first.
   Future<List<RecentItem>> recentItems({int limit = 5}) async {
     final rows = await _db.rawQuery(
@@ -341,7 +397,9 @@ class Store {
         where: 'project_id = ?',
         whereArgs: [projectId],
         orderBy: 'sort_order ASC, id ASC');
-    return rows.map(Item.fromRow).toList();
+    final list = rows.map(Item.fromRow).toList();
+    list.sort((a, b) => (b.isPinned ? 1 : 0).compareTo(a.isPinned ? 1 : 0));
+    return list;
   }
 
   Future<Item> createItem(
@@ -397,6 +455,22 @@ class Store {
     await _db.delete('items', where: 'id = ?', whereArgs: [id]);
   }
 
+  Future<void> moveItem(int id, int newProjectId) async {
+    await _db.update(
+      'items',
+      {'project_id': newProjectId, 'updated_at': AppDatabase.nowMs()},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> setItemPinned(int id, bool pinned) async {
+    final it = await itemById(id);
+    final payload = Map<String, Object?>.from(it.payload ?? {});
+    payload['pinned'] = pinned;
+    await updateItemPayload(id, payload);
+  }
+
   // --- checklist entries ---
   Future<List<ChecklistEntry>> checklistEntries(int itemId) async {
     final rows = await _db.query('checklist_entries',
@@ -424,6 +498,15 @@ class Store {
   Future<void> setChecklistEntryDone(int id, bool done) async {
     await _db.update('checklist_entries', {'is_done': done ? 1 : 0},
         where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> updateChecklistEntry(int id, {String? text}) async {
+    final values = <String, Object?>{};
+    if (text != null) values['text'] = text;
+    if (values.isNotEmpty) {
+      await _db.update('checklist_entries', values,
+          where: 'id = ?', whereArgs: [id]);
+    }
   }
 
   Future<void> deleteChecklistEntry(int id) async {

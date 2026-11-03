@@ -115,30 +115,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
       return;
     }
     if (def.key == ItemType.note) {
-      // Notes open immediately (Spaces & Notebook brief):
-      // an empty row now, the editor derives the title from
-      // what gets written, and a still-empty note is
-      // discarded on exit. Other types keep title-first
-      // creation (owner decision Q6).
-      final item = await widget.store.createItem(
-        widget.project.id,
-        type: def.key,
-        title: '',
-      );
-      setState(_reload);
-      if (!mounted) return;
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ItemDetailScreen(
-            store: widget.store,
-            item: item,
-            learn: widget.learn,
-            thumbnails: widget.thumbnails,
-          ),
-        ),
-      );
-      setState(_reload);
+      await _createInstantNote();
       return;
     }
     final title = await promptText(context,
@@ -216,7 +193,8 @@ class _ItemsScreenState extends State<ItemsScreen> {
     }
     final picked = await openFile(
       acceptedTypeGroups: const [
-        XTypeGroup(label: 'HTML quizzes', extensions: ['html', 'htm']),
+        // D-049: accept any HTML file, not just quiz packs.
+        XTypeGroup(label: 'HTML files', extensions: ['html', 'htm']),
       ],
     );
     if (picked == null || !mounted) return;
@@ -230,7 +208,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not import that quiz: $e')),
+        SnackBar(content: Text('Could not import that HTML file: $e')),
       );
       return;
     }
@@ -259,6 +237,28 @@ class _ItemsScreenState extends State<ItemsScreen> {
     setState(_reload);
   }
 
+  Future<void> _createInstantNote() async {
+    final item = await widget.store.createItem(
+      widget.project.id,
+      type: ItemType.note,
+      title: '',
+    );
+    setState(_reload);
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ItemDetailScreen(
+          store: widget.store,
+          item: item,
+          learn: widget.learn,
+          thumbnails: widget.thumbnails,
+        ),
+      ),
+    );
+    setState(_reload);
+  }
+
   Future<void> _addTopic() async {
     final learn = widget.learn;
     if (learn == null) return;
@@ -270,128 +270,328 @@ class _ItemsScreenState extends State<ItemsScreen> {
     _loadTopics();
   }
 
-  Future<void> _delete(Item item) async {
-    if (!await confirmDelete(context, 'item')) return;
-    await widget.store.deleteItem(item.id);
+  final Set<int> _selectedItemIds = {};
+  bool get _isSelectingItems => _selectedItemIds.isNotEmpty;
+
+  void _exitSelectionMode() {
+    setState(() {
+      _selectedItemIds.clear();
+    });
+  }
+
+  void _toggleItemSelection(int id) {
+    setState(() {
+      if (_selectedItemIds.contains(id)) {
+        _selectedItemIds.remove(id);
+      } else {
+        _selectedItemIds.add(id);
+      }
+    });
+  }
+
+  Future<void> _deleteSelectedItems(List<Item> items) async {
+    final count = _selectedItemIds.length;
+    if (count == 0) return;
+    if (!await confirmDelete(context, '$count item${count > 1 ? 's' : ''}')) {
+      return;
+    }
+    for (final id in _selectedItemIds) {
+      await widget.store.deleteItem(id);
+    }
+    _selectedItemIds.clear();
+    setState(_reload);
+  }
+
+  Future<void> _renameSelectedItem(List<Item> items) async {
+    if (_selectedItemIds.length != 1) return;
+    final item = items.firstWhere((it) => it.id == _selectedItemIds.first);
+    final title = await promptText(context,
+        title: 'Rename item', initial: item.title, label: 'Title');
+    if (title == null || title.isEmpty) return;
+    await widget.store.updateItem(item.id, title: title);
+    _exitSelectionMode();
+    setState(_reload);
+  }
+
+  Future<void> _togglePinnedSelectedItems(List<Item> items) async {
+    final selected =
+        items.where((it) => _selectedItemIds.contains(it.id)).toList();
+    if (selected.isEmpty) return;
+    final allPinned = selected.every((it) => it.isPinned);
+    for (final it in selected) {
+      await widget.store.setItemPinned(it.id, !allPinned);
+    }
+    _exitSelectionMode();
+    setState(_reload);
+  }
+
+  Future<void> _moveSelectedItems() async {
+    final count = _selectedItemIds.length;
+    if (count == 0) return;
+    final workspaces = await widget.store.workspaces();
+    final projects = <Project>[];
+    for (final ws in workspaces) {
+      projects.addAll(await widget.store.projects(ws.id));
+    }
+    if (!mounted) return;
+    final picked = await showModalBottomSheet<Project>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const ListTile(title: Text('Move to project…')),
+            for (final prj in projects)
+              ListTile(
+                leading: const Icon(Icons.folder_open_outlined),
+                title: Text(prj.name),
+                trailing: prj.id == widget.project.id
+                    ? const Icon(Icons.check)
+                    : null,
+                onTap: () => Navigator.pop(context, prj),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || picked.id == widget.project.id) return;
+    for (final id in _selectedItemIds) {
+      await widget.store.moveItem(id, picked.id);
+    }
+    _exitSelectionMode();
     setState(_reload);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.project.name)),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _add,
-        child: const Icon(Icons.add),
-      ),
-      body: FutureBuilder<List<Item>>(
-        future: _items,
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final list = snapshot.data!;
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(
-                Space.page, Gap.md, Space.page, Gap.lg),
-            children: [
-              if (widget.learn != null) ...[
-                Row(
-                  children: [
-                    const Expanded(
-                      child: NeoSectionHead(title: 'Topics'),
+    return FutureBuilder<List<Item>>(
+      future: _items,
+      builder: (context, snapshot) {
+        final list = snapshot.data ?? const <Item>[];
+        final isSelecting = _isSelectingItems;
+        final singleItem = _selectedItemIds.length == 1
+            ? list.where((it) => it.id == _selectedItemIds.first).firstOrNull
+            : null;
+
+        return PopScope(
+          canPop: !isSelecting,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop && isSelecting) {
+              _exitSelectionMode();
+            }
+          },
+          child: Scaffold(
+            appBar: isSelecting
+                ? AppBar(
+                    leading: IconButton(
+                      icon: const Icon(Icons.close),
+                      tooltip: 'Cancel selection',
+                      onPressed: _exitSelectionMode,
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.add),
-                      tooltip: 'New topic',
-                      onPressed: _addTopic,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: Space.s3),
-                if (_topics.isEmpty)
-                  Text('No topics in this project yet.',
-                      style: Theme.of(context).textTheme.bodyMedium)
-                else
-                  Column(
-                    children: [
-                      for (final t in _topics)
-                        NeoListRow(
-                          icon: Icons.lightbulb_outline,
-                          title: t.title,
-                          sub: t.status,
-                          last: t == _topics.last,
-                          onTap: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => TopicDetailScreen(
-                                  store: widget.store,
-                                  learn: widget.learn!,
-                                  topic: t,
-                                ),
-                              ),
-                            );
-                            _loadTopics();
+                    title: Text('${_selectedItemIds.length} selected'),
+                    actions: [
+                      if (singleItem != null)
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined),
+                          tooltip: 'Rename item',
+                          onPressed: () => _renameSelectedItem(list),
+                        ),
+                      IconButton(
+                        icon: Icon(singleItem != null && singleItem.isPinned
+                            ? Icons.push_pin_outlined
+                            : Icons.push_pin),
+                        tooltip: singleItem != null && singleItem.isPinned
+                            ? 'Unpin item'
+                            : 'Pin item',
+                        onPressed: () => _togglePinnedSelectedItems(list),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.drive_file_move_outlined),
+                        tooltip: 'Move item',
+                        onPressed: _moveSelectedItems,
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          _selectedItemIds.length == list.length
+                              ? Icons.deselect_outlined
+                              : Icons.select_all_outlined,
+                        ),
+                        tooltip: _selectedItemIds.length == list.length
+                            ? 'Deselect all'
+                            : 'Select all',
+                        onPressed: () {
+                          setState(() {
+                            if (_selectedItemIds.length == list.length) {
+                              _selectedItemIds.clear();
+                            } else {
+                              _selectedItemIds.addAll(list.map((it) => it.id));
+                            }
+                          });
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        tooltip: 'Delete selected items',
+                        onPressed: () => _deleteSelectedItems(list),
+                      ),
+                    ],
+                  )
+                : AppBar(
+                    title: Text(widget.project.name),
+                    actions: [
+                      IconButton(
+                        icon: const Icon(Icons.edit_note_outlined),
+                        tooltip: 'New page',
+                        onPressed: _createInstantNote,
+                      ),
+                      if (list.isNotEmpty)
+                        PopupMenuButton<String>(
+                          icon: const Icon(Icons.more_vert),
+                          tooltip: 'More actions',
+                          onSelected: (val) {
+                            if (val == 'select_items') {
+                              setState(() {
+                                _selectedItemIds.add(list.first.id);
+                              });
+                            }
                           },
+                          itemBuilder: (ctx) => [
+                            const PopupMenuItem(
+                              value: 'select_items',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.checklist_outlined, size: 20),
+                                  SizedBox(width: 12),
+                                  Text('Select items'),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                     ],
                   ),
-                const SizedBox(height: Gap.lg),
-                const NeoSectionHead(title: 'Items'),
-                const SizedBox(height: Space.s3),
-              ],
-              if (list.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text(
-                    'A clear starting point.\nNo items yet — tap + '
-                    'to add a note, checklist, or link card.',
-                    textAlign: TextAlign.center,
+            floatingActionButton: isSelecting
+                ? null
+                : FloatingActionButton(
+                    onPressed: _add,
+                    child: const Icon(Icons.add),
                   ),
-                )
-              else
-                Column(
-                  children: [
-                    for (final item in list)
-                      _itemRow(context, item, last: item == list.last),
-                  ],
-                ),
-            ],
-          );
-        },
-      ),
+            body: !snapshot.hasData
+                ? const Center(child: CircularProgressIndicator())
+                : ListView(
+                    padding: const EdgeInsets.fromLTRB(
+                        Space.page, Gap.md, Space.page, Gap.lg),
+                    children: [
+                      if (widget.learn != null) ...[
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: NeoSectionHead(title: 'Topics'),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.add),
+                              tooltip: 'New topic',
+                              onPressed: _addTopic,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: Space.s3),
+                        if (_topics.isEmpty)
+                          Text('No topics in this project yet.',
+                              style: Theme.of(context).textTheme.bodyMedium)
+                        else
+                          Column(
+                            children: [
+                              for (final t in _topics)
+                                NeoListRow(
+                                  icon: Icons.lightbulb_outline,
+                                  title: t.title,
+                                  sub: t.status,
+                                  last: t == _topics.last,
+                                  onTap: () async {
+                                    await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => TopicDetailScreen(
+                                          store: widget.store,
+                                          learn: widget.learn!,
+                                          topic: t,
+                                        ),
+                                      ),
+                                    );
+                                    _loadTopics();
+                                  },
+                                ),
+                            ],
+                          ),
+                        const SizedBox(height: Gap.lg),
+                        const NeoSectionHead(title: 'Items'),
+                        const SizedBox(height: Space.s3),
+                      ],
+                      if (list.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Text(
+                            'A clear starting point.\nNo items yet — tap + '
+                            'to add a note, checklist, or link card.',
+                            textAlign: TextAlign.center,
+                          ),
+                        )
+                      else
+                        Column(
+                          children: [
+                            for (final item in list)
+                              _itemRow(context, item, last: item == list.last),
+                          ],
+                        ),
+                    ],
+                  ),
+          ),
+        );
+      },
     );
   }
 
   Widget _itemRow(BuildContext context, Item item, {bool last = false}) {
     final def = itemTypeDef(item.type);
+    final isSelected = _selectedItemIds.contains(item.id);
+
     return NeoListRow(
-      leading: item.type == ItemType.linkCard
-          ? _linkThumb(item)
-          : NeoGlyph(icon: def.icon),
+      leading: _isSelectingItems
+          ? NeoCheck(done: isSelected)
+          : (item.type == ItemType.linkCard
+              ? _linkThumb(item)
+              : NeoGlyph(icon: def.icon)),
       title: item.title,
       sub: item.type == ItemType.linkCard
           ? (_payloadString(item, 'url') ?? def.label)
           : def.label,
+      trailing: item.isPinned && !_isSelectingItems
+          ? Icon(Icons.push_pin,
+              size: AppIconSize.sm,
+              color: Theme.of(context).colorScheme.primary)
+          : null,
       last: last,
-      trailing: IconButton(
-        icon: const Icon(Icons.delete_outline),
-        onPressed: () => _delete(item),
-      ),
       onTap: () async {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ItemDetailScreen(
-              store: widget.store,
-              item: item,
-              learn: widget.learn,
-              thumbnails: widget.thumbnails,
+        if (_isSelectingItems) {
+          _toggleItemSelection(item.id);
+        } else {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ItemDetailScreen(
+                store: widget.store,
+                item: item,
+                learn: widget.learn,
+                thumbnails: widget.thumbnails,
+              ),
             ),
-          ),
-        );
-        setState(_reload);
+          );
+          setState(_reload);
+        }
+      },
+      onLongPress: () {
+        _toggleItemSelection(item.id);
       },
     );
   }

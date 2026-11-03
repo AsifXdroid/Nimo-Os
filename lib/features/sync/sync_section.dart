@@ -362,16 +362,23 @@ class _SyncSectionState extends State<SyncSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // D-038 (§6.6): the Sync section is grouped — overview,
-        // status, library, manual transfer, advanced — instead
-        // of one long undifferentiated block.
-        Text(
-          'Your phone and laptop exchange small packages of '
-          'changes. Move them by hand, or let your Library folder '
-          'carry them (packages land in Library/sync). Your '
-          'Library files travel with the folder itself. The live '
-          'database file is never synced directly.',
-          style: theme.textTheme.bodySmall,
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Sync across your devices',
+                style: AppType.cardHeading(theme.textTheme),
+              ),
+            ),
+            const NeoInfoButton(
+              title: 'Sync across your devices',
+              message: 'Your phone and laptop exchange small packages of '
+                  'changes. Move them by hand, or let your Library folder '
+                  'carry them (packages land in Library/sync). Your '
+                  'Library files travel with the folder itself. The live '
+                  'database file is never synced directly.',
+            ),
+          ],
         ),
         const SizedBox(height: Gap.md),
         _groupHead(context, 'Status'),
@@ -457,12 +464,16 @@ class _SyncSectionState extends State<SyncSection> {
           ],
         ),
         const SizedBox(height: Gap.md),
-        _groupHead(context, 'Advanced'),
-        Text(
-          'Conflicts and held changes are kept for your review. '
-          'Repair rebuilds this device from a backup snapshot.',
-          style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant),
+        Row(
+          children: [
+            _groupHead(context, 'Advanced'),
+            const Spacer(),
+            const NeoInfoButton(
+              title: 'Advanced sync options',
+              message: 'Conflicts and held changes are kept for your review. '
+                  'Repair rebuilds this device from a backup snapshot.',
+            ),
+          ],
         ),
         const SizedBox(height: Gap.sm),
         Wrap(

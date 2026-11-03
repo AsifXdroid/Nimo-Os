@@ -605,6 +605,40 @@ class LearnEngineStore {
     return minted;
   }
 
+  /// Mint cloze questions for a specific subset of marked points by ID.
+  Future<int> mintClozeForPointIds(List<int> pointIds) async {
+    if (pointIds.isEmpty) return 0;
+    final placeholders = List.filled(pointIds.length, '?').join(',');
+    final rows = await _db.query(
+      'marked_points',
+      where: 'id IN ($placeholders) AND question_id IS NULL',
+      whereArgs: pointIds,
+      orderBy: 'id ASC',
+    );
+    var minted = 0;
+    for (final r in rows) {
+      final sentence = r['sentence'] as String;
+      final span = r['span_text'] as String;
+      if (!sentence.contains(span)) continue;
+      final clozeText = sentence.replaceFirst(span, '{{$span}}');
+      final q = await insertQuestion(
+        topicId: r['topic_id'] as int,
+        sourceId: r['source_id'] as int,
+        type: 'cloze',
+        payload: {'text': clozeText, 'answer': span},
+        difficulty: 2,
+      );
+      await _db.update(
+        'marked_points',
+        {'question_id': q.id, 'updated_hlc': await nextHlc(_db)},
+        where: 'id = ?',
+        whereArgs: [r['id']],
+      );
+      minted++;
+    }
+    return minted;
+  }
+
   // ---------------------------------------------------------- sessions
 
   Future<LearnSession> startSession({

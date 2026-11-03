@@ -10,6 +10,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../core/brand.dart';
+import '../../core/glass_ui.dart';
 import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
@@ -327,65 +328,35 @@ class _TodayScreenState extends State<TodayScreen> {
 
   Future<void> _quickAddItem(String type) async {
     final messenger = ScaffoldMessenger.of(context);
-    final workspaces = await widget.store.workspaces();
-    if (!mounted) return;
-    if (workspaces.isEmpty) {
-      messenger.showSnackBar(const SnackBar(
-          content: Text('Create a workspace in Spaces first.')));
-      return;
-    }
-    final ws = await _pickFrom<Workspace>(
-      title: 'Choose workspace',
-      values: workspaces,
-      label: (w) => w.name,
-    );
-    if (ws == null || !mounted) return;
-    final projects = await widget.store.projects(ws.id);
-    if (!mounted) return;
-    if (projects.isEmpty) {
-      messenger.showSnackBar(const SnackBar(
-          content: Text('Create a project in Spaces first.')));
-      return;
-    }
-    final prj = projects.length == 1
-        ? projects.single
-        : await _pickFrom<Project>(
-            title: 'Choose project',
-            values: projects,
-            label: (p) => p.name,
-          );
-    if (prj == null || !mounted) return;
     final def = itemTypeDef(type);
     final title = await promptText(context,
         title: 'New ${def.label.toLowerCase()}', label: 'Title');
     if (title == null || title.isEmpty) return;
-    await widget.store.createItem(prj.id, type: type, title: title);
+    final inbox = await widget.learn.store.ensureInboxProject();
+    final item = await widget.store.createItem(inbox.id, type: type, title: title);
     if (!mounted) return;
-    messenger.showSnackBar(SnackBar(content: Text('Added to ${prj.name}')));
-    setState(_reload);
-  }
-
-  Future<T?> _pickFrom<T>({
-    required String title,
-    required List<T> values,
-    required String Function(T) label,
-  }) {
-    return showModalBottomSheet<T>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(title: Text(title)),
-            for (final v in values)
-              ListTile(
-                title: Text(label(v)),
-                onTap: () => Navigator.pop(context, v),
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('Added to ${inbox.name}.'),
+        action: SnackBarAction(
+          label: 'Open',
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ItemDetailScreen(
+                  store: widget.store,
+                  item: item,
+                  learn: widget.learn,
+                  thumbnails: widget.thumbnails,
+                ),
               ),
-          ],
+            );
+          },
         ),
       ),
     );
+    setState(_reload);
   }
 
   Future<void> _customize(_HubData data) async {
@@ -525,11 +496,12 @@ class _TodayScreenState extends State<TodayScreen> {
                   on(TodayStore.headerHeading) ||
                   on(TodayStore.headerTagline));
           final showWeek = on(TodayStore.sectionWeekStrip);
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(
-                Space.page, Gap.md, Space.page, Gap.lg),
-            children: [
-              if (showIntro) ...[
+          return GlassAtmosphere(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(
+                  Space.page, Gap.md, Space.page, 80.0),
+              children: [
+                if (showIntro) ...[
                 _intro(context, now, data),
                 const SizedBox(height: Gap.lg),
               ],
@@ -547,25 +519,15 @@ class _TodayScreenState extends State<TodayScreen> {
                 _weekCard(context, data)
               else
                 _planCard(context, data),
-              const SizedBox(height: Gap.lg),
-              _learnSection(context, data),
+              if (data.dueCount + data.newCount > 0) ...[
+                const SizedBox(height: Gap.lg),
+                _learnSection(context, data),
+              ],
               const SizedBox(height: Gap.lg),
               _scoresSection(context, data),
               if (data.sections[TodayStore.sectionDayClose] ?? true) ...[
                 const SizedBox(height: Gap.lg),
                 _dayCloseSection(context, data),
-              ],
-              if (data.sections[TodayStore.sectionPinned] ?? true) ...[
-                const SizedBox(height: Gap.lg),
-                _pinnedSection(context, data),
-              ],
-              if (data.sections[TodayStore.sectionRecent] ?? true) ...[
-                const SizedBox(height: Gap.lg),
-                _recentSection(context, data),
-              ],
-              if (data.sections[TodayStore.sectionGoals] ?? true) ...[
-                const SizedBox(height: Gap.lg),
-                _goalsSection(context, data),
               ],
               const SizedBox(height: Gap.sm),
               Center(
@@ -576,7 +538,8 @@ class _TodayScreenState extends State<TodayScreen> {
                 ),
               ),
             ],
-          );
+          ),
+        );
         },
       ),
     );
@@ -657,7 +620,7 @@ class _TodayScreenState extends State<TodayScreen> {
       container: true,
       button: widget.onOpenProgress != null,
       label: 'Current streak: $label'
-          '${widget.onOpenProgress != null ? '. Opens Progress in Direction.' : ''}',
+          '${widget.onOpenProgress != null ? '. Opens Journey in Progress.' : ''}',
       child: InkWell(
         onTap: widget.onOpenProgress,
         borderRadius: BorderRadius.circular(RadiusToken.round),
@@ -784,29 +747,41 @@ class _TodayScreenState extends State<TodayScreen> {
 
   Widget _quickAddRow(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    Widget button(IconData icon, String label, VoidCallback onTap) =>
+    Widget button(IconData icon, String label, VoidCallback onTap, {bool primary = false}) =>
         Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 3),
             child: NeoRaisedSm(
-              level: NeoSurfaceLevel.flat,
+              level: primary ? NeoSurfaceLevel.emphasis : NeoSurfaceLevel.raised,
               padding: const EdgeInsets.symmetric(vertical: Space.s3),
               onTap: onTap,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 20, color: scheme.primary),
-                  const SizedBox(height: 2),
-                  Text(label,
-                      style: Theme.of(context).textTheme.labelSmall),
-                ],
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 44),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, size: 20, color: scheme.primary),
+                    const SizedBox(height: Space.s1),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            fontSize: 10,
+                            letterSpacing: -0.3,
+                            fontWeight: primary ? FontWeight.w600 : FontWeight.w500,
+                          ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         );
     return Row(
       children: [
-        button(Icons.add_task_outlined, 'Task', _quickAddTask),
+        button(Icons.add_task_outlined, 'Task', _quickAddTask, primary: true),
         button(Icons.flag_outlined, 'Goal', _quickAddGoal),
         button(Icons.note_outlined, 'Note', _quickAddNote),
         button(Icons.checklist_outlined, 'Checklist',
@@ -850,10 +825,7 @@ class _TodayScreenState extends State<TodayScreen> {
     setState(_reload);
   }
 
-  /// Learn section (D-037, Neo "A moment to learn"): the plum
-  /// learning card, the quiet Inbox line, and the Topics &
-  /// Library doorway row. The Inbox count stays plain text —
-  /// information, not a badge (§R9.5).
+  /// Compact contextual learn section: shown only when questions are due or new.
   Widget _learnSection(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
@@ -861,126 +833,53 @@ class _TodayScreenState extends State<TodayScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         NeoSectionHead(
-          title: 'A moment to learn',
-          actionLabel: 'Your library →',
-          onAction: widget.onOpenTopics,
+          title: 'Review due',
+          actionLabel: 'Learn →',
+          onAction: widget.onOpenLearn,
         ),
-        const SizedBox(height: Space.s3),
-        _learningCard(context, data),
-        const SizedBox(height: Space.s4),
-        InkWell(
-          onTap: widget.onOpenTopics,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Space.s1),
-            child: Row(
-              children: [
-                Icon(Icons.auto_awesome_outlined,
-                    size: 16, color: scheme.primary),
-                const SizedBox(width: Space.s3),
-                Expanded(
-                  child: Text(
-                    data.inboxCount == 0
-                        ? 'Your Inbox is clear — nothing waiting for a home.'
-                        : '${data.inboxCount} waiting in your Inbox. '
-                            'No rush, though.',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: scheme.onSurfaceVariant),
-                  ),
-                ),
-              ],
-            ),
+        const SizedBox(height: Space.s2),
+        Container(
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: scheme.outlineVariant),
           ),
-        ),
-        const SizedBox(height: Space.s4),
-        NeoListRow(
-          icon: Icons.library_books_outlined,
-          title: 'Topics & Library',
-          sub: 'Topics, sources and marked points',
-          onTap: widget.onOpenTopics,
-          last: true,
+          padding: const EdgeInsets.symmetric(
+              horizontal: Space.s4, vertical: Space.s3),
+          child: Row(
+            children: [
+              Icon(Icons.school_outlined, size: 20, color: scheme.primary),
+              const SizedBox(width: Space.s3),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${data.dueCount} cards due · ${data.newCount} new',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      'Spaced repetition review ready',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              FilledButton.tonal(
+                onPressed: _openLearnSession,
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+                child: const Text('Start →'),
+              ),
+            ],
+          ),
         ),
       ],
-    );
-  }
-
-  /// The learning card (D-039): the PAPER feature surface —
-  /// the concept's signature light card inside the dark UI
-  /// (in light mode it is the lightest paper). Serif headline,
-  /// mono desk label, the round outline arrow starts a session
-  /// directly (the ≤2-tap path); tapping the card goes to the
-  /// Learn tab. All colours come from [EditorialColors] — the
-  /// ambient scheme would be wrong on paper.
-  Widget _learningCard(BuildContext context, _HubData data) {
-    final theme = Theme.of(context);
-    final ed = EditorialColors.of(context);
-    final total = data.dueCount + data.newCount;
-    return FeaturePanel(
-      kind: FeatureSurfaceKind.paper,
-      onTap: widget.onOpenLearn,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'ON YOUR LEARNING DESK',
-                  style: AppType.eyebrow.copyWith(color: ed.paperMuted),
-                ),
-              ),
-              Icon(Icons.menu_book_outlined,
-                  size: AppIconSize.md, color: ed.paperMuted),
-            ],
-          ),
-          const SizedBox(height: Space.s5),
-          Text(
-            total == 0
-                ? 'Import a pack to start learning.'
-                : 'Your next session is ready.',
-            style: AppType.pageTitle(theme.textTheme)
-                ?.copyWith(color: ed.onPaper),
-          ),
-          const SizedBox(height: Space.s2),
-          Text(
-            total == 0
-                ? 'Bring a PDF, text file, link or learning pack.'
-                : '${data.dueCount} cards due to revisit · '
-                    '${data.newCount} new to explore.',
-            style: AppType.caption(theme.textTheme)
-                ?.copyWith(color: ed.paperMuted),
-          ),
-          const SizedBox(height: Space.s6),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Measured in enjoyment, not minutes.',
-                  style: AppType.caption(theme.textTheme)
-                      ?.copyWith(color: ed.paperMuted),
-                ),
-              ),
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: ed.onPaper.withValues(alpha: 0.35),
-                  ),
-                ),
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  icon: Icon(Icons.arrow_forward,
-                      size: 18, color: ed.onPaper),
-                  tooltip: 'Start a session',
-                  onPressed:
-                      total > 0 ? _openLearnSession : widget.onOpenLearn,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 
@@ -1221,7 +1120,7 @@ class _TodayScreenState extends State<TodayScreen> {
       children: [
         NeoSectionHead(
           title: "Today's plan",
-          actionLabel: 'Edit routine →',
+          actionLabel: 'Routines →',
           onAction: _openRoutineScreen,
         ),
         const SizedBox(height: Space.s3),
@@ -1495,14 +1394,14 @@ class _TodayScreenState extends State<TodayScreen> {
         // the accelerator; the ⋯ button is the visible path).
         onLongPress: () => _showPlanItemSheet(context, data, item),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: Space.s4),
+          padding: const EdgeInsets.symmetric(vertical: Space.s3),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 11,
-                height: 11,
-                margin: const EdgeInsets.only(top: 6),
+                width: 9,
+                height: 9,
+                margin: const EdgeInsets.only(top: 5),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: item.done ? scheme.primary : scheme.surface,
@@ -1511,7 +1410,7 @@ class _TodayScreenState extends State<TodayScreen> {
                   ),
                 ),
               ),
-              const SizedBox(width: Space.s4),
+              const SizedBox(width: Space.s3),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1539,14 +1438,13 @@ class _TodayScreenState extends State<TodayScreen> {
                 ),
               ),
               if (item.carried) ...[
-                const SizedBox(width: Space.s3),
+                const SizedBox(width: Space.s2),
                 const NeoTag('CARRIED', tint: true),
               ],
-              // D-042: no permanent × — deletion lives in the
-              // management sheet, behind a confirmation.
               IconButton(
-                icon: const Icon(Icons.more_horiz, size: 20),
+                icon: const Icon(Icons.more_horiz, size: 18),
                 tooltip: 'Task options',
+                visualDensity: VisualDensity.compact,
                 onPressed: () =>
                     _showPlanItemSheet(context, data, item),
               ),
@@ -1888,250 +1786,72 @@ class _TodayScreenState extends State<TodayScreen> {
 
   Widget _weekCard(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
-    // D-039: the week view sits on the canvas like the plan.
+    final scheme = theme.colorScheme;
     return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('This week', style: theme.textTheme.titleMedium),
-          const SizedBox(height: Space.s4),
-          SizedBox(
-            width: double.infinity,
-            child: SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment(value: false, label: Text('Today')),
-                ButtonSegment(value: true, label: Text('This week')),
-              ],
-              selected: {_showWeek},
-              onSelectionChanged: (s) =>
-                  setState(() => _showWeek = s.first),
-            ),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        NeoSectionHead(
+          title: "This week's plan",
+          actionLabel: 'Edit routine →',
+          onAction: _openRoutineScreen,
+        ),
+        const SizedBox(height: Space.s3),
+        SizedBox(
+          width: double.infinity,
+          child: SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: false, label: Text('Today')),
+              ButtonSegment(value: true, label: Text('This week')),
+            ],
+            selected: {_showWeek},
+            onSelectionChanged: (s) =>
+                setState(() => _showWeek = s.first),
           ),
-          const SizedBox(height: Gap.sm),
-          if (data.weekPending.isEmpty)
-            Text('Nothing pending this week.',
+        ),
+        const SizedBox(height: Gap.md),
+        if (data.weekPending.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: Space.s4),
+            child: Text('Nothing pending this week.',
                 style: theme.textTheme.bodyMedium),
+          )
+        else
           for (final day in data.weekPending) ...[
             Padding(
-              padding: const EdgeInsets.only(top: Gap.sm, bottom: 4),
+              padding: const EdgeInsets.only(top: Space.s3, bottom: Space.s1),
               child: Text(
                 '${_formatDate(day.date)} · ${day.items.length} pending',
-                style: theme.textTheme.titleSmall,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
             ),
             for (final item in day.items)
               Padding(
-                padding: const EdgeInsets.only(left: Gap.md, bottom: 2),
+                padding: const EdgeInsets.symmetric(vertical: Space.s1),
                 child: Row(
                   children: [
-                    const Text('• '),
-                    Expanded(child: Text(item.title)),
+                    Container(
+                      width: 6,
+                      height: 6,
+                      margin: const EdgeInsets.only(left: 4, right: Space.s3),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: scheme.outline,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        item.title,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
                     if (item.carried) const NeoTag('CARRIED', tint: true),
                   ],
                 ),
               ),
           ],
-        ],
-    );
-  }
-
-  Widget _pinnedSection(BuildContext context, _HubData data) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const NeoSectionHead(title: 'Pinned spaces'),
-        const SizedBox(height: Space.s3),
-        if (data.pinned.isEmpty)
-          Text('Pin a workspace from the Spaces tab to see it here.',
-              style: theme.textTheme.bodyMedium)
-        else
-          GridView.count(
-            crossAxisCount: 3,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: Gap.sm,
-            crossAxisSpacing: Gap.sm,
-            childAspectRatio: 0.95,
-            children: [
-              for (final p in data.pinned)
-                NeoRaisedSm(
-                  level: NeoSurfaceLevel.flat,
-                  padding: const EdgeInsets.all(Space.s3),
-                  onTap: () => widget.onOpenWorkspace(p.workspace),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                              color: theme.colorScheme.outline),
-                          borderRadius:
-                              BorderRadius.circular(RadiusToken.sm),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          p.workspace.name.isEmpty
-                              ? '?'
-                              : p.workspace.name[0].toUpperCase(),
-                          style: TextStyle(
-                            fontFamily: fontSerif,
-                            fontFamilyFallback: fontSerifFallback,
-                            fontSize: 15,
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: Gap.sm),
-                      Text(p.workspace.name,
-                          style: theme.textTheme.bodyMedium,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis),
-                      Text('${p.itemCount} items',
-                          style: theme.textTheme.bodySmall),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-      ],
-    );
-  }
-
-  Widget _recentSection(BuildContext context, _HubData data) {
-    final theme = Theme.of(context);
-    // D-038: Recently touched sits DIRECTLY on the canvas
-    // (Level 0) — hairline-divided rows under a section head,
-    // no enclosing panel.
-    return NeoSection(
-      title: 'Recently touched',
-      child: data.recent.isEmpty
-          ? Text('Nothing yet — items you create will show up here.',
-              style: theme.textTheme.bodyMedium)
-          : Column(
-              children: [
-                for (final r in data.recent)
-                  NeoListRow(
-                    icon: itemTypeDef(r.item.type).icon,
-                    title: r.item.title,
-                    sub: '${r.workspaceName} · ${r.projectName}',
-                    last: r == data.recent.last,
-                    onTap: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ItemDetailScreen(
-                            store: widget.store,
-                            item: r.item,
-                            learn: widget.learn,
-                            thumbnails: widget.thumbnails,
-                          ),
-                        ),
-                      );
-                      setState(_reload);
-                    },
-                  ),
-              ],
-            ),
-    );
-  }
-
-  Widget _goalsSection(BuildContext context, _HubData data) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    if (_justCompleted.isNotEmpty) {
-      // Celebrate once: after this build, later rebuilds show
-      // the badge statically.
-      final shown = Set<int>.of(_justCompleted);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _justCompleted.removeAll(shown);
-      });
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const NeoSectionHead(title: 'A direction, not a deadline'),
-        const SizedBox(height: Space.s3),
-        if (data.goals.isEmpty)
-          Text('No goals yet. Use Quick add → Goal to create one.',
-              style: theme.textTheme.bodyMedium)
-        else
-          for (final goal in data.goals)
-            Padding(
-              padding: const EdgeInsets.only(bottom: Space.s3),
-              child: NeoRaisedSm(
-                padding: const EdgeInsets.all(Space.s5),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const NeoGlyph(
-                            icon: Icons.flag_outlined,
-                            size: 36,
-                            iconSize: 18),
-                        const SizedBox(width: Space.s4),
-                        Expanded(
-                          child: Text(goal.title,
-                              style: theme.textTheme.titleSmall),
-                        ),
-                        Text(
-                          '${(goal.fraction * 100).round()}%',
-                          style: theme.textTheme.titleSmall
-                              ?.copyWith(color: scheme.primary),
-                        ),
-                        if (goal.fraction >= 1) ...[
-                          const SizedBox(width: Space.s3),
-                          GoalCompletionBadge(
-                            celebrate: _justCompleted.contains(goal.id),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: Space.s4),
-                    NeoTrack(value: goal.fraction),
-                    const SizedBox(height: Space.s3),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '${goal.current} of ${goal.target}'
-                            '${goal.unit.isEmpty ? '' : ' ${goal.unit}'}'
-                            ' explored',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                                color: scheme.onSurfaceVariant),
-                          ),
-                        ),
-                        NeoStepperButton(
-                          icon: Icons.remove,
-                          tooltip: 'Decrease',
-                          // Disabled at the bounds, matching the
-                          // Goals tab (D-037 call 6).
-                          onTap: goal.current <= 0
-                              ? null
-                              : () async {
-                                  await widget.goalsStore.step(goal, -1);
-                                  setState(_reload);
-                                },
-                        ),
-                        const SizedBox(width: Space.s3),
-                        NeoStepperButton(
-                          icon: Icons.add,
-                          tooltip: 'Increase',
-                          onTap: goal.current >= goal.target
-                              ? null
-                              : () async {
-                                  await widget.goalsStore.step(goal, 1);
-                                  setState(_reload);
-                                },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
       ],
     );
   }

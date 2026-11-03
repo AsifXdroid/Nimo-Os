@@ -92,24 +92,24 @@ void main() {
       }
       expect(find.text('Customize Home'), findsOneWidget);
 
-      // D-045: the bottom bar has 4 destinations; Progress
-      // lives inside Direction as its second tab.
+      // Phase 1: the bottom bar has 4 destinations; Progress
+      // is the visible 4th destination and opens on Progress by default.
       final navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
       expect(navBar.destinations, hasLength(4));
-      final directionDest = find.descendant(
+      final progressDest = find.descendant(
         of: find.byType(NavigationBar),
-        matching: find.text('Direction'),
+        matching: find.text('Progress'),
       );
-      expect(await pollFor(directionDest), isTrue);
+      expect(await pollFor(progressDest), isTrue);
 
-      // Direction opens on Goals by default…
-      await tester.tap(directionDest);
-      expect(await pollFor(find.text('Keep becoming.')), isTrue);
-
-      // …and its Progress tab shows the Journey screen
-      // (fresh-user empty state on this empty database).
-      await tester.tap(find.text('Progress'));
+      // Progress opens on Journey by default…
+      await tester.tap(progressDest);
+      expect(await pollFor(find.text('Journey')), isTrue);
       expect(await pollFor(find.text('Your journey path')), isTrue);
+
+      // …and its Goals tab shows the Goals screen.
+      await tester.tap(find.text('Goals'));
+      expect(await pollFor(find.text('Keep becoming.')), isTrue);
 
       // Back to Today for the Learn flow below.
       await tester.tap(find.text('Today'));
@@ -122,11 +122,8 @@ void main() {
 
       // Tapping Learn shows the LearnScreen landing.
       await tester.tap(learnDest);
-      expect(await pollFor(find.text('Learn something that stays.')), isTrue);
-      // D-038: with an empty library the pulse is compact (no
-      // zero cells) — its enjoyment line is the anchor now.
-      expect(await pollFor(find.textContaining('Measured in enjoyment')),
-          isTrue);
+      expect(await pollFor(find.text('Your topics')), isTrue);
+      expect(await pollFor(find.text('Your packs')), isTrue);
 
       // Switch to the Spaces tab: the simple landing
       // (compact header, workspace list, visit recents).

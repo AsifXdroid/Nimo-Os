@@ -171,12 +171,13 @@ class _ProgressScreenState extends State<ProgressScreen> {
           final model = buildJourney(data.journey, today: DateTime.now());
           return ListView(
             padding: const EdgeInsets.fromLTRB(
-                Space.page, Gap.md, Space.page, Gap.lg),
+                Space.page, Gap.md, Space.page, 80.0),
             children: [
               const NeoPageTitle(
                 eyebrow: 'The long view',
                 heading: 'Look how far you’ve come.',
                 sub: 'A record of showing up, not a measure of your worth.',
+                compact: true,
               ),
               const SizedBox(height: Gap.lg),
               _streakHeader(context, data.streak),

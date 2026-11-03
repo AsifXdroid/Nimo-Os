@@ -11,9 +11,11 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/glass_ui.dart';
 import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
+import '../items/item_detail_screen.dart';
 import '../items/items_screen.dart';
 import '../items/link_card/thumbnail_service.dart';
 import '../learn/learn_services.dart';
@@ -24,13 +26,24 @@ import 'recent_projects.dart';
 
 /// Everything the landing renders, loaded in one pass.
 class _SpacesData {
-  const _SpacesData({required this.workspaces, required this.recents});
+  const _SpacesData({
+    required this.workspaces,
+    required this.recents,
+    required this.inboxCount,
+    this.workspaceProjectCounts = const {},
+  });
 
   final List<Workspace> workspaces;
 
   /// Visited projects, resolved against live rows (stale
   /// sync ids dropped), most recent first, display-capped.
   final List<({Project project, String workspaceName})> recents;
+
+  /// Total count of items/notes currently in the Inbox.
+  final int inboxCount;
+
+  /// Project count per workspace for clear overview.
+  final Map<int, int> workspaceProjectCounts;
 }
 
 class WorkspacesScreen extends StatefulWidget {
@@ -66,18 +79,21 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
 
   Future<_SpacesData> _load() async {
     final workspaces = await widget.store.workspaces();
+    final inboxCount = await widget.store.inboxItemCount();
     final visits = await widget.store.recentProjectVisits();
     final recents = <({Project project, String workspaceName})>[];
-    if (visits.isNotEmpty) {
-      // Resolve sync ids against live rows; a visit whose
-      // project no longer exists (deleted, not yet restored)
-      // simply drops out.
+    final counts = <int, int>{};
+    if (workspaces.isNotEmpty) {
       final bySyncId = <String, ({Project project, String workspaceName})>{};
       for (final ws in workspaces) {
-        for (final prj in await widget.store.projects(ws.id)) {
-          final sid = prj.syncId;
-          if (sid != null) {
-            bySyncId[sid] = (project: prj, workspaceName: ws.name);
+        final prjs = await widget.store.projects(ws.id);
+        counts[ws.id] = prjs.length;
+        if (visits.isNotEmpty) {
+          for (final prj in prjs) {
+            final sid = prj.syncId;
+            if (sid != null) {
+              bySyncId[sid] = (project: prj, workspaceName: ws.name);
+            }
           }
         }
       }
@@ -89,7 +105,53 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
         }
       }
     }
-    return _SpacesData(workspaces: workspaces, recents: recents);
+    return _SpacesData(
+      workspaces: workspaces,
+      recents: recents,
+      inboxCount: inboxCount,
+      workspaceProjectCounts: counts,
+    );
+  }
+
+  Future<void> _openInbox() async {
+    final inbox = await widget.store.ensureInboxProject();
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ItemsScreen(
+          store: widget.store,
+          project: inbox,
+          learn: widget.learn,
+          thumbnails: widget.thumbnails,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    setState(_reload);
+  }
+
+  Future<void> _createInstantPage() async {
+    final inbox = await widget.store.ensureInboxProject();
+    final item = await widget.store.createItem(
+      inbox.id,
+      type: ItemType.note,
+      title: '',
+    );
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ItemDetailScreen(
+          store: widget.store,
+          item: item,
+          learn: widget.learn,
+          thumbnails: widget.thumbnails,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    setState(_reload);
   }
 
   Future<void> _openWorkspace(Workspace ws) async {
@@ -193,24 +255,47 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
               );
             }
             final data = snapshot.data!;
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(
-                  Space.page, Gap.md, Space.page, Gap.lg),
-              children: [
-                Text(
-                  'Spaces',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontFamily: fontSerif,
-                    fontFamilyFallback: fontSerifFallback,
-                  ),
-                ),
-                const SizedBox(height: Gap.sm),
-                Text(
-                  'Your workspaces, projects and pages.',
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(color: scheme.onSurfaceVariant),
+            return GlassAtmosphere(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(
+                    Space.page, Gap.md, Space.page, 80.0),
+                children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Spaces',
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontFamily: fontSerif,
+                              fontFamilyFallback: fontSerifFallback,
+                            ),
+                          ),
+                          const SizedBox(height: Gap.sm),
+                          Text(
+                            'Your workspaces, projects and pages.',
+                            style: theme.textTheme.bodyMedium
+                                ?.copyWith(color: scheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: Space.s2),
+                    FilledButton.tonalIcon(
+                      onPressed: _createInstantPage,
+                      icon: const Icon(Icons.edit_note_outlined, size: 18),
+                      label: const Text('New page'),
+                      style: FilledButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: Gap.lg),
+                _inboxCard(context, data.inboxCount),
                 NeoSectionHead(
                   title: 'Your spaces',
                   actionLabel: '+ New space',
@@ -226,8 +311,12 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
                   Column(
                     children: [
                       for (final ws in data.workspaces)
-                        _spaceRow(context, ws,
-                            last: ws == data.workspaces.last),
+                        _spaceRow(
+                          context,
+                          ws,
+                          last: ws == data.workspaces.last,
+                          projectCount: data.workspaceProjectCounts[ws.id] ?? 0,
+                        ),
                     ],
                   ),
                 if (data.recents.isNotEmpty) ...[
@@ -248,7 +337,8 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
                   ),
                 ],
               ],
-            );
+            ),
+          );
           },
         ),
       ),
@@ -256,11 +346,13 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
   }
 
   /// One space as a quiet row: serif initial square, name,
-  /// chevron. Tap opens the workspace; long-press manages it.
+  /// project count, and chevron. Tap opens the workspace; long-press manages it.
   Widget _spaceRow(BuildContext context, Workspace ws,
-      {required bool last}) {
+      {required bool last, int projectCount = 0}) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final projectText =
+        projectCount == 1 ? '1 project' : '$projectCount projects';
     return Container(
       decoration: BoxDecoration(
         border: Border(
@@ -280,9 +372,9 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: scheme.surface,
+                  color: scheme.surfaceContainerLow,
                   border: Border.all(color: scheme.outline),
-                  borderRadius: BorderRadius.circular(RadiusToken.sm),
+                  borderRadius: BorderRadius.circular(RadiusToken.control),
                 ),
                 alignment: Alignment.center,
                 child: Text(
@@ -291,17 +383,30 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
                     fontFamily: fontSerif,
                     fontFamilyFallback: fontSerifFallback,
                     fontSize: 18,
+                    fontWeight: FontWeight.w600,
                     color: scheme.primary,
                   ),
                 ),
               ),
               const SizedBox(width: Space.s4),
               Expanded(
-                child: Text(
-                  ws.name,
-                  style: theme.textTheme.titleSmall,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ws.name,
+                      style: theme.textTheme.titleSmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: Space.s1),
+                    Text(
+                      projectText,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               if (ws.pinned)
@@ -310,6 +415,98 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
               Icon(Icons.chevron_right,
                   size: 20, color: scheme.onSurfaceVariant),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Prominent, discoverable Inbox card at the top of Spaces.
+  Widget _inboxCard(BuildContext context, int count) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final countText = count == 1 ? '1 item' : '$count items';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Gap.lg),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: const ValueKey('spaces_inbox_card'),
+          onTap: _openInbox,
+          borderRadius: BorderRadius.circular(RadiusToken.card),
+          child: Container(
+            padding: const EdgeInsets.all(Space.s4),
+            decoration: BoxDecoration(
+              color: scheme.surface,
+              borderRadius: BorderRadius.circular(RadiusToken.card),
+              border: Border.all(color: scheme.outline),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: scheme.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(RadiusToken.control),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    Icons.inbox_outlined,
+                    color: scheme.primary,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: Space.s4),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Inbox',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: Space.s1),
+                      Text(
+                        'Quick captures and incoming notes',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Space.s3,
+                    vertical: Space.s1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: count > 0
+                        ? scheme.surfaceContainerHigh
+                        : scheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(RadiusToken.round),
+                  ),
+                  child: Text(
+                    countText,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: count > 0
+                          ? scheme.onSurface
+                          : scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: Space.s2),
+                Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ],
+            ),
           ),
         ),
       ),

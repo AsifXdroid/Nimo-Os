@@ -257,16 +257,15 @@ class _ExternalBackupSectionState extends State<ExternalBackupSection> {
               child: Text('Backup outside the app',
                   style: AppType.cardHeading(theme.textTheme)),
             ),
+            const NeoInfoButton(
+              title: 'Backup outside the app',
+              message: 'The same backup zip, copied into a folder you choose — '
+                  'for example a Nimo/Backups folder inside Documents. '
+                  'Unlike the copy inside the app, it survives uninstalling '
+                  'Nimo. After a reinstall, choose the same folder again '
+                  'to restore from it.',
+            ),
           ],
-        ),
-        const SizedBox(height: Gap.sm),
-        Text(
-          'The same backup zip, copied into a folder you choose — '
-          'for example a Nimo/Backups folder inside Documents. '
-          'Unlike the copy inside the app, it survives uninstalling '
-          'Nimo. After a reinstall, choose the same folder again '
-          'to restore from it.',
-          style: theme.textTheme.bodySmall,
         ),
         const SizedBox(height: Gap.md),
         if (_folderLabel == null) ...[

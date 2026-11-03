@@ -189,9 +189,9 @@ void main() {
           onOpenTopics: () {},
         ),
       );
-      await _pumpUntil(tester, find.text('CURIOSITY, KEPT ALIVE'));
+      await _pumpUntil(tester, find.text('Learn'));
       expect(
-          tester.getTopLeft(find.text('CURIOSITY, KEPT ALIVE')).dy,
+          tester.getTopLeft(find.text('Learn')).dy,
           greaterThanOrEqualTo(47));
       // The scroll viewport itself starts below the inset:
       // nothing can scroll under the status indicators.

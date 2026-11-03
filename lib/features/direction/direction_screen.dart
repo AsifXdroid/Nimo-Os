@@ -18,6 +18,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/glass_ui.dart';
 import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../goals/goals_screen.dart';
@@ -36,7 +37,7 @@ class DirectionScreen extends StatefulWidget {
     required this.progressStore,
     required this.todayStore,
     required this.reviewStore,
-    this.initialTab = DirectionTab.goals,
+    this.initialTab = DirectionTab.progress,
   });
 
   final GoalsStore goalsStore;
@@ -59,21 +60,23 @@ class _DirectionScreenState extends State<DirectionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: PageTop(
-        child: Column(
-          children: [
-            _tabStrip(context),
-            Expanded(
-              child: switch (_tab) {
-                DirectionTab.goals =>
-                  GoalsScreen(goalsStore: widget.goalsStore),
-                DirectionTab.progress => ProgressScreen(
-                    progressStore: widget.progressStore,
-                    todayStore: widget.todayStore,
-                    reviewStore: widget.reviewStore,
-                  ),
-              },
-            ),
-          ],
+        child: GlassAtmosphere(
+          child: Column(
+            children: [
+              _tabStrip(context),
+              Expanded(
+                child: switch (_tab) {
+                  DirectionTab.goals =>
+                    GoalsScreen(goalsStore: widget.goalsStore),
+                  DirectionTab.progress => ProgressScreen(
+                      progressStore: widget.progressStore,
+                      todayStore: widget.todayStore,
+                      reviewStore: widget.reviewStore,
+                    ),
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -93,6 +96,8 @@ class _DirectionScreenState extends State<DirectionScreen> {
           child: InkWell(
             onTap: () => setState(() => _tab = value),
             child: Container(
+              constraints: const BoxConstraints(minHeight: Space.touch),
+              alignment: Alignment.center,
               padding: const EdgeInsets.symmetric(vertical: Space.s3),
               decoration: BoxDecoration(
                 border: Border(
@@ -109,6 +114,7 @@ class _DirectionScreenState extends State<DirectionScreen> {
                       color: selected
                           ? scheme.onSurface
                           : scheme.onSurfaceVariant,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                     ),
               ),
             ),
@@ -125,8 +131,8 @@ class _DirectionScreenState extends State<DirectionScreen> {
       ),
       child: Row(
         children: [
+          tab(DirectionTab.progress, 'Journey'),
           tab(DirectionTab.goals, 'Goals'),
-          tab(DirectionTab.progress, 'Progress'),
         ],
       ),
     );

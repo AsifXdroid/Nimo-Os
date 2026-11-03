@@ -63,6 +63,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                 heading: 'Keep becoming.',
                 sub: 'Small actions are how a goal becomes part of '
                     'your life.',
+                compact: true,
               ),
               const SizedBox(height: Gap.lg),
               NeoSectionHead(
@@ -206,10 +207,26 @@ class _GoalCardState extends State<GoalCard> {
                   GoalCompletionBadge(celebrate: _justCompleted),
                 ],
                 if (widget.onDelete != null)
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    tooltip: 'Delete goal',
-                    onPressed: widget.onDelete,
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert, size: 20),
+                    tooltip: 'Goal options',
+                    onSelected: (val) {
+                      if (val == 'delete') widget.onDelete!();
+                    },
+                    itemBuilder: (ctx) => [
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline,
+                                size: 18, color: scheme.error),
+                            const SizedBox(width: 12),
+                            Text('Delete goal',
+                                style: TextStyle(color: scheme.error)),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
               ],
             ),

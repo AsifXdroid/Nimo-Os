@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import '../../core/glass_ui.dart';
 import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
+import '../../core/spatial_ui.dart';
 import '../../core/theme.dart';
 import '../items/item_detail_screen.dart';
 import '../items/items_screen.dart';
@@ -258,7 +259,7 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
             return GlassAtmosphere(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(
-                    Space.page, Gap.md, Space.page, 80.0),
+                    Space.page, Gap.md, Space.page, 110.0),
                 children: [
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -429,20 +430,20 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: Gap.lg),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          key: const ValueKey('spaces_inbox_card'),
-          onTap: _openInbox,
-          borderRadius: BorderRadius.circular(RadiusToken.card),
-          child: Container(
-            padding: const EdgeInsets.all(Space.s4),
-            decoration: BoxDecoration(
-              color: scheme.surface,
-              borderRadius: BorderRadius.circular(RadiusToken.card),
-              border: Border.all(color: scheme.outline),
-            ),
-            child: Row(
+      child: SpatialCard(
+        elevation: SpatialDepth.elevated,
+        borderRadius: RadiusToken.card,
+        padding: EdgeInsets.zero,
+        enablePerspective: true,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            key: const ValueKey('spaces_inbox_card'),
+            onTap: _openInbox,
+            borderRadius: BorderRadius.circular(RadiusToken.card),
+            child: Container(
+              padding: const EdgeInsets.all(Space.s4),
+              child: Row(
               children: [
                 Container(
                   width: 40,
@@ -510,6 +511,7 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

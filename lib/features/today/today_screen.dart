@@ -13,6 +13,7 @@ import '../../core/brand.dart';
 import '../../core/glass_ui.dart';
 import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
+import '../../core/spatial_ui.dart';
 import '../../core/theme.dart';
 import '../goals/goals_store.dart';
 import '../items/item_detail_screen.dart';
@@ -499,7 +500,7 @@ class _TodayScreenState extends State<TodayScreen> {
           return GlassAtmosphere(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(
-                  Space.page, Gap.md, Space.page, 80.0),
+                  Space.page, Gap.md, Space.page, 110.0),
               children: [
                 if (showIntro) ...[
                 _intro(context, now, data),
@@ -750,32 +751,12 @@ class _TodayScreenState extends State<TodayScreen> {
     Widget button(IconData icon, String label, VoidCallback onTap, {bool primary = false}) =>
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 3),
-            child: NeoRaisedSm(
-              level: primary ? NeoSurfaceLevel.emphasis : NeoSurfaceLevel.raised,
-              padding: const EdgeInsets.symmetric(vertical: Space.s3),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: SpatialTactileTile(
+              icon: icon,
+              label: label,
               onTap: onTap,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 44),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(icon, size: 20, color: scheme.primary),
-                    const SizedBox(height: Space.s1),
-                    Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            fontSize: 10,
-                            letterSpacing: -0.3,
-                            fontWeight: primary ? FontWeight.w600 : FontWeight.w500,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
+              color: primary ? scheme.primary : null,
             ),
           ),
         );
@@ -918,30 +899,42 @@ class _TodayScreenState extends State<TodayScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: NeoScoreWell(
-                label: 'Done score · auto',
-                value: closed && review.doneScore != null
-                    ? '${review.doneScore}'
-                    : '—',
-                sub: 'Based on your core plan',
-                suffix: ' / 100',
-                fraction: closed && review.doneScore != null
-                    ? review.doneScore! / 100
-                    : null,
+              child: SpatialCard(
+                elevation: SpatialDepth.elevated,
+                borderRadius: 14,
+                padding: EdgeInsets.zero,
+                enablePerspective: true,
+                child: NeoScoreWell(
+                  label: 'Done score · auto',
+                  value: closed && review.doneScore != null
+                      ? '${review.doneScore}'
+                      : '—',
+                  sub: 'Based on your core plan',
+                  suffix: ' / 100',
+                  fraction: closed && review.doneScore != null
+                      ? review.doneScore! / 100
+                      : null,
+                ),
               ),
             ),
-            const SizedBox(width: Space.s5),
+            const SizedBox(width: Space.s4),
             Expanded(
-              child: NeoScoreWell(
-                label: 'Self score · yours',
-                value: closed && review.selfScore != null
-                    ? '${review.selfScore}'
-                    : '—',
-                sub: closed ? 'Your own reflection' : 'Add yours at Day Close',
-                accentValue: true,
-                fraction: closed && review.selfScore != null
-                    ? review.selfScore! / 10
-                    : null,
+              child: SpatialCard(
+                elevation: SpatialDepth.elevated,
+                borderRadius: 14,
+                padding: EdgeInsets.zero,
+                enablePerspective: true,
+                child: NeoScoreWell(
+                  label: 'Self score · yours',
+                  value: closed && review.selfScore != null
+                      ? '${review.selfScore}'
+                      : '—',
+                  sub: closed ? 'Your own reflection' : 'Add yours at Day Close',
+                  accentValue: true,
+                  fraction: closed && review.selfScore != null
+                      ? review.selfScore! / 10
+                      : null,
+                ),
               ),
             ),
           ],
@@ -1393,64 +1386,68 @@ class _TodayScreenState extends State<TodayScreen> {
         // D-042: management lives in the sheet (long-press is
         // the accelerator; the ⋯ button is the visible path).
         onLongPress: () => _showPlanItemSheet(context, data, item),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: Space.s3),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 9,
-                height: 9,
-                margin: const EdgeInsets.only(top: 5),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: item.done ? scheme.primary : scheme.surface,
-                  border: Border.all(
-                    color: item.done ? scheme.primary : scheme.outline,
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 200),
+          opacity: item.done ? 0.62 : 1.0,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: Space.s3),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 9,
+                  height: 9,
+                  margin: const EdgeInsets.only(top: 5),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: item.done ? scheme.primary : scheme.surface,
+                    border: Border.all(
+                      color: item.done ? scheme.primary : scheme.outline,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: Space.s3),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.title,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        decoration:
-                            item.done ? TextDecoration.lineThrough : null,
-                        color: item.done ? scheme.onSurfaceVariant : null,
+                const SizedBox(width: Space.s3),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.title,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                          decoration:
+                              item.done ? TextDecoration.lineThrough : null,
+                          color: item.done ? scheme.onSurfaceVariant : null,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      item.isRoutine
-                          ? (item.countsCore ? 'Routine · Core' : 'Routine')
-                          : 'One-off',
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: scheme.onSurfaceVariant),
-                    ),
-                    if (item.hasResource)
-                      _resourceAction(context, data, item),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        item.isRoutine
+                            ? (item.countsCore ? 'Routine · Core' : 'Routine')
+                            : 'One-off',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: scheme.onSurfaceVariant),
+                      ),
+                      if (item.hasResource)
+                        _resourceAction(context, data, item),
+                    ],
+                  ),
                 ),
-              ),
-              if (item.carried) ...[
+                if (item.carried) ...[
+                  const SizedBox(width: Space.s2),
+                  const NeoTag('CARRIED', tint: true),
+                ],
+                IconButton(
+                  icon: const Icon(Icons.more_horiz, size: 18),
+                  tooltip: 'Task options',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () =>
+                      _showPlanItemSheet(context, data, item),
+                ),
                 const SizedBox(width: Space.s2),
-                const NeoTag('CARRIED', tint: true),
+                NeoCheck(done: item.done),
               ],
-              IconButton(
-                icon: const Icon(Icons.more_horiz, size: 18),
-                tooltip: 'Task options',
-                visualDensity: VisualDensity.compact,
-                onPressed: () =>
-                    _showPlanItemSheet(context, data, item),
-              ),
-              const SizedBox(width: Space.s2),
-              NeoCheck(done: item.done),
-            ],
+            ),
           ),
         ),
       ),

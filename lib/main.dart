@@ -24,9 +24,9 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
+import 'core/capsule_nav_bar.dart';
 import 'core/db/app_database.dart';
 import 'core/platform_init.dart';
-import 'core/glass_ui.dart';
 import 'core/theme.dart';
 import 'features/direction/direction_screen.dart';
 import 'features/goals/goals_store.dart';
@@ -812,47 +812,22 @@ class _AppShellState extends State<AppShell> {
             ),
           );
         }
-        final dark = Theme.of(context).brightness == Brightness.dark;
         return Scaffold(
+          extendBody: true,
           body: body,
-          floatingActionButton: addButton,
-          bottomNavigationBar: Container(
-            decoration: BoxDecoration(
-              color: dark
-                  ? GlassTokens.darkGlassPrimary
-                  : GlassTokens.lightGlassPrimary,
-              border: Border(
-                top: BorderSide(
-                  color: dark
-                      ? GlassTokens.darkRimHighlight
-                      : Theme.of(context).colorScheme.outlineVariant,
-                  width: 1.0,
+          bottomNavigationBar: FloatingCapsuleBar(
+            selectedIndex: _index,
+            onDestinationSelected: (i) => _select(_destinations[i].id),
+            onQuickAdd: _openQuickAdd,
+            destinations: [
+              for (final d in _destinations)
+                CapsuleDestination(
+                  id: d.id,
+                  label: d.label,
+                  icon: d.icon,
+                  selectedIcon: d.selectedIcon,
                 ),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: dark
-                      ? const Color(0x33000000)
-                      : const Color(0x0F000000),
-                  blurRadius: 16,
-                  offset: const Offset(0, -4),
-                ),
-              ],
-            ),
-            child: NavigationBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              selectedIndex: _index,
-              onDestinationSelected: (i) => _select(_destinations[i].id),
-              destinations: [
-                for (final d in _destinations)
-                  NavigationDestination(
-                    icon: Icon(d.icon),
-                    selectedIcon: Icon(d.selectedIcon),
-                    label: d.label,
-                  ),
-              ],
-            ),
+            ],
           ),
         );
       },

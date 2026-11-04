@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
+import '../../core/spatial_ui.dart';
 import '../../core/theme.dart';
 import '../shared_ui.dart';
 import 'goals_store.dart';
@@ -56,7 +57,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
           final list = snapshot.data!;
           return ListView(
             padding: const EdgeInsets.fromLTRB(
-                Space.page, Gap.md, Space.page, Gap.lg),
+                Space.page, Gap.md, Space.page, 110.0),
             children: [
               const NeoPageTitle(
                 eyebrow: 'A direction, not a deadline',
@@ -182,11 +183,16 @@ class _GoalCardState extends State<GoalCard> {
     final scheme = theme.colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: Space.s5),
-      child: NeoRaisedSm(
-        level: widget.level,
-        radius: RadiusToken.card,
-        padding: const EdgeInsets.all(Space.s6),
-        child: Column(
+      child: SpatialCard(
+        elevation: widget.level == NeoSurfaceLevel.raised ? SpatialDepth.elevated : SpatialDepth.base,
+        borderRadius: RadiusToken.card,
+        padding: EdgeInsets.zero,
+        enablePerspective: widget.level == NeoSurfaceLevel.raised,
+        child: NeoRaisedSm(
+          level: widget.level,
+          radius: RadiusToken.card,
+          padding: const EdgeInsets.all(Space.s6),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -274,6 +280,7 @@ class _GoalCardState extends State<GoalCard> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

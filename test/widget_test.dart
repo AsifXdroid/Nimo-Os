@@ -7,6 +7,7 @@
 // (which deadlocks on the loading spinner). Verified 2026-10-29.
 import 'dart:io';
 
+import 'package:daily_life_app/core/capsule_nav_bar.dart';
 import 'package:daily_life_app/core/db/app_database.dart';
 import 'package:daily_life_app/features/goals/goals_store.dart';
 import 'package:daily_life_app/features/items/link_card/thumbnail_service.dart';
@@ -94,10 +95,11 @@ void main() {
 
       // Phase 1: the bottom bar has 4 destinations; Progress
       // is the visible 4th destination and opens on Progress by default.
-      final navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+      final navBar =
+          tester.widget<FloatingCapsuleBar>(find.byType(FloatingCapsuleBar));
       expect(navBar.destinations, hasLength(4));
       final progressDest = find.descendant(
-        of: find.byType(NavigationBar),
+        of: find.byType(FloatingCapsuleBar),
         matching: find.text('Progress'),
       );
       expect(await pollFor(progressDest), isTrue);
@@ -115,7 +117,7 @@ void main() {
       await tester.tap(find.text('Today'));
       expect(await pollFor(find.text('Task')), isTrue);
       final learnDest = find.descendant(
-        of: find.byType(NavigationBar),
+        of: find.byType(FloatingCapsuleBar),
         matching: find.text('Learn'),
       );
       expect(await pollFor(learnDest), isTrue);

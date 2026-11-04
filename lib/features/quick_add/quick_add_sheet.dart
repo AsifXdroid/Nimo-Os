@@ -8,6 +8,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/spatial_ui.dart';
 import '../shared_ui.dart';
 import '../store.dart';
 import '../today/plan_link.dart' show isValidWebUrl;
@@ -62,9 +63,8 @@ Future<bool> quickAddResourceFlow(
   return true;
 }
 
-/// The Quick Add sheet: exactly the three captures, nothing
-/// else. [onOpenItem] is invoked when the user taps Open on the
-/// quick-note confirmation.
+/// The Quick Add sheet: exactly the three captures, presented
+/// in a spatial frosted action sheet with specular rim and elevation.
 Future<void> showQuickAddSheet(
   BuildContext context, {
   required QuickAddService service,
@@ -72,6 +72,8 @@ Future<void> showQuickAddSheet(
 }) {
   return showModalBottomSheet<void>(
     context: context,
+    backgroundColor: Colors.transparent,
+    elevation: 0,
     builder: (sheetContext) {
       Widget row(IconData icon, String label, String sub,
           Future<bool> Function() run) {
@@ -79,6 +81,9 @@ Future<void> showQuickAddSheet(
           leading: Icon(icon),
           title: Text(label),
           subtitle: Text(sub),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           onTap: () async {
             Navigator.of(sheetContext).pop();
             await run();
@@ -86,21 +91,19 @@ Future<void> showQuickAddSheet(
         );
       }
 
-      return SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const ListTile(title: Text('Quick add')),
-            row(Icons.add_task_outlined, 'Task', 'Add to today’s plan',
-                () => quickAddTaskFlow(context, service: service)),
-            row(Icons.note_outlined, 'Quick note', 'File it in your Inbox',
-                () => quickAddNoteFlow(context,
-                    service: service, onOpenItem: onOpenItem)),
-            row(Icons.link_outlined, 'Save resource',
-                'A link card in your Inbox',
-                () => quickAddResourceFlow(context, service: service)),
-          ],
-        ),
+      return SpatialActionSheet(
+        title: 'Quick add',
+        subtitle: 'Capture thought, task, or resource instantly',
+        children: [
+          row(Icons.add_task_outlined, 'Task', 'Add to today’s plan',
+              () => quickAddTaskFlow(context, service: service)),
+          row(Icons.note_outlined, 'Quick note', 'File it in your Inbox',
+              () => quickAddNoteFlow(context,
+                  service: service, onOpenItem: onOpenItem)),
+          row(Icons.link_outlined, 'Save resource',
+              'A link card in your Inbox',
+              () => quickAddResourceFlow(context, service: service)),
+        ],
       );
     },
   );

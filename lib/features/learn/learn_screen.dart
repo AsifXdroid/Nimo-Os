@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import '../../core/glass_ui.dart';
 import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
+import '../../core/spatial_ui.dart';
 import '../../core/theme.dart';
 import '../review/review_store.dart';
 import '../shared_ui.dart';
@@ -180,7 +181,7 @@ class _LearnScreenState extends State<LearnScreen> {
         child: GlassAtmosphere(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(
-                Space.page, Gap.md, Space.page, 80.0),
+                Space.page, Gap.md, Space.page, 110.0),
             children: [
               Text(
                 'Learn',
@@ -239,23 +240,11 @@ class _LearnScreenState extends State<LearnScreen> {
     final theme = Theme.of(context);
     final ed = EditorialColors.of(context);
     final dark = theme.brightness == Brightness.dark;
-    return Container(
-      decoration: BoxDecoration(
-        color: ed.deep,
-        borderRadius: BorderRadius.circular(RadiusToken.card),
-        border: Border.all(
-          color: dark ? GlassTokens.darkRimHighlight : ed.deepLine,
-          width: 1.0,
-        ),
-        boxShadow: [
-          if (dark)
-            const BoxShadow(
-              color: GlassTokens.darkGlowMint,
-              blurRadius: 16,
-              spreadRadius: -4,
-            ),
-        ],
-      ),
+    return SpatialCard(
+      elevation: SpatialDepth.elevated,
+      enablePerspective: true,
+      backgroundColor: ed.deep,
+      glowColor: dark ? GlassTokens.darkGlowMint : null,
       padding: const EdgeInsets.all(Space.s4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -386,7 +375,10 @@ class _LearnScreenState extends State<LearnScreen> {
     final bossReady = (_packDueCounts[pack.packId] ?? 0) >= 5;
     return Padding(
       padding: const EdgeInsets.only(bottom: Space.s3),
-      child: NeoPanel(
+      child: SpatialCard(
+        elevation: SpatialDepth.elevated,
+        enablePerspective: true,
+        padding: const EdgeInsets.all(Space.s4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

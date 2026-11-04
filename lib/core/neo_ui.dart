@@ -45,23 +45,25 @@ enum NeoSurfaceLevel { flat, raised, emphasis }
 bool _isDark(BuildContext context) =>
     Theme.of(context).brightness == Brightness.dark;
 
-/// The inset-well look (`--inset-sm`): a recessed surface. The
-/// inner shade is a top-left gradient; the base colour is the
-/// prototype's `--bg` in light and `--bg-secondary` in dark.
+/// The inset-well look (`--inset-sm`): a recessed spatial well with
+/// subtle ambient rim and dual tone transition.
 BoxDecoration neoWellDecoration(BuildContext context,
     {double radius = RadiusToken.inset}) {
   final dark = _isDark(context);
   final scheme = Theme.of(context).colorScheme;
   return BoxDecoration(
     borderRadius: BorderRadius.circular(radius),
-    border: Border.all(color: scheme.outlineVariant),
+    border: Border.all(
+      color: dark ? Colors.white.withValues(alpha: 0.08) : scheme.outlineVariant,
+      width: 1.0,
+    ),
     gradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       stops: const [0, 0.45, 1],
       colors: dark
-          ? const [Color(0xFF090B09), Color(0xFF0C0F0C), Color(0xFF0C0F0C)]
-          : const [Color(0xFFCFC9B4), Color(0xFFE2DECF), Color(0xFFE2DECF)],
+          ? const [Color(0xFF0D120F), Color(0xFF131A16), Color(0xFF131A16)]
+          : const [Color(0xFFD5DDD7), Color(0xFFE2EBE5), Color(0xFFE2EBE5)],
     ),
   );
 }

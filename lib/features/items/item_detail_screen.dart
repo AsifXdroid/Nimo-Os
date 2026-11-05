@@ -838,6 +838,7 @@ class _ChecklistBodyState extends State<_ChecklistBody> {
     for (final id in _selectedEntryIds) {
       await widget.store.deleteChecklistEntry(id);
     }
+    if (!mounted) return;
     _selectedEntryIds.clear();
     setState(_reload);
   }
@@ -849,6 +850,7 @@ class _ChecklistBodyState extends State<_ChecklistBody> {
         title: 'Edit entry', initial: entry.text, label: 'Text');
     if (text == null || text.isEmpty) return;
     await widget.store.updateChecklistEntry(entry.id, text: text);
+    if (!mounted) return;
     _selectedEntryIds.clear();
     setState(_reload);
   }
@@ -857,6 +859,7 @@ class _ChecklistBodyState extends State<_ChecklistBody> {
     final text = await promptText(context, title: 'New entry', label: 'Text');
     if (text == null || text.isEmpty) return;
     await widget.store.addChecklistEntry(widget.item.id, text);
+    if (!mounted) return;
     setState(_reload);
   }
 
@@ -942,6 +945,7 @@ class _ChecklistBodyState extends State<_ChecklistBody> {
                             } else {
                               await widget.store
                                   .setChecklistEntryDone(e.id, !e.isDone);
+                              if (!mounted) return;
                               setState(_reload);
                             }
                           },

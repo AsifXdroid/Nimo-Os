@@ -350,12 +350,15 @@ class _Spec {
 /// app_settings (device-local), sync machinery itself.
 const List<String> syncEntityOrder = [
   'workspaces',
+  // D-042: projects/items move ahead of plan_templates —
+  // a template may link an item, and import stays
+  // parents-first so the link resolves in the same pass.
+  'projects',
+  'items',
   'plan_templates',
   'goals',
   'day_plans',
-  'projects',
   'topics',
-  'items',
   'checklist_entries',
   'day_plan_items',
   'sources',
@@ -376,16 +379,24 @@ final Map<String, _Spec> _specs = {
     'updated_at',
     'pinned',
   ]),
-  'plan_templates': const _Spec([
-    'title',
-    'position',
-    'is_active',
-    'created_at',
-    'starter_title',
-    'anchor_text',
-    'track',
-    'counts_core',
-  ]),
+  'plan_templates': const _Spec(
+    [
+      'title',
+      'position',
+      'is_active',
+      'created_at',
+      'starter_title',
+      'anchor_text',
+      'track',
+      'counts_core',
+      // D-042: schedule mask + bare URL are plain fields; the
+      // item link travels as item_id_sync (parent sync_id),
+      // never as a local integer.
+      'weekdays',
+      'url',
+    ],
+    fks: [_Fk('item_id', 'items')],
+  ),
   'goals': const _Spec([
     'title',
     'target',
@@ -395,6 +406,10 @@ final Map<String, _Spec> _specs = {
     'created_at',
     'track',
   ]),
+  // created_at is deliberately NOT a synced field: two
+  // devices generating the same morning would "conflict"
+  // over a bookkeeping timestamp. It is materialised
+  // locally on import instead (see _rowFromPayload).
   'day_plans': const _Spec(['date'], naturalKey: 'date'),
   'topics': const _Spec(
     ['title', 'trigger_url', 'status', 'track', 'created_at', 'updated_at'],
@@ -421,10 +436,12 @@ final Map<String, _Spec> _specs = {
     fks: [_Fk('item_id', 'items')],
   ),
   'day_plan_items': const _Spec(
-    ['title', 'kind', 'done', 'carried', 'position', 'counts_core'],
+    ['title', 'kind', 'done', 'carried', 'position', 'counts_core', 'url'],
     fks: [
       _Fk('day_plan_id', 'day_plans'),
       _Fk('template_id', 'plan_templates'),
+      // D-042: the linked resource, carried as item_id_sync.
+      _Fk('item_id', 'items'),
     ],
   ),
   'sources': const _Spec(
@@ -1408,6 +1425,12 @@ class SyncStore {
         // structural: without the parent the row is meaningless.
         const nullableFks = {
           'day_plan_items.template_id',
+          // D-042: a task whose linked item cannot be resolved
+          // (not yet imported — plan_templates travel before
+          // items — or deleted on the sender) degrades to a
+          // plain task. It must never be quarantined.
+          'day_plan_items.item_id',
+          'plan_templates.item_id',
           'marked_points.question_id',
           'questions.source_id',
           'packs.source_id',
@@ -1446,6 +1469,20 @@ class SyncStore {
         );
       }
       row['session_id'] = sessionId;
+    }
+    if (op.entity == 'day_plans') {
+      // D-042 fix, found by the plan-link round-trip test:
+      // day_plans.created_at is NOT NULL but not a synced
+      // field, so inserting a plan onto a device that never
+      // generated that date failed the constraint and the op
+      // landed in quarantine (masked while both devices
+      // generated the same morning locally). Materialise it
+      // from the op's own stamp — the moment the plan was
+      // created on the origin device, near enough for a
+      // bookkeeping column nothing reads for logic.
+      row['created_at'] =
+          int.tryParse(op.hlc.split('-').first) ??
+              DateTime.now().millisecondsSinceEpoch;
     }
     row['sync_id'] = op.syncId;
     row['updated_hlc'] = op.hlc;

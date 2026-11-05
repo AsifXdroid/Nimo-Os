@@ -26,27 +26,21 @@ void main() {
   });
 
   group('Neo themes (D-036)', () {
-    test('dark is Editorial charcoal; light is Editorial paper', () {
+    test('dark is Green & Black; light is the soft set (D-052)', () {
       final dark = AppTheme.neoDark();
       expect(dark.brightness, Brightness.dark);
-      expect(dark.scaffoldBackgroundColor, const Color(0xFF111411));
+      expect(dark.scaffoldBackgroundColor, const Color(0xFF101010));
       final light = AppTheme.neoLight();
       expect(light.brightness, Brightness.light);
-      expect(light.scaffoldBackgroundColor, const Color(0xFFDFDBC9));
+      expect(light.scaffoldBackgroundColor, const Color(0xFFE9EFEB));
     });
 
-    test('Route A: mint/teal is the functional accent in BOTH '
-        'themes; lavender never is', () {
-      expect(
-        AppTheme.neoDark().colorScheme.primary,
-        const Color(0xFFA9D5C6),
-      );
-      // Light deepens the same family for paper contrast —
-      // still teal, never the brand lavender.
-      expect(
-        AppTheme.neoLight().colorScheme.primary,
-        const Color(0xFF2F6B57),
-      );
+    test('D-052: the ONE green accent in BOTH themes; lavender '
+        'never is', () {
+      expect(AppTheme.neoDark().colorScheme.primary, const Color(0xFF1ED760));
+      // Light uses the deep green — the bright green fails
+      // contrast on light surfaces; still never lavender.
+      expect(AppTheme.neoLight().colorScheme.primary, const Color(0xFF276C57));
       for (final t in [AppTheme.neoDark(), AppTheme.neoLight()]) {
         expect(t.colorScheme.primary, isNot(BrandColors.lavender));
         expect(t.colorScheme.secondary, isNot(BrandColors.lavender));
@@ -56,10 +50,7 @@ void main() {
     test('Neo shape + type discipline holds in both themes', () {
       for (final t in [AppTheme.neoDark(), AppTheme.neoLight()]) {
         final card = t.cardTheme.shape! as RoundedRectangleBorder;
-        expect(
-          card.borderRadius,
-          BorderRadius.circular(RadiusToken.card),
-        );
+        expect(card.borderRadius, BorderRadius.circular(RadiusToken.card));
         expect(t.textTheme.bodyMedium!.fontSize, 15);
         expect(t.textTheme.bodyLarge!.fontSize, 16);
       }
@@ -75,8 +66,9 @@ void main() {
   });
 
   group('Brand mark (D-035)', () {
-    testWidgets('NimoBrand renders mark + wordmark in both themes',
-        (tester) async {
+    testWidgets('NimoBrand renders mark + wordmark in both themes', (
+      tester,
+    ) async {
       for (final theme in [AppTheme.neoDark(), AppTheme.neoLight()]) {
         await tester.pumpWidget(
           MaterialApp(
@@ -99,12 +91,13 @@ void main() {
         expect(tt.titleSmall!.fontSize, 16);
         expect(tt.titleSmall!.fontWeight, FontWeight.w600);
         expect(tt.titleSmall!.fontFamily, fontSans);
-        // Section-heading role (D-039): SERIF 20 / w500.
-        expect(tt.titleMedium!.fontSize, 20);
-        expect(tt.titleMedium!.fontWeight, FontWeight.w500);
-        expect(tt.titleMedium!.fontFamily, fontSerif);
-        // Page title is serif; body is sans (D-039 families).
-        expect(tt.headlineLarge!.fontFamily, fontSerif);
+        // Section-heading role (D-052): SANS 17 / w600 — the
+        // serif display is retired.
+        expect(tt.titleMedium!.fontSize, 17);
+        expect(tt.titleMedium!.fontWeight, FontWeight.w600);
+        expect(tt.titleMedium!.fontFamily, fontSans);
+        // Page title is sans; body is sans (D-052).
+        expect(tt.headlineLarge!.fontFamily, fontSans);
         expect(tt.bodyMedium!.fontFamily, fontSans);
         // Caption role floored at 13; body keeps 15/16.
         expect(tt.bodySmall!.fontSize, 13);
@@ -123,14 +116,12 @@ void main() {
     test('statistic role uses tabular figures; eyebrow is tracked', () {
       final stat = AppType.statistic();
       expect(stat.fontSize, 30);
-      expect(
-        stat.fontFeatures,
-        contains(const FontFeature.tabularFigures()),
-      );
-      // Eyebrow (D-039): DM Mono 11 / w500 / tracked 1.6.
-      expect(AppType.eyebrow.letterSpacing, 1.6);
-      expect(AppType.eyebrow.fontWeight, FontWeight.w500);
-      expect(AppType.eyebrow.fontFamily, fontMono);
+      expect(stat.fontFeatures, contains(const FontFeature.tabularFigures()));
+      // Eyebrow (D-052): DM Sans 10 / w600 / tracked 1.8.
+      expect(AppType.eyebrow.letterSpacing, 1.8);
+      expect(AppType.eyebrow.fontWeight, FontWeight.w600);
+      expect(AppType.eyebrow.fontFamily, fontSans);
+      expect(AppType.eyebrow.fontSize, 10);
       expect(AppType.technical.fontSize, 13);
       expect(AppType.technical.fontFamily, fontMono);
     });
@@ -139,10 +130,12 @@ void main() {
         'does, emphasis uses the floating colour', (tester) async {
       BoxDecoration decoFor(NeoSurfaceLevel level) {
         final containers = tester
-            .widgetList<Container>(find.descendant(
-              of: find.byType(NeoPanel),
-              matching: find.byType(Container),
-            ))
+            .widgetList<Container>(
+              find.descendant(
+                of: find.byType(NeoPanel),
+                matching: find.byType(Container),
+              ),
+            )
             .toList();
         return containers.first.decoration! as BoxDecoration;
       }
@@ -152,10 +145,7 @@ void main() {
           MaterialApp(
             theme: AppTheme.neoDark(),
             home: Scaffold(
-              body: NeoPanel(
-                level: level,
-                child: const Text('marker'),
-              ),
+              body: NeoPanel(level: level, child: const Text('marker')),
             ),
           ),
         );
@@ -224,13 +214,21 @@ void main() {
         ('onSurface/scaffold', s.onSurface, scaffold, 4.5),
         ('onSurface/surface', s.onSurface, s.surface, 4.5),
         ('onSurfaceVariant/scaffold', s.onSurfaceVariant, scaffold, 4.5),
-        ('onSurfaceVariant/flat', s.onSurfaceVariant,
-            s.surfaceContainerLow, 4.5),
+        (
+          'onSurfaceVariant/flat',
+          s.onSurfaceVariant,
+          s.surfaceContainerLow,
+          4.5,
+        ),
         ('primary text/surface', s.primary, s.surface, 4.5),
         ('onPrimary/primary', s.onPrimary, s.primary, 4.5),
         ('tertiary icon/surface', s.tertiary, s.surface, 3.0),
-        ('avatar letter/container', s.onPrimaryContainer,
-            s.primaryContainer, 4.5),
+        (
+          'avatar letter/container',
+          s.onPrimaryContainer,
+          s.primaryContainer,
+          4.5,
+        ),
         ('error/surface', s.error, s.surface, 4.5),
         // D-039 Stage 6: the two feature surfaces join the
         // guarded set. paperMuted was deepened #60685E →
@@ -239,8 +237,7 @@ void main() {
         ('onDeep/deep', ed.onDeep, ed.deep, 4.5),
         ('deepMuted/deep', ed.deepMuted, ed.deep, 4.5),
         ('deepAccent/deep', ed.deepAccent, ed.deep, 4.5),
-        ('onDeepAccent/deepAccent', ed.onDeepAccent, ed.deepAccent,
-            4.5),
+        ('onDeepAccent/deepAccent', ed.onDeepAccent, ed.deepAccent, 4.5),
         ('onPaper/paper', ed.onPaper, ed.paper, 4.5),
         ('paperMuted/paper', ed.paperMuted, ed.paper, 4.5),
         // The week dot and similar marks: graphical floor.
@@ -248,8 +245,11 @@ void main() {
       ];
       for (final (label, fg, bg, floor) in pairs) {
         test('$name $label ≥ $floor', () {
-          expect(ratio(fg, bg), greaterThanOrEqualTo(floor),
-              reason: '$name $label');
+          expect(
+            ratio(fg, bg),
+            greaterThanOrEqualTo(floor),
+            reason: '$name $label',
+          );
         });
       }
     }
@@ -263,18 +263,20 @@ void main() {
       final d = AppTheme.neoDark().extension<EditorialColors>()!;
       final l = AppTheme.neoLight().extension<EditorialColors>()!;
       // The deep surface is the same device in both themes.
-      expect(d.deep, const Color(0xFF1C2822));
-      expect(l.deep, const Color(0xFF1C2822));
-      // Paper: the concept value on dark; lightest paper on light.
-      expect(d.paper, const Color(0xFFE8E5DA));
-      expect(l.paper, const Color(0xFFF2F0E8));
-      expect(d.onPaper, const Color(0xFF20231E));
+      expect(d.deep, const Color(0xFF0E2418));
+      expect(l.deep, const Color(0xFF0E2418));
+      // Paper: the clean off-white on dark; white on light.
+      expect(d.paper, const Color(0xFFF2F3F1));
+      expect(l.paper, const Color(0xFFFFFFFF));
+      expect(d.onPaper, const Color(0xFF101010));
     });
 
-    test('editorial radius scale: controls 3, cards 10, nav 17', () {
-      expect(RadiusToken.control, 3);
-      expect(RadiusToken.card, 10);
-      expect(RadiusToken.nav, 17);
+    test('green & black radius scale: controls 10, cards 12, '
+        'nav 16, sheets 28', () {
+      expect(RadiusToken.control, 10);
+      expect(RadiusToken.card, 12);
+      expect(RadiusToken.nav, 16);
+      expect(RadiusToken.sheet, 28);
     });
   });
 

@@ -146,7 +146,6 @@ class _BackupSectionState extends State<BackupSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // D-038: distinct from Sync — this is the FULL snapshot.
         Row(
           children: [
             const NeoGlyph(icon: Icons.archive_outlined, size: 36),
@@ -155,15 +154,14 @@ class _BackupSectionState extends State<BackupSection> {
               child: Text('Full snapshot backup',
                   style: AppType.cardHeading(theme.textTheme)),
             ),
+            const NeoInfoButton(
+              title: 'Full snapshot backup',
+              message: 'One zip file: a database snapshot plus your Library. '
+                  'Stored in Library/backups — it travels with the folder. '
+                  'Unlike sync, a backup copies everything, not just '
+                  'changes.',
+            ),
           ],
-        ),
-        const SizedBox(height: Gap.sm),
-        Text(
-          'One zip file: a database snapshot plus your Library. '
-          'Stored in Library/backups — it travels with the folder. '
-          'Unlike sync, a backup copies everything, not just '
-          'changes.',
-          style: theme.textTheme.bodySmall,
         ),
         const SizedBox(height: Gap.md),
         Row(

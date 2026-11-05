@@ -13,13 +13,17 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
+import '../review/review_store.dart';
 import '../shared_ui.dart';
 import '../store.dart';
+import '../today/today_store.dart';
 import 'learn_services.dart';
 import 'learn_store.dart';
 import 'pack_import_ui.dart';
 import 'pdf_source_screen.dart';
 import 'reading_screen.dart';
+import 'session_composer.dart';
+import 'session_screen.dart';
 
 class TopicDetailScreen extends StatefulWidget {
   const TopicDetailScreen({
@@ -27,11 +31,13 @@ class TopicDetailScreen extends StatefulWidget {
     required this.store,
     required this.learn,
     required this.topic,
+    this.reviewStore,
   });
 
   final Store store;
   final LearnServices learn;
   final Topic topic;
+  final ReviewStore? reviewStore;
 
   @override
   State<TopicDetailScreen> createState() => _TopicDetailScreenState();
@@ -42,6 +48,7 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
   List<Source> _sources = const [];
   List<MarkedPoint> _points = const [];
   int _unminted = 0;
+  int _questionCount = 0;
   bool _loaded = false;
 
   @override
@@ -56,14 +63,34 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
     final sources = await widget.learn.store.sourcesForTopic(_topic.id);
     final points = await widget.learn.store.markedPointsForTopic(_topic.id);
     final unminted = await widget.learn.engine.unmintedPointCount(_topic.id);
+    final questions = await widget.learn.engine.questionsForTopic(_topic.id);
     if (!mounted) return;
     setState(() {
       _topic = topic;
       _sources = sources;
       _points = points;
       _unminted = unminted;
+      _questionCount = questions.length;
       _loaded = true;
     });
+  }
+
+  Future<void> _practiceTopic() async {
+    final reviewStore = widget.reviewStore ??
+        ReviewStore(widget.learn.db, TodayStore(widget.learn.db));
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SessionScreen(
+          learn: widget.learn,
+          reviewStore: reviewStore,
+          store: widget.store,
+          kind: SessionKind.episode,
+          topicId: _topic.id,
+        ),
+      ),
+    );
+    _load();
   }
 
   Future<void> _buildClozeCards() async {
@@ -238,176 +265,432 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
     _load(); // marked points may have changed in the reader
   }
 
-  Future<void> _deleteSource(Source source) async {
-    if (!await confirmDelete(context, 'source')) return;
-    await widget.learn.store.deleteSource(source.id);
-    final rel = source.fileRelPath;
-    if (rel != null) await widget.learn.library.delete(rel);
-    final textRel = source.textRelPath;
-    if (textRel != null) await widget.learn.library.delete(textRel);
+  // ------------------------------------------------------------ build
+
+  final Set<int> _selectedSourceIds = {};
+  final Set<int> _selectedPointIds = {};
+
+  bool get _isSelectingSources => _selectedSourceIds.isNotEmpty;
+  bool get _isSelectingPoints => _selectedPointIds.isNotEmpty;
+  bool get _isSelectionMode => _isSelectingSources || _isSelectingPoints;
+
+  void _exitSelectionMode() {
+    setState(() {
+      _selectedSourceIds.clear();
+      _selectedPointIds.clear();
+    });
+  }
+
+  void _toggleSourceSelection(int id) {
+    setState(() {
+      _selectedPointIds.clear();
+      if (_selectedSourceIds.contains(id)) {
+        _selectedSourceIds.remove(id);
+      } else {
+        _selectedSourceIds.add(id);
+      }
+    });
+  }
+
+  void _togglePointSelection(int id) {
+    setState(() {
+      _selectedSourceIds.clear();
+      if (_selectedPointIds.contains(id)) {
+        _selectedPointIds.remove(id);
+      } else {
+        _selectedPointIds.add(id);
+      }
+    });
+  }
+
+  Future<void> _deleteSelectedSources() async {
+    final count = _selectedSourceIds.length;
+    if (count == 0) return;
+    if (!await confirmDelete(context, '$count source${count > 1 ? 's' : ''}')) {
+      return;
+    }
+    final toDelete = _sources.where((s) => _selectedSourceIds.contains(s.id)).toList();
+    for (final s in toDelete) {
+      await widget.learn.store.deleteSource(s.id);
+      final rel = s.fileRelPath;
+      if (rel != null) await widget.learn.library.delete(rel);
+      final textRel = s.textRelPath;
+      if (textRel != null) await widget.learn.library.delete(textRel);
+    }
+    _selectedSourceIds.clear();
     _load();
   }
 
-  // ------------------------------------------------------------ build
+  Future<void> _deleteSelectedPoints() async {
+    final count = _selectedPointIds.length;
+    if (count == 0) return;
+    if (!await confirmDelete(context, '$count marked point${count > 1 ? 's' : ''}')) {
+      return;
+    }
+    for (final id in _selectedPointIds) {
+      await widget.learn.store.deleteMarkedPoint(id);
+    }
+    _selectedPointIds.clear();
+    _load();
+  }
+
+  Future<void> _mintSelectedPoints() async {
+    final ids = _selectedPointIds.toList();
+    if (ids.isEmpty) return;
+    final minted = await widget.learn.engine.mintClozeForPointIds(ids);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$minted cloze card${minted == 1 ? '' : 's'} added')),
+    );
+    _exitSelectionMode();
+    _load();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Topic'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.file_download_outlined),
-            tooltip: 'Import quiz pack',
-            onPressed: _importPack,
-          ),
-          IconButton(
-            icon: const Icon(Icons.drive_file_move_outline),
-            tooltip: 'Move to project',
-            onPressed: _move,
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            tooltip: 'Delete topic',
-            onPressed: _deleteTopic,
-          ),
-        ],
-      ),
-      body: !_loaded
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(
-                  Space.page, Gap.md, Space.page, Gap.lg),
-              children: [
-                const NeoEyebrow('Topic'),
-                const SizedBox(height: Space.s3),
-                InkWell(
-                  onTap: _rename,
-                  child: Text(_topic.title,
-                      style: theme.textTheme.headlineLarge),
+    final isSelecting = _isSelectionMode;
+    final selectionCount = _isSelectingSources
+        ? _selectedSourceIds.length
+        : _selectedPointIds.length;
+
+    return PopScope(
+      canPop: !isSelecting,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && isSelecting) {
+          _exitSelectionMode();
+        }
+      },
+      child: Scaffold(
+        appBar: isSelecting
+            ? AppBar(
+                leading: IconButton(
+                  icon: const Icon(Icons.close),
+                  tooltip: 'Cancel selection',
+                  onPressed: _exitSelectionMode,
                 ),
-                const SizedBox(height: Gap.md),
-                Row(
-                  children: [
-                    DropdownButton<String>(
-                      value: _topic.status,
-                      items: [
-                        for (final s in TopicStatus.all)
-                          DropdownMenuItem(value: s, child: Text(s)),
-                      ],
-                      onChanged: (v) async {
-                        if (v == null) return;
-                        await widget.learn.store
-                            .updateTopic(_topic.id, status: v);
-                        _load();
+                title: Text('$selectionCount selected'),
+                actions: [
+                  if (_isSelectingSources) ...[
+                    IconButton(
+                      icon: Icon(
+                        _selectedSourceIds.length == _sources.length
+                            ? Icons.deselect_outlined
+                            : Icons.select_all_outlined,
+                      ),
+                      tooltip: _selectedSourceIds.length == _sources.length
+                          ? 'Deselect all'
+                          : 'Select all',
+                      onPressed: () {
+                        setState(() {
+                          if (_selectedSourceIds.length == _sources.length) {
+                            _selectedSourceIds.clear();
+                          } else {
+                            _selectedSourceIds.addAll(_sources.map((s) => s.id));
+                          }
+                        });
                       },
                     ),
-                    const SizedBox(width: Gap.md),
-                    ActionChip(
-                      avatar: const Icon(Icons.school_outlined, size: 18),
-                      label: Text(_topic.track ?? 'No track'),
-                      onPressed: _editTrack,
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      tooltip: 'Delete selected sources',
+                      onPressed: _deleteSelectedSources,
+                    ),
+                  ] else if (_isSelectingPoints) ...[
+                    IconButton(
+                      icon: const Icon(Icons.school_outlined),
+                      tooltip: 'Mint cloze cards',
+                      onPressed: _mintSelectedPoints,
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        _selectedPointIds.length == _points.length
+                            ? Icons.deselect_outlined
+                            : Icons.select_all_outlined,
+                      ),
+                      tooltip: _selectedPointIds.length == _points.length
+                          ? 'Deselect all'
+                          : 'Select all',
+                      onPressed: () {
+                        setState(() {
+                          if (_selectedPointIds.length == _points.length) {
+                            _selectedPointIds.clear();
+                          } else {
+                            _selectedPointIds.addAll(_points.map((p) => p.id));
+                          }
+                        });
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      tooltip: 'Delete selected points',
+                      onPressed: _deleteSelectedPoints,
                     ),
                   ],
-                ),
-                if (_topic.triggerUrl != null) ...[
-                  const SizedBox(height: Gap.md),
-                  NeoListRow(
-                    icon: Icons.link,
-                    title: 'Sparked by',
-                    sub: _topic.triggerUrl!,
-                    last: true,
-                    onTap: () {
-                      final uri = Uri.tryParse(_topic.triggerUrl!);
-                      if (uri != null) launchUrl(uri);
-                    },
-                  ),
-                  const SizedBox(height: Space.s3),
-                  const NeoNotice(
-                    'A reel can spark a topic. Attach a real learning '
-                    'source to explore it more deeply.',
-                  ),
                 ],
-                const SizedBox(height: Gap.lg),
-                const NeoSectionHead(title: 'Sources'),
-                const SizedBox(height: Space.s3),
-                if (_sources.isEmpty)
-                  Text('No sources yet — import the real material.',
-                      style: theme.textTheme.bodyMedium)
-                else
-                  // D-039: source rows on the canvas (hairlines).
-                  Column(
-                    children: [
-                      for (final s in _sources)
-                        _sourceRow(context, s, last: s == _sources.last),
+              )
+            : AppBar(
+                title: const Text('Topic'),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.file_download_outlined),
+                    tooltip: 'Import quiz pack',
+                    onPressed: _importPack,
+                  ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    tooltip: 'More actions',
+                    onSelected: (value) {
+                      if (value == 'select_sources') {
+                        if (_sources.isNotEmpty) {
+                          setState(() {
+                            _selectedSourceIds.add(_sources.first.id);
+                          });
+                        }
+                      }
+                      if (value == 'select_points') {
+                        if (_points.isNotEmpty) {
+                          setState(() {
+                            _selectedPointIds.add(_points.first.id);
+                          });
+                        }
+                      }
+                      if (value == 'move') _move();
+                      if (value == 'rename') _rename();
+                      if (value == 'delete') _deleteTopic();
+                    },
+                    itemBuilder: (context) => [
+                      if (_sources.isNotEmpty)
+                        const PopupMenuItem(
+                          value: 'select_sources',
+                          child: Row(
+                            children: [
+                              Icon(Icons.checklist_outlined, size: 20),
+                              SizedBox(width: 12),
+                              Text('Select sources'),
+                            ],
+                          ),
+                        ),
+                      if (_points.isNotEmpty)
+                        const PopupMenuItem(
+                          value: 'select_points',
+                          child: Row(
+                            children: [
+                              Icon(Icons.checklist_outlined, size: 20),
+                              SizedBox(width: 12),
+                              Text('Select marked points'),
+                            ],
+                          ),
+                        ),
+                      if (_sources.isNotEmpty || _points.isNotEmpty)
+                        const PopupMenuDivider(),
+                      const PopupMenuItem(
+                        value: 'rename',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit_outlined, size: 20),
+                            SizedBox(width: 12),
+                            Text('Rename topic'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'move',
+                        child: Row(
+                          children: [
+                            Icon(Icons.drive_file_move_outline, size: 20),
+                            SizedBox(width: 12),
+                            Text('Move to project'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline,
+                                size: 20, color: theme.colorScheme.error),
+                            const SizedBox(width: 12),
+                            Text('Delete topic',
+                                style: TextStyle(color: theme.colorScheme.error)),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
-                const SizedBox(height: Gap.md),
-                Wrap(
-                  spacing: Gap.sm,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: _importFile,
-                      icon: const Icon(Icons.upload_file_outlined),
-                      label: const Text('Import file'),
+                ],
+              ),
+        body: !_loaded
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(
+                    Space.page, Gap.md, Space.page, Gap.lg),
+                children: [
+                  InkWell(
+                    onTap: _rename,
+                    child: Text(
+                      _topic.title,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        // D-052: sans (serif retired).
+                        fontFamily: fontSans,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                    OutlinedButton.icon(
-                      onPressed: _addLink,
-                      icon: const Icon(Icons.link),
-                      label: const Text('Add link'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: _addText,
-                      icon: const Icon(Icons.text_snippet_outlined),
-                      label: const Text('Add text'),
+                  ),
+                  const SizedBox(height: Gap.sm),
+                  Wrap(
+                    spacing: Gap.sm,
+                    runSpacing: Space.s1,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      DropdownButton<String>(
+                        value: _topic.status,
+                        isDense: true,
+                        underline: const SizedBox.shrink(),
+                        items: [
+                          for (final s in TopicStatus.all)
+                            DropdownMenuItem(value: s, child: Text(s)),
+                        ],
+                        onChanged: (v) async {
+                          if (v == null) return;
+                          await widget.learn.store
+                              .updateTopic(_topic.id, status: v);
+                          _load();
+                        },
+                      ),
+                      ActionChip(
+                        avatar: const Icon(Icons.school_outlined, size: 16),
+                        label: Text(_topic.track ?? 'No track'),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: _editTrack,
+                      ),
+                      if (_questionCount > 0)
+                        FilledButton.tonalIcon(
+                          onPressed: _practiceTopic,
+                          icon: const Icon(Icons.play_arrow, size: 16),
+                          label: Text('Practice ($_questionCount)'),
+                          style: FilledButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (_topic.triggerUrl != null) ...[
+                    const SizedBox(height: Gap.md),
+                    NeoListRow(
+                      icon: Icons.link,
+                      title: 'Sparked by',
+                      sub: _topic.triggerUrl!,
+                      last: true,
+                      onTap: () {
+                        final uri = Uri.tryParse(_topic.triggerUrl!);
+                        if (uri != null) launchUrl(uri);
+                      },
                     ),
                   ],
-                ),
-                const SizedBox(height: Gap.lg),
-                NeoSectionHead(title: 'Marked points (${_points.length})'),
-                const SizedBox(height: Space.s3),
-                if (_points.isEmpty)
-                  Text(
-                    'None yet. Open a source, read a card, and mark '
-                    'the sentence that matters — it becomes a cloze '
-                    'card in Learn.',
-                    style: theme.textTheme.bodyMedium,
-                  )
-                else
-                  Column(
-                    children: [
-                      for (final pt in _points)
+                  const SizedBox(height: Gap.lg),
+                  NeoSectionHead(
+                    title: 'Sources',
+                    actionLabel: 'Add source',
+                    onAction: _showAddSourceSheet,
+                  ),
+                  const SizedBox(height: Space.s2),
+                  if (_sources.isEmpty)
+                    Text('No sources yet — import the real material.',
+                        style: theme.textTheme.bodyMedium)
+                  else
+                    Column(
+                      children: [
+                        for (final s in _sources)
+                          _sourceRow(context, s, last: s == _sources.last),
+                      ],
+                    ),
+                  const SizedBox(height: Gap.lg),
+                  NeoSectionHead(title: 'Marked points (${_points.length})'),
+                  const SizedBox(height: Space.s2),
+                  if (_points.isEmpty)
+                    Text(
+                      'No marked points yet.',
+                      style: theme.textTheme.bodyMedium,
+                    )
+                  else
+                    Column(
+                      children: [
+                        for (final pt in _points)
                           NeoListRow(
+                            leading: _isSelectingPoints
+                                ? NeoCheck(done: _selectedPointIds.contains(pt.id))
+                                : null,
                             title: '“${pt.sentence}”',
                             sub: 'Cloze card: ${pt.clozeText}',
                             last: pt == _points.last,
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete_outline),
-                              onPressed: () async {
-                                await widget.learn.store
-                                    .deleteMarkedPoint(pt.id);
-                                _load();
-                              },
-                            ),
+                            onTap: () {
+                              if (_isSelectingPoints) {
+                                _togglePointSelection(pt.id);
+                              }
+                            },
+                            onLongPress: () {
+                              _togglePointSelection(pt.id);
+                            },
                           ),
                       ],
                     ),
-                if (_unminted > 0) ...[
-                  const SizedBox(height: Gap.md),
-                  FilledButton(
-                    onPressed: _buildClozeCards,
-                    child: Text('Build cloze cards ($_unminted)'),
-                  ),
+                  if (_unminted > 0) ...[
+                    const SizedBox(height: Gap.md),
+                    FilledButton.tonal(
+                      onPressed: _buildClozeCards,
+                      child: Text('Build cloze cards ($_unminted)'),
+                    ),
+                  ],
                 ],
-                const SizedBox(height: Gap.md),
-                OutlinedButton.icon(
-                  onPressed: _importPack,
-                  icon: const Icon(Icons.file_download_outlined),
-                  label: const Text('Import quiz pack'),
-                ),
-              ],
+              ),
+      ),
+    );
+  }
+
+  void _showAddSourceSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.upload_file_outlined),
+              title: const Text('Import file (PDF, TXT, HTML)'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _importFile();
+              },
             ),
+            ListTile(
+              leading: const Icon(Icons.link),
+              title: const Text('Add link'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _addLink();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.text_snippet_outlined),
+              title: const Text('Add text note'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _addText();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.file_download_outlined),
+              title: const Text('Import quiz pack'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _importPack();
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -416,7 +699,7 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
       SourceKind.pdf => Icons.picture_as_pdf_outlined,
       SourceKind.txt => Icons.text_snippet_outlined,
       SourceKind.link => Icons.link,
-      SourceKind.htmlQuiz => Icons.quiz_outlined,
+      SourceKind.htmlQuiz => Icons.html_outlined,
       SourceKind.pack => Icons.inventory_2_outlined,
       _ => Icons.insert_drive_file_outlined,
     };
@@ -427,16 +710,26 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
         ExtractionStatus.describe(s.extractionStatus),
       _ => s.fileRelPath ?? '',
     };
+    final isSelected = _selectedSourceIds.contains(s.id);
+
     return NeoListRow(
-      icon: icon,
+      leading: _isSelectingSources
+          ? NeoCheck(done: isSelected)
+          : null,
+      icon: _isSelectingSources ? null : icon,
       title: s.title,
       sub: subtitle,
       last: last,
-      trailing: IconButton(
-        icon: const Icon(Icons.delete_outline),
-        onPressed: () => _deleteSource(s),
-      ),
-      onTap: () => _openSource(s),
+      onTap: () {
+        if (_isSelectingSources) {
+          _toggleSourceSelection(s.id);
+        } else {
+          _openSource(s);
+        }
+      },
+      onLongPress: () {
+        _toggleSourceSelection(s.id);
+      },
     );
   }
 }

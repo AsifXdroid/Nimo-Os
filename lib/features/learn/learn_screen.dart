@@ -10,15 +10,19 @@ import 'package:flutter/material.dart';
 
 import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
+import '../../core/spatial_ui.dart';
 import '../../core/theme.dart';
 import '../review/review_store.dart';
+import '../shared_ui.dart';
 import '../store.dart';
 import 'image_verify_screen.dart';
 import 'learn_engine_store.dart';
 import 'learn_services.dart';
+import 'learn_store.dart';
 import 'pack_import_ui.dart';
 import 'session_composer.dart';
 import 'session_screen.dart';
+import 'topic_detail_screen.dart';
 
 class LearnScreen extends StatefulWidget {
   const LearnScreen({
@@ -45,6 +49,8 @@ class _LearnScreenState extends State<LearnScreen> {
   int _due = 0;
   int _new = 0;
   List<PackRecord> _packs = const [];
+  List<Topic> _topics = const [];
+  Map<int, String> _projectNames = const {};
   List<LearnQuestion> _verifyPending = const [];
 
   /// packId → DUE count alone (the boss gate: ≥ 5). Fresh
@@ -66,6 +72,13 @@ class _LearnScreenState extends State<LearnScreen> {
     final due = await _engine.dueCount();
     final fresh = await _engine.newCount();
     final packs = await _engine.allPacks();
+    final topics = await widget.learn.store.allTopics();
+    final names = <int, String>{};
+    for (final ws in await widget.store.workspaces()) {
+      for (final prj in await widget.store.projects(ws.id)) {
+        names[prj.id] = prj.name;
+      }
+    }
     final pending = await _engine.verifyPendingQuestions();
     final dueCounts = <String, int>{};
     for (final pack in packs) {
@@ -76,10 +89,41 @@ class _LearnScreenState extends State<LearnScreen> {
       _due = due;
       _new = fresh;
       _packs = packs;
+      _topics = topics;
+      _projectNames = names;
       _verifyPending = pending;
       _packDueCounts = dueCounts;
       _loaded = true;
     });
+  }
+
+  Future<void> _openTopic(Topic topic) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TopicDetailScreen(
+          store: widget.store,
+          learn: widget.learn,
+          topic: topic,
+          reviewStore: widget.reviewStore,
+        ),
+      ),
+    );
+    _load();
+  }
+
+  /// Same first step as Topics & Library: a topic in the
+  /// Inbox, opened straight into its detail page.
+  Future<void> _newTopic() async {
+    final title =
+        await promptText(context, title: 'New topic', label: 'Title');
+    if (title == null || title.isEmpty || !mounted) return;
+    final topic = await widget.learn.store.createTopic(
+      projectId: await widget.learn.store.inboxProjectId(),
+      title: title,
+    );
+    if (!mounted) return;
+    await _openTopic(topic);
   }
 
   Future<void> _openSession(SessionKind kind, {String? packId}) async {
@@ -130,154 +174,203 @@ class _LearnScreenState extends State<LearnScreen> {
       for (final p in _packs)
         if (p.arc != null) p,
     ];
+    final total = _due + _new;
     return Scaffold(
       body: PageTop(
+        // D-052: solid canvas + the prototype's Learn header —
+        // eyebrow, curiosity heading, one-line promise.
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-              Space.page, Gap.md, Space.page, Gap.lg),
-          children: [
-          const NeoPageTitle(
-            eyebrow: 'Curiosity, kept alive',
-            heading: 'Learn something that stays.',
-            sub: 'Your sources. Your pace. A world of little discoveries.',
-          ),
-          const SizedBox(height: Gap.lg),
-          _pulsePanel(context),
-          if (arcPacks.isNotEmpty) ...[
-            const SizedBox(height: Gap.lg),
-            const NeoSectionHead(title: 'Continue exploring'),
-            const SizedBox(height: Space.s3),
-            for (final pack in arcPacks) _continueCard(context, pack),
-          ],
-          const SizedBox(height: Gap.lg),
-          const NeoSectionHead(title: 'Your packs'),
-          const SizedBox(height: Space.s3),
-          if (_packs.isEmpty)
-            Text('No packs yet — import one to begin.',
-                style: Theme.of(context).textTheme.bodyMedium)
-          else
-            // D-039: pack rows sit on the canvas (hairlines),
-            // not inside a panel.
-            Column(
-              children: [
-                for (final pack in _packs) _packRow(context, pack),
+            padding: const EdgeInsets.fromLTRB(
+                Space.page, Gap.md, Space.page, 110.0),
+            children: [
+              Text(
+                'YOUR LEARNING SPACE',
+                style: AppType.eyebrow.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: Space.s2),
+              Text(
+                'Follow your curiosity.',
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              const SizedBox(height: Space.s2),
+              Text(
+                'Read, revisit, and make an idea your own.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              if (total > 0) ...[
+                const SizedBox(height: Gap.md),
+                _compactSessionBar(context, total),
               ],
-            ),
-          const SizedBox(height: Gap.md),
-          OutlinedButton.icon(
-            onPressed: _importPack,
-            icon: const Icon(Icons.file_download_outlined),
-            label: const Text('Import a pack'),
+              if (arcPacks.isNotEmpty) ...[
+                const SizedBox(height: Gap.lg),
+                const NeoSectionHead(title: 'Continue exploring'),
+                const SizedBox(height: Space.s3),
+                for (final pack in arcPacks) _continueCard(context, pack),
+              ],
+              const SizedBox(height: Gap.lg),
+              NeoSectionHead(
+                title: 'Your topics',
+                actionLabel: 'New topic',
+                onAction: _newTopic,
+              ),
+              const SizedBox(height: Space.s3),
+              _topicsSection(context),
+              const SizedBox(height: Gap.lg),
+              NeoSectionHead(
+                title: 'Your packs',
+                actionLabel: 'Import a pack',
+                onAction: _importPack,
+              ),
+              const SizedBox(height: Space.s3),
+              if (_packs.isEmpty)
+                Text('No packs yet.',
+                    style: Theme.of(context).textTheme.bodyMedium)
+              else
+                Column(
+                  children: [
+                    for (final pack in _packs) _packRow(context, pack),
+                  ],
+                ),
+              if (_verifyPending.isNotEmpty) ...[
+                const SizedBox(height: Gap.lg),
+                _verifyCard(context),
+              ],
+            ],
           ),
-          if (_verifyPending.isNotEmpty) ...[
-            const SizedBox(height: Gap.lg),
-            _verifyCard(context),
-          ],
-        ],
-        ),
       ),
     );
   }
 
-  /// The learning pulse (D-039): the DEEP feature surface —
-  /// the concept's tinted pulse panel. Three quiet numbers on
-  /// deep green, then the one primary action. Enjoyment is
-  /// named as the metric in the hint; the trend itself lives
-  /// in Progress. All colours come from [EditorialColors].
-  Widget _pulsePanel(BuildContext context) {
+  /// Compact session bar: shown only when questions are due or new.
+  Widget _compactSessionBar(BuildContext context, int total) {
     final theme = Theme.of(context);
     final ed = EditorialColors.of(context);
-    final total = _due + _new;
-    Widget cell(int number, String label) => Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AnimatedCount(
-                value: number,
-                style: AppType.statistic().copyWith(color: ed.onDeep),
-              ),
-              Text(
-                label,
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: ed.deepMuted),
-              ),
-            ],
-          ),
-        );
-    return FeaturePanel(
-      kind: FeatureSurfaceKind.deep,
+    return SpatialCard(
+      elevation: SpatialDepth.elevated,
+      enablePerspective: true,
+      backgroundColor: ed.deep,
+      padding: const EdgeInsets.all(Space.s4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
-                  'Your learning pulse',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(color: ed.onDeep),
+                child: Wrap(
+                  spacing: Space.s3,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '$_due',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: ed.onDeep,
+                          ),
+                        ),
+                        const SizedBox(width: Space.s2),
+                        Text(
+                          'due to revisit',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: ed.deepMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '$_new',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: ed.onDeep,
+                          ),
+                        ),
+                        const SizedBox(width: Space.s2),
+                        Text(
+                          'new to explore',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: ed.deepMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
               if (widget.onOpenTopics != null)
                 TextButton(
                   onPressed: widget.onOpenTopics,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                   child: Text(
                     'All topics →',
-                    style: AppType.eyebrow.copyWith(
-                      fontSize: 10,
-                      // On deep, the accent is the pale mint in
-                      // BOTH themes (EditorialColors.deepAccent).
+                    style: TextStyle(
+                      fontSize: 12,
                       color: ed.deepAccent,
                     ),
                   ),
                 ),
             ],
           ),
-          // The pulse shrinks to its content (D-038): with
-          // nothing due and nothing new, the zero cells
-          // collapse and the hint below carries the state.
-          if (total > 0) ...[
-            const SizedBox(height: Space.s5),
-            Row(
-              children: [
-                cell(_due, 'due to revisit'),
-                cell(_new, 'new to explore'),
-                cell(_packs.length, 'packs in your library'),
-              ],
-            ),
-          ],
-          const SizedBox(height: Space.s5),
+          const SizedBox(height: Space.s3),
           FilledButton(
-            // The pulse's action is a pale-mint fill in both
-            // themes — the scheme primary (dark green in light
-            // mode) would blend into the deep surface.
             style: FilledButton.styleFrom(
               backgroundColor: ed.deepAccent,
               foregroundColor: ed.onDeepAccent,
-              disabledBackgroundColor:
-                  ed.deepAccent.withValues(alpha: 0.35),
             ),
-            onPressed:
-                total == 0 ? null : () => _openSession(SessionKind.review),
+            onPressed: () => _openSession(SessionKind.review),
             child: const Text('Begin a short session →'),
           ),
-          const SizedBox(height: Space.s3),
-          Text(
-            'Measured in enjoyment, not minutes.',
-            style: theme.textTheme.bodySmall?.copyWith(color: ed.deepMuted),
-          ),
-          if (total == 0) ...[
-            const SizedBox(height: Space.s3),
-            Text(
-              'Import a pack or mark points while reading to '
-              'create cards.',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: ed.onDeep),
-            ),
-          ],
         ],
       ),
+    );
+  }
+
+  Widget _topicsSection(BuildContext context) {
+    if (_topics.isEmpty) {
+      return Text(
+        'No topics yet. Add one to learn from your own material.',
+        style: Theme.of(context).textTheme.bodyMedium,
+      );
+    }
+    final shown = _topics.take(5).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final t in shown)
+          NeoListRow(
+            icon: t.triggerUrl != null
+                ? Icons.link
+                : Icons.lightbulb_outline,
+            title: t.title,
+            sub: [
+              _projectNames[t.projectId] ?? '',
+              t.status,
+              if (t.track != null) t.track!,
+            ].where((s) => s.isNotEmpty).join(' · '),
+            last: t == shown.last && _topics.length <= 5,
+            onTap: () => _openTopic(t),
+          ),
+        if (_topics.length > 5 && widget.onOpenTopics != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: widget.onOpenTopics,
+              child: const Text('All topics →'),
+            ),
+          ),
+      ],
     );
   }
 
@@ -290,7 +383,10 @@ class _LearnScreenState extends State<LearnScreen> {
     final bossReady = (_packDueCounts[pack.packId] ?? 0) >= 5;
     return Padding(
       padding: const EdgeInsets.only(bottom: Space.s3),
-      child: NeoPanel(
+      child: SpatialCard(
+        elevation: SpatialDepth.elevated,
+        enablePerspective: true,
+        padding: const EdgeInsets.all(Space.s4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

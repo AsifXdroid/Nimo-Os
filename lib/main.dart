@@ -24,11 +24,14 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
+import 'core/capsule_nav_bar.dart';
 import 'core/db/app_database.dart';
 import 'core/platform_init.dart';
 import 'core/theme.dart';
-import 'features/goals/goals_screen.dart';
+import 'features/direction/direction_screen.dart';
 import 'features/goals/goals_store.dart';
+import 'features/items/item_detail_screen.dart';
+import 'features/items/link_card/link_card_service.dart';
 import 'features/items/link_card/thumbnail_service.dart';
 import 'features/learn/capture_service.dart';
 import 'features/learn/learn_screen.dart';
@@ -37,14 +40,19 @@ import 'features/learn/learn_store.dart';
 import 'features/learn/library_store.dart';
 import 'features/learn/share_confirm_sheet.dart';
 import 'features/learn/topics_screen.dart';
-import 'features/progress/progress_screen.dart';
 import 'features/progress/progress_store.dart';
+import 'features/quick_add/quick_add_service.dart';
+import 'features/quick_add/quick_add_sheet.dart';
 import 'features/progress/weekly_summary_screen.dart';
 import 'features/projects/projects_screen.dart';
 import 'features/review/day_close_screen.dart';
 import 'features/review/review_store.dart';
+import 'features/onboarding/onboarding_gate.dart';
+import 'features/onboarding/onboarding_screen.dart';
 import 'features/settings/backup_section.dart';
 import 'features/settings/backup_store.dart';
+import 'features/settings/external_backup.dart';
+import 'features/settings/external_backup_section.dart';
 import 'features/settings/reminder_gateway.dart';
 import 'features/settings/reminders.dart';
 import 'features/settings/settings_screen.dart';
@@ -92,6 +100,15 @@ Future<void> bootstrap() async {
   );
   final backup = BackupStore();
 
+  // D-044: first-run onboarding gate. An existing install
+  // (content present, no marker) is grandfathered silently —
+  // never forced through onboarding after an update; a
+  // restored backup takes the same path.
+  final onboardingNeed = await OnboardingGate.evaluate(db);
+  if (onboardingNeed == OnboardingNeed.grandfathered) {
+    await OnboardingGate.markCompleted(db);
+  }
+
   final reviewStore = ReviewStore(db, todayStore);
   final progressStore = ProgressStore(db, reviewStore, todayStore);
   final themeChoice = await _themeChoice(db);
@@ -128,6 +145,13 @@ Future<void> bootstrap() async {
       // on Linux the capture entry points simply never fire, and
       // file import via the picker remains the capture route.
       shareService: Platform.isAndroid ? AppShareIntentService() : null,
+      // D-043 (P0): the external (SAF) backup is Android-only —
+      // the grant model is Android's; on desktop the Library
+      // already lives in user-controlled storage.
+      externalBackup: Platform.isAndroid
+          ? ExternalBackupStore(db, backup, MethodChannelSafBackup())
+          : null,
+      needsOnboarding: onboardingNeed == OnboardingNeed.needed,
       onRestoreBackup: (zip, {required replaceConfirmed}) async {
         // D-011 restore: close → swap files under the guard → the
         // whole app re-bootstraps onto the restored database. The
@@ -221,6 +245,8 @@ class DailyLifeApp extends StatefulWidget {
     required this.backup,
     required this.onRestoreBackup,
     this.shareService,
+    this.externalBackup,
+    this.needsOnboarding = false,
     this.progressStore,
     this.reminders,
     this.reminderRouter,
@@ -252,6 +278,14 @@ class DailyLifeApp extends StatefulWidget {
   /// Share-intent boundary; null in tests (no platform plugin).
   final ShareIntentService? shareService;
 
+  /// D-043 (P0): external backup store; null off Android (and in
+  /// tests that do not wire it) — the section is then omitted.
+  final ExternalBackupStore? externalBackup;
+
+  /// D-044: bootstrap's onboarding verdict — true only for a
+  /// genuine first run (no marker, no content).
+  final bool needsOnboarding;
+
   /// Runs a guarded backup restore and restarts the app on the
   /// restored data (wired in bootstrap()).
   final Future<void> Function(File zip, {required bool replaceConfirmed})
@@ -263,6 +297,12 @@ class DailyLifeApp extends StatefulWidget {
 
 class _DailyLifeAppState extends State<DailyLifeApp> {
   late AppThemeChoice _themeChoice = widget.initialThemeChoice;
+
+  /// D-044: while true, the home is "Build your Nimo" instead
+  /// of the shell — so the first daily plan is generated only
+  /// after onboarding data exists (or when the user adds their
+  /// first one-off inside onboarding itself).
+  late bool _showOnboarding = widget.needsOnboarding;
 
   /// NEO (D-036): switch the Neo theme and persist the choice in
   /// app_settings (same store as library_root). Persistence is
@@ -289,7 +329,16 @@ class _DailyLifeAppState extends State<DailyLifeApp> {
       theme: AppTheme.neoLight(),
       darkTheme: AppTheme.neoDark(),
       themeMode: _themeChoice.themeMode,
-      home: AppShell(
+      home: _showOnboarding
+          ? OnboardingScreen(
+              db: widget.db,
+              todayStore: widget.todayStore,
+              store: widget.store,
+              learn: widget.learn,
+              goalsStore: widget.goalsStore,
+              onDone: () => setState(() => _showOnboarding = false),
+            )
+          : AppShell(
         db: widget.db,
         store: widget.store,
         todayStore: widget.todayStore,
@@ -302,6 +351,7 @@ class _DailyLifeAppState extends State<DailyLifeApp> {
         thumbnails: widget.thumbnails,
         backup: widget.backup,
         shareService: widget.shareService,
+        externalBackup: widget.externalBackup,
         onRestoreBackup: widget.onRestoreBackup,
         themeChoice: _themeChoice,
         onThemeChanged: _setThemeChoice,
@@ -344,6 +394,7 @@ class AppShell extends StatefulWidget {
     required this.backup,
     required this.onRestoreBackup,
     this.shareService,
+    this.externalBackup,
     this.progressStore,
     this.reminders,
     this.reminderRouter,
@@ -360,6 +411,9 @@ class AppShell extends StatefulWidget {
   final ThumbnailService thumbnails;
   final BackupStore backup;
   final ShareIntentService? shareService;
+
+  /// D-043 (P0): forwarded from the app widget; see there.
+  final ExternalBackupStore? externalBackup;
   final ProgressStore? progressStore;
   final ReminderController? reminders;
   final ReminderTapRouter? reminderRouter;
@@ -376,15 +430,30 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
+  // D-045: four destinations — Goals and Progress live inside
+  // Direction as internal tabs (supersedes the D-021 five).
+  // D-052 (Green & Black prototype): the ORDER and the Spaces
+  // label follow the prototype — Today · Organise · Learn ·
+  // Progress. Ids are unchanged ('spaces', 'direction'), so
+  // routing, the Direction tab request and stored state are
+  // untouched; only labels and order move.
   static const List<_Destination> _destinations = [
     _Destination('today', 'Today', Icons.today_outlined, Icons.today),
+    _Destination('spaces', 'Organise', Icons.folder_outlined, Icons.folder),
     _Destination('learn', 'Learn', Icons.school_outlined, Icons.school),
-    _Destination('progress', 'Progress', Icons.route_outlined, Icons.route),
-    _Destination('spaces', 'Spaces', Icons.folder_outlined, Icons.folder),
-    _Destination('goals', 'Goals', Icons.flag_outlined, Icons.flag),
+    _Destination(
+        'direction', 'Progress', Icons.insights_outlined, Icons.insights),
   ];
 
   String _destId = 'today';
+
+  /// D-045 one-shot Direction tab request (streak chip →
+  /// Progress). [_directionToken] keys the DirectionScreen so
+  /// a request always lands on a fresh state; a manual
+  /// Direction entry clears the request (see [_select]), so
+  /// the request never sticks.
+  DirectionTab? _directionRequest;
+  int _directionToken = 0;
 
   /// Effective PROGRESS store: the wired one, or a plain wrapper
   /// over the same db (stores are stateless) for tests.
@@ -399,7 +468,47 @@ class _AppShellState extends State<AppShell> {
 
   int get _index => _destinations.indexWhere((d) => d.id == _destId);
 
-  void _select(String id) => setState(() => _destId = id);
+  void _select(String id) => setState(() {
+        _destId = id;
+        if (id == 'direction') _directionRequest = null;
+      });
+
+  /// D-045: Today's streak chip opens Direction directly on
+  /// its Progress tab.
+  void _openDirectionProgress() => setState(() {
+        _directionRequest = DirectionTab.progress;
+        _directionToken++;
+        _destId = 'direction';
+      });
+
+  /// D-045: the shared Quick Add capture workflow (also used
+  /// by Today's quick-add row).
+  QuickAddService get _quickAdd => QuickAddService(
+        store: widget.store,
+        todayStore: widget.todayStore,
+        learnStore: widget.learn.store,
+        linkCards: LinkCardService(
+            widget.store, widget.learn.store, widget.thumbnails),
+      );
+
+  void _openQuickAdd() => showQuickAddSheet(
+        context,
+        service: _quickAdd,
+        onOpenItem: _openItemDetail,
+      );
+
+  void _openItemDetail(Item item) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ItemDetailScreen(
+          store: widget.store,
+          item: item,
+          learn: widget.learn,
+          thumbnails: widget.thumbnails,
+        ),
+      ),
+    );
+  }
 
   StreamSubscription<SharedCapture>? _shareSub;
   final List<SharedCapture> _pendingShares = [];
@@ -526,16 +635,34 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  BackupSection _backupSection() => BackupSection(
-    onExport: () => widget.backup.exportBackup(
-      db: widget.db,
-      libraryRoot: widget.learn.library.root,
-    ),
-    onInspect: (zip) => widget.backup.inspectBackup(zip),
-    onTargetHasData: () async =>
-        widget.backup.databaseHasUserData(await AppDatabase.databaseFilePath()),
-    onRestore: widget.onRestoreBackup,
-  );
+  Widget _backupSection() => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          BackupSection(
+            onExport: () => widget.backup.exportBackup(
+              db: widget.db,
+              libraryRoot: widget.learn.library.root,
+            ),
+            onInspect: (zip) => widget.backup.inspectBackup(zip),
+            onTargetHasData: () async => widget.backup
+                .databaseHasUserData(await AppDatabase.databaseFilePath()),
+            onRestore: widget.onRestoreBackup,
+          ),
+          // D-043 (P0): the uninstall-surviving copy, Android only.
+          if (widget.externalBackup != null) ...[
+            const SizedBox(height: Gap.lg),
+            ExternalBackupSection(
+              store: widget.externalBackup!,
+              libraryRoot: widget.learn.library.root,
+              onInspect: (zip) => widget.backup.inspectBackup(zip),
+              onTargetHasData: () async => widget.backup
+                  .databaseHasUserData(
+                      await AppDatabase.databaseFilePath()),
+              onRestore: widget.onRestoreBackup,
+            ),
+          ],
+        ],
+      );
 
   void _openTopics() {
     Navigator.of(context)
@@ -604,26 +731,29 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: switch (_destId) {
-        'learn' => LearnScreen(
+    final body = switch (_destId) {
+      'learn' => LearnScreen(
           learn: widget.learn,
           reviewStore: widget.reviewStore,
           store: widget.store,
           onOpenTopics: _openTopics,
         ),
-        'progress' => ProgressScreen(
-          progressStore: _progress,
-          todayStore: widget.todayStore,
-          reviewStore: widget.reviewStore,
-        ),
-        'spaces' => WorkspacesScreen(
+      'spaces' => WorkspacesScreen(
           store: widget.store,
           learn: widget.learn,
           thumbnails: widget.thumbnails,
         ),
-        'goals' => GoalsScreen(goalsStore: widget.goalsStore),
-        _ => TodayScreen(
+      'direction' => DirectionScreen(
+          // Keyed by the one-shot token: a streak-chip request
+          // always rebuilds the host on its Progress tab.
+          key: ValueKey('direction-$_directionToken'),
+          goalsStore: widget.goalsStore,
+          progressStore: _progress,
+          todayStore: widget.todayStore,
+          reviewStore: widget.reviewStore,
+          initialTab: _directionRequest ?? DirectionTab.progress,
+        ),
+      _ => TodayScreen(
           store: widget.store,
           todayStore: widget.todayStore,
           goalsStore: widget.goalsStore,
@@ -636,32 +766,76 @@ class _AppShellState extends State<AppShell> {
           progressStore: _progress,
           onOpenSettings: _openSettings,
           onOpenWeeklySummary: _openWeeklySummary,
-          onOpenProgress: () => _select('progress'),
+          onOpenProgress: _openDirectionProgress,
         ),
-      },
-      bottomNavigationBar: Container(
-        // D-039: the shell's one hairline — the concept's ruled
-        // nav edge.
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
+    };
+    // D-045: one Quick Add action at every destination root —
+    // a restrained floating + on mobile, the rail's leading
+    // action on wide layouts.
+    final addButton = FloatingActionButton(
+      onPressed: _openQuickAdd,
+      tooltip: 'Quick add',
+      child: const Icon(Icons.add),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // D-045: NavigationRail at 720dp and above (desktop);
+        // the hairline-ruled bottom bar below it.
+        if (constraints.maxWidth >= 720) {
+          return Scaffold(
+            body: Row(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      right: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
+                    ),
+                  ),
+                  child: NavigationRail(
+                    selectedIndex: _index,
+                    onDestinationSelected: (i) =>
+                        _select(_destinations[i].id),
+                    labelType: NavigationRailLabelType.all,
+                    leading: Padding(
+                      padding: const EdgeInsets.only(bottom: Space.s2),
+                      child: addButton,
+                    ),
+                    destinations: [
+                      for (final d in _destinations)
+                        NavigationRailDestination(
+                          icon: Icon(d.icon),
+                          selectedIcon: Icon(d.selectedIcon),
+                          label: Text(d.label),
+                        ),
+                    ],
+                  ),
+                ),
+                Expanded(child: body),
+              ],
             ),
+          );
+        }
+        return Scaffold(
+          extendBody: true,
+          body: body,
+          bottomNavigationBar: FloatingCapsuleBar(
+            selectedIndex: _index,
+            onDestinationSelected: (i) => _select(_destinations[i].id),
+            onQuickAdd: _openQuickAdd,
+            destinations: [
+              for (final d in _destinations)
+                CapsuleDestination(
+                  id: d.id,
+                  label: d.label,
+                  icon: d.icon,
+                  selectedIcon: d.selectedIcon,
+                ),
+            ],
           ),
-        ),
-        child: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => _select(_destinations[i].id),
-        destinations: [
-          for (final d in _destinations)
-            NavigationDestination(
-              icon: Icon(d.icon),
-              selectedIcon: Icon(d.selectedIcon),
-              label: d.label,
-            ),
-        ],
-        ),
-      ),
+        );
+      },
     );
   }
 }

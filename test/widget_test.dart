@@ -7,6 +7,7 @@
 // (which deadlocks on the loading spinner). Verified 2026-10-29.
 import 'dart:io';
 
+import 'package:daily_life_app/core/capsule_nav_bar.dart';
 import 'package:daily_life_app/core/db/app_database.dart';
 import 'package:daily_life_app/features/goals/goals_store.dart';
 import 'package:daily_life_app/features/items/link_card/thumbnail_service.dart';
@@ -35,6 +36,12 @@ void main() {
     // Everything runs inside runAsync: even opening the FFI database
     // deadlocks if awaited in the test body's fake-async zone.
     await tester.runAsync(() async {
+      // D-045: a phone-width surface, so the shell shows the
+      // bottom bar (the rail takes over at 720dp and above).
+      tester.view.physicalSize = const Size(1170, 2532);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+
       Future<bool> pollFor(Finder finder) async {
         for (var i = 0; i < 30; i++) {
           await Future<void>.delayed(const Duration(milliseconds: 100));
@@ -66,7 +73,9 @@ void main() {
 
       // S4's Topics & Library card sits above the plan card, so
       // scroll the plan card into the ListView's built region.
-      for (var i = 0; i < 6; i++) {
+      // (More drags than the old default surface needed: at
+      // phone width the hub stacks taller.)
+      for (var i = 0; i < 12; i++) {
         if (find.text("Today's plan").evaluate().isNotEmpty) break;
         await tester.drag(find.byType(ListView), const Offset(0, -300));
         await Future<void>.delayed(const Duration(milliseconds: 100));
@@ -76,7 +85,7 @@ void main() {
 
       // Customize Home sits at the bottom of the scrolling hub:
       // drag up until it is built, then it must exist exactly once.
-      for (var i = 0; i < 6; i++) {
+      for (var i = 0; i < 12; i++) {
         if (find.text('Customize Home').evaluate().isNotEmpty) break;
         await tester.drag(find.byType(ListView), const Offset(0, -300));
         await Future<void>.delayed(const Duration(milliseconds: 100));
@@ -84,41 +93,46 @@ void main() {
       }
       expect(find.text('Customize Home'), findsOneWidget);
 
-      // S6: the bottom bar has all 5 D-021 destinations,
-      // including Progress between Learn and Spaces.
-      final navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
-      expect(navBar.destinations, hasLength(5));
+      // Phase 1: the bottom bar has 4 destinations; Progress
+      // is the visible 4th destination and opens on Progress by default.
+      final navBar =
+          tester.widget<FloatingCapsuleBar>(find.byType(FloatingCapsuleBar));
+      expect(navBar.destinations, hasLength(4));
       final progressDest = find.descendant(
-        of: find.byType(NavigationBar),
+        of: find.byType(FloatingCapsuleBar),
         matching: find.text('Progress'),
       );
       expect(await pollFor(progressDest), isTrue);
 
-      // Tapping Progress shows the Journey screen (fresh-user
-      // empty state on this empty database).
+      // Progress opens on Journey by default…
       await tester.tap(progressDest);
+      expect(await pollFor(find.text('Journey')), isTrue);
       expect(await pollFor(find.text('Your journey path')), isTrue);
+
+      // …and its Goals tab shows the Goals screen.
+      await tester.tap(find.text('Goals'));
+      expect(await pollFor(find.text('Keep becoming.')), isTrue);
 
       // Back to Today for the Learn flow below.
       await tester.tap(find.text('Today'));
       expect(await pollFor(find.text('Task')), isTrue);
       final learnDest = find.descendant(
-        of: find.byType(NavigationBar),
+        of: find.byType(FloatingCapsuleBar),
         matching: find.text('Learn'),
       );
       expect(await pollFor(learnDest), isTrue);
 
       // Tapping Learn shows the LearnScreen landing.
       await tester.tap(learnDest);
-      expect(await pollFor(find.text('Learn something that stays.')), isTrue);
-      // D-038: with an empty library the pulse is compact (no
-      // zero cells) — its enjoyment line is the anchor now.
-      expect(await pollFor(find.textContaining('Measured in enjoyment')),
-          isTrue);
+      expect(await pollFor(find.text('Your topics')), isTrue);
+      expect(await pollFor(find.text('Your packs')), isTrue);
 
-      // Switch to the Spaces tab: the Neo workbench screen.
-      await tester.tap(find.text('Spaces'));
-      expect(await pollFor(find.text('Spaces to think and make.')), isTrue);
+      // Switch to the Spaces tab: the simple landing
+      // (compact header, workspace list, visit recents).
+      await tester.tap(find.text('Organise'));
+      expect(
+          await pollFor(find.text('Everything has a place.')),
+          isTrue);
       expect(await pollFor(find.textContaining('No workspaces yet')),
           isTrue);
     });

@@ -1,3 +1,189 @@
+## 2026-11-05 — D-053 refinement: fixed backdrop, cosine hug, optional quick actions (local-test, UNCOMMITTED)
+
+Per the owner's refinement brief: the hero photograph is now
+a FIXED backdrop behind the scroll view (hero content still
+scrolls away over it); the hug contour is a single shallow
+cosine bowl (dip 10–14, was two cubics at 18); the four
+quick-action tiles can be hidden from Customize Home
+("Show quick actions on Today", default ON, app_settings —
+no schema change). Also: hero floor 328 → 336 (two-line
+if–then overflow, capture-reproduced) and a mounted guard in
+`_customize`. Analyze clean, **655/655 tests**. Nothing
+committed or pushed. See DECISIONS.md (D-053 refinement).
+
+## 2026-11-05 — D-053 Premium Charcoal hero (local-test; pushed same day: `8ed69956` + `3e794129`, CI #55 green)
+
+Today-only redesign per the owner's brief: photographic hero
+(owner-supplied image as `assets/images/hero_default.png`) with
+the hug-shaped bottom contour, brand row + greeting + if–then
+inside the hero, charcoal floating surfaces below, dark accent
+#1ED760, and a Customize Home option to change/reset the hero
+image. Nothing committed or pushed (brief instruction). Analyze
+clean, 651/651 tests. See DECISIONS.md D-053.
+
+## 2026-11-05 — D-052: Green & Black renovation (local-test)
+- The owner's `Nimo_Green_Black_Clean.html` prototype rebuilt in
+  code on this branch: new theme foundation (black #101010 /
+  signal green #1DB954 dark; soft green-paper light), sans type
+  (serif retired), radii 10/12/16/28, shell order + labels
+  (Today · Organise · Learn · Progress), prototype tagline.
+- Screens: Today (panel plan groups, check-leading rows, deep
+  Day Close panel), Organise + Learn (prototype headers, solid
+  canvas), Progress (prototype header), capture sheet
+  (prototype header copy). Glass/spatial kits re-tinted, not
+  removed; GlassAtmosphere now unused.
+- Presentation only — no data/scoring/streak/sync changes.
+  Theme guards re-pinned in neo_theme_test; parity pairs pass.
+- Gates: analyze clean; full suite **647/647 — All tests
+  passed!** (explicit verdict line captured). No CI on this
+  branch (no APK).
+
+## 2026-11-01 — D-048: Spaces & Notebook (3 commits, test branch)
+- **Spaces (a0320b9d + delete 72ddc37b):** landing rewritten
+  as a simple click-to-open list; visit-based Recent
+  Projects (device-local, sync_id-keyed); ProjectsScreen /
+  ItemsScreen serve as the workspace / project screens.
+- **Notes (46b88262):** document editor — editable title,
+  borderless body, debounced autosave + status, exit flush,
+  empty-note discard, derived titles; concurrent-edit check
+  before every write; ItemsScreen creates notes immediately.
+- **Integration:** full-path test (Spaces → project → new
+  note → editor → derived-title row); PopScope exit flush so
+  the list below never reloads stale; D-048 decision.
+  Formatting toolbar deferred (plain-text model).
+
+## 2026-11-01 — D-047: UX refinement (3 commits, test branch)
+- **Today (6569b468):** inline task composer removed
+  (duplicated global Quick Add); floating + and the
+  quick-add row (Task/Goal/Note/Checklist) carry capture;
+  empty-plan copy updated. 1 new widget test.
+- **Learn (355bb21d):** topics surface on the landing
+  (cap 5, same rows/detail as Topics & Library), New
+  topic first action when empty, topics-aware pulse
+  hint. Cause: landing was packs-only; the owner's real
+  material sat behind a small text link. 2 new tests.
+- **Spaces (this commit):** initial workspace selection
+  prefers pinned, then most items — the first space is
+  no longer selected blind. Cause: an empty first space
+  hid content held elsewhere. 2 new tests.
+- **Gates:** analyze clean at every phase; full suite
+  re-run before push (see CI). Main untouched.
+
+## 2026-11-01 — D-046: Note concurrent-edit warning + CI analyze fix (test branch)
+- **Concurrent-edit warning for notes** (Spaces amendment
+  §7, applied to the existing editor per owner
+  instruction): the editor snapshots title, note, payload
+  and `updated_hlc` at open and re-checks on resume and
+  before every Save. Stamp + content change = newer
+  remote version → non-modal warning, Save withheld,
+  **Reload** / **Keep mine** (LWW). Stamp-only change =
+  export echo, absorbed silently. `Item` carries
+  `updatedHlc` now. No schema change.
+- **CI fix:** run #42 (D-045) FAILED at the Analyze step —
+  an info-level `unnecessary_import` in the new Quick Add
+  test file as pushed (the local incremental analyze had
+  reported clean; CI's fresh analyze caught it). The
+  redundant import is removed here; fresh local analyze
+  is clean.
+- **Gates:** analyze clean; **602/602 executed** (599 +
+  3 new editor tests: save withheld + Reload, Keep mine
+  LWW, echo silence). Test branch only; main untouched.
+
+## 2026-11-01 — D-045: Navigation redesign — Direction + global Quick Add (test branch)
+- **Four destinations** (supersedes D-021's five): Today ·
+  Learn · Spaces · Direction. Goals and Progress are
+  Direction's internal tabs (Goals default), hosted
+  untouched — own Scaffold/PageTop/titles preserved; the
+  host adds a hairline text tab strip and applies PageTop
+  once. Switching keeps the standing disposal behaviour;
+  back behaviour unchanged.
+- **Streak chip** opens Direction on Progress via a
+  one-shot shell request (token-keyed host state; manual
+  entries clear it). Chip semantics updated.
+- **Chrome:** hairline bottom bar below 720dp;
+  NavigationRail at ≥720dp (first width adaptation in the
+  shell). Quick Add: floating + on mobile, rail leading
+  action on wide — one sheet: Task / Quick note / Save
+  resource. Today's quick-add row runs the same workflow
+  (Goal/Checklist buttons unchanged).
+- **Capture homes:** Task → today; Quick note → Inbox
+  project (title from first line, full text as body, Open
+  on the confirmation); Save resource → Inbox link card
+  after URL validation. No schema change, no new entity.
+- **Preserved:** reminder routing, share-intent drain,
+  backup/sync builders, onboarding gate.
+- **Gates:** analyze clean; **599/599 executed** (589
+  baseline + 10 new: Quick Add service 5, Direction host 2,
+  shell chrome 3 — rail, sheet, chip end-to-end). Test
+  branch only; main untouched.
+
+## 2026-11-01 — D-044: Routine visibility + "Build your Nimo" onboarding (test branch)
+- **Bug diagnosed first (report delivered before building):**
+  the owner's two active routines missed Today because
+  (1) plan generation is generate-once and ran before the
+  templates existed, and (2) the Daily To-do section rendered
+  only when non-empty — no signal, no explanation. Not a
+  query or rendering bug; defaults verified correct.
+- **Fix:** tomorrow-by-default kept; explicit
+  `addRoutineToToday` (store) + Routine-screen action +
+  Today's Daily To-do head now always renders with the
+  explanation / not-scheduled line / one-tap Add to today's
+  plan / no-routines state. Inserted rows carry generation's
+  deterministic sync_id; completions and history untouched.
+- **Onboarding:** marker-based gate (existing users
+  grandfathered, never forced); 6-step Build your Nimo over
+  the real stores, fully skippable, resumable by saved step,
+  creates nothing when skipped; first plan generated only
+  after onboarding data exists. Daily intention and goal
+  milestones/dates recorded as NOT in the data model — not
+  invented.
+- **Gates:** analyze clean; **589/589 executed** (573 + 16
+  new). Test branch only; no merge; backup/signing/schema
+  untouched.
+
+## 2026-11-01 — D-043: External backup P0 (test branch)
+- **Owner priority change:** manual selective sync paused;
+  data preservation first (audit: debug-signed CI APKs can
+  never update each other; all data + backups live in
+  uninstall-erased app storage). P0 ships the
+  uninstall-surviving backup; signing (P1) and the one-time
+  migration (P2) follow separately.
+- **Built:** SAF channel in MainActivity (in-house, D-034
+  pattern) + ExternalBackupStore/Section — the existing zip
+  copied to a user-granted folder (Documents/Nimo/Backups),
+  `.partial` → verify → rename writes, nothing ever
+  overwritten or deleted; restore reuses the D-011 flow
+  verbatim. Manifest gains optional `db_sha256` (format
+  stays v1, legacy backups unaffected). Restore clear-set
+  derived instead of the fixed 5-folder list. No schema
+  change; sync untouched.
+- **Gates:** analyze clean; **573/573 executed** (559 + 14
+  new incl. the wipe-and-restore-from-external disaster
+  rehearsal). Kotlin verified by CI build after push;
+  on-device SAF behaviour is the owner's check.
+
+## 2026-11-01 — D-042: Today's Plan Phase 1 (test branch)
+- **Built to the owner's authorization (two discussion
+  rounds first):** plan sectioned into Daily To-do /
+  Today; × removed for a management sheet; one linked
+  resource per task (URL or Spaces note/link-card/quiz);
+  weekday scheduling; audio deferred to Phase 2; make-daily
+  deferred. Full reasoning in DECISIONS D-042.
+- **Schema v8, additive only** (weekdays/item_id/url on
+  plan_templates; item_id/url on day_plan_items), links
+  copied at generation + carry-over, sync registered
+  (item_id as _Fk + nullableFks; entity order parents-first;
+  day_plans.created_at materialised on import, not synced —
+  a latent fresh-plan import failure the new round-trip
+  test exposed and this change fixes).
+- **Gates: analyze clean; 559/559 tests executed and
+  passing** (545 baseline + 14 new: 8 store, 1 migration,
+  1 sync round-trip with shifted local ids, 4 widget).
+  One existing test touched: the sync migration fixture's
+  rewind now also drops the v8 columns (assertions
+  unchanged). APK via CI on the `test` branch. NOT merged
+  to main (owner's branch workflow).
+
 ## 2026-10-31 — D-041: status-bar inset fix (owner bug report)
 - **Root cause (investigated, not assumed):** edge-to-edge
   rendering + only-an-AppBar-insets-the-body. Of the app's

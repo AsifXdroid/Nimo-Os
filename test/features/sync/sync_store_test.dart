@@ -198,7 +198,7 @@ void main() {
     }
   });
 
-  test('schema migration (v6 sync tables + v7 sync_exported) keeps data', () async {
+  test('schema migration (v6 sync tables + v7 sync_exported + v8 columns) keeps data', () async {
     final dir = await Directory.systemTemp.createTemp('nimo-sync-mig-');
     final path = '${dir.path}/v5.db';
     // Build a genuine v5-shaped file: full current schema, then
@@ -220,6 +220,15 @@ void main() {
       'sync_exported',
     ]) {
       await raw.execute('DROP TABLE $t');
+    }
+    // D-042: the rewind must also drop the v8 columns, or
+    // the v8 ADD COLUMNs collide with the full current
+    // schema this fixture starts from.
+    for (final c in ['weekdays', 'item_id', 'url']) {
+      await raw.execute('ALTER TABLE plan_templates DROP COLUMN $c');
+    }
+    for (final c in ['item_id', 'url']) {
+      await raw.execute('ALTER TABLE day_plan_items DROP COLUMN $c');
     }
     await raw.execute('PRAGMA user_version = 5');
     await raw.close();

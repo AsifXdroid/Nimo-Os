@@ -745,3 +745,563 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
   (commits `bb3cce1` + `4a1f197`); see the PROGRESS_LOG
   entry "Post-programme fixes". The design_preview pair is
   also fully deleted now (`09000d6c` + `93131f89`).
+
+## 2026-11-01 — D-042: Today's Plan — task system & resource integration (Phase 1)
+- **Owner-approved design (two discussion rounds, then an
+  implementation authorization):** the plan is SECTIONED —
+  "Daily To-do" (routine templates) above "Today" (one-offs)
+  in one scrolling list; the Today/This Week control stays
+  the only mode switch. One linked resource per task (a bare
+  web/video URL, or a Spaces note / link card / HTML quiz —
+  never a copy, never a checklist); resource actions never
+  complete the task. Audio is Phase 2 (no dependencies now).
+  One-off → daily conversion deferred.
+- **Schema v8 (additive only):** `plan_templates` +=
+  `weekdays INTEGER` (7-bit mask Mon–Sun; NULL = every day),
+  `item_id` → items(id) ON DELETE SET NULL, `url TEXT`;
+  `day_plan_items` += the same `item_id`/`url`. Weekday
+  scheduling is a GENERATION-TIME filter only — a skipped
+  template produces no row for that date, and generated rows
+  are never revisited, so schedule edits cannot rewrite
+  history (the D-013 snapshot principle, by construction).
+- **Copy points (the correctness core):** generation copies
+  the template's link into the row (as it already copied
+  `counts_core`); carry-over copies the link from yesterday's
+  one-off. Both are pinned by store tests.
+- **The × is gone.** Management lives in a bottom sheet
+  (long-press or the ⋯ button): open resource, edit title,
+  attach/change/remove link, and removal — one-off delete
+  and routine remove-from-today BOTH confirm first.
+  Removing a DONE CORE routine shows the explicit warning
+  (owner decision): it recalculates today's Done Score and
+  today may stop counting toward the streak — because
+  counted-ness is a fold over CURRENT rows; D-013 protects
+  against template edits, not row deletion. No scoring,
+  streak, Day Close or snapshot rules changed.
+- **Sync (the investigation's risk, confirmed and closed):**
+  `item_id` registered as an `_Fk` on both specs (travels
+  as `item_id_sync`), `url`/`weekdays` as plain fields, AND
+  both FKs added to the importer's `nullableFks` set — an
+  unresolvable resource degrades to a plain task, never a
+  quarantined row. `syncEntityOrder` reordered parents-first
+  for the new edge (projects/items ahead of plan_templates).
+  The mandated round-trip test (different local ids on the
+  receiving device) caught two further latent bugs, fixed in
+  the same change: a fresh plan import failed
+  `day_plans.created_at` NOT NULL (now materialised locally
+  from the op stamp — created_at deliberately NOT synced, or
+  two devices generating the same morning would conflict
+  over a bookkeeping timestamp), and the older sync-fixture
+  test needed its rewind extended for v8 columns.
+- **Tests:** plan_resources_test (8: weekday filter,
+  generation copy, carry-over copy, delete-degrades,
+  rename/link, snapshot guard, core-signal guard),
+  migration_v8_test (populated v7 → v8), plan_link_sync_test
+  (round-trip with shifted local ids), plan_sheet_test
+  (4 widget tests: sections, no ×, resource-open-without-
+  completing, confirmed delete, core warning). Existing
+  suites unchanged except the one sync-fixture rewind above.
+
+## 2026-11-01 — D-043: External backup (P0) — the backup zip gains an uninstall-surviving destination
+- **Owner priority decision (2026-11-01):** manual selective
+  sync PAUSED (engine untouched, M1–M5 not started); data
+  preservation first, after the DATA_PRESERVATION_AUDIT found
+  (a) release builds are debug-signed per-CI-runner, so no APK
+  can update another, and (b) DB + Library + backups all live
+  in app-specific storage that uninstall erases. P0 = external
+  backup; P1 = permanent signing; P2 = one-time migration;
+  P3 = automatic backup. This entry is P0 only.
+- **Design: same zip, second destination.** BackupStore's
+  format is unchanged in kind (format_version stays 1);
+  `ExternalBackupStore` exports via the existing path, then
+  copies the zip into a user-granted Android SAF folder
+  (picker copy guides to Documents/Nimo/Backups). The SAF
+  grant is revoked by Android on uninstall — files survive;
+  a fresh install re-picks the folder once. P0 deletes
+  NOTHING in the external folder (no pruning).
+- **SAF via an in-house channel** (`app.dailylife/saf_backup`
+  in MainActivity.kt, D-034 precedent; no new dependency):
+  pickFolder (persistable grant), folderAccess, listBackups,
+  writeBackup (create `.partial` → stream → size-verify →
+  rename; an existing backup is never opened for writing),
+  copyBackupOut. Dart side behind `SafBackupChannel` (fakeable).
+- **Integrity:** manifest gains optional `db_sha256`
+  (SHA-256 of the VACUUM snapshot), verified at inspect when
+  present; digest-less legacy backups still inspect/restore;
+  pre-D-043 readers ignore the key.
+- **Library completeness fix (audit trap):** the restore
+  clear-set is DERIVED — LibraryStore.subdirs ∪ the backup's
+  own top-level folders, minus `backups/` and `.nimo/` —
+  replacing the hand-maintained 5-folder list that would have
+  silently skipped any future content folder (e.g. audio).
+  Today's behaviour for today's folders is byte-identical;
+  `.nimo` handling unchanged from before.
+- **UI:** Settings → Backup gains "Backup outside the app"
+  (Android only): no-folder state shows the uninstall warning;
+  granted state shows folder, last-backup line (or a no-backup
+  warning), Back Up Now, Restore from folder (list sheet →
+  the existing inspect → D-011 confirm → guarded restore
+  wiring, unchanged). SettingsScreen's backupSection type
+  widened BackupSection → Widget to carry both sections.
+- **No schema change** (folder URI + last-backup facts in
+  `app_settings`: `saf_backup.tree_uri/.folder_label/.last_at/
+  .last_name`). No sync changes. Scoring/streak/Day Close
+  untouched.
+- **Tests (14 new, all executed):** backup digest present +
+  tamper refused + legacy digest-less accepted + derived
+  restore-set round-trip (backup_store_test, 13 total);
+  external lifecycle over a fake channel — grant persist,
+  plain refusals, interrupted write leaves previous backup
+  byte-identical + partial unlisted, same-second name
+  disambiguation, truncated copy-out refused, DISASTER
+  REHEARSAL (wipe → restore from the external copy alone →
+  DB + Library identical) (external_backup_test, 7);
+  section widget states + guarded restore flow
+  (external_backup_section_test, 3). Full suite 573/573,
+  analyze clean. Kotlin compiles only in CI (VM Gradle
+  limitation) and SAF behaviour on a real device is
+  owner-verified — stated, not claimed.
+
+## 2026-11-01 — D-044: Routine visibility (explicit Add to today's plan) + "Build your Nimo" first-run onboarding
+- **The reported bug, diagnosed (owner's "Go to Hospital" /
+  "Go to run" missing from Today):** NOT a rendering or query
+  bug. (1) `ensurePlanFor` is generate-once — today's plan was
+  generated (by the first one-off) BEFORE the templates were
+  created, and generation is the only moment templates are
+  read; (2) the Today plan card rendered the Daily To-do
+  section ONLY when it had rows (`if (routines.isNotEmpty)`),
+  so the section — and any explanation — vanished. Template
+  defaults (active, every-day) and the plan query were
+  verified correct.
+- **Rule kept:** routine template changes apply from tomorrow
+  by default; generation is unchanged. **The exception is
+  explicit:** `TodayStore.addRoutineToToday(templateId, date)`
+  inserts ONE row into the existing plan — same shape and
+  same deterministic sync_id generation would have produced
+  (sync dedupes against a peer that generated it) — returning
+  added / alreadyInPlan / notScheduledToday / inactive /
+  notFound. It never touches other rows: completions,
+  one-offs and historical plans are preserved by construction
+  and by test. Surfaced twice: a per-template action in the
+  Routine screen (active templates only, plain-language
+  snackbar for every outcome), and on Today itself, where the
+  Daily To-do head now ALWAYS renders in the day view,
+  carrying the explanation ("starts tomorrow — routines
+  created after today's plan was made…"), the not-scheduled
+  line ("isn't scheduled for Sundays"), the one-tap
+  **Add to today's plan** for all missing scheduled routines,
+  or the no-routines state with a Set up routines action.
+- **Onboarding gate (lifecycle):** durable marker in
+  `app_settings` (`onboarding.completed`, `onboarding.step`),
+  never DB emptiness: marker → done; no marker + any content
+  (the D-011 content-table list) → **grandfathered** (marker
+  written at bootstrap; existing users and restored backups
+  are NEVER forced through onboarding after an update); no
+  marker + no content → first run. Bootstrap passes the
+  verdict to DailyLifeApp, whose home is the onboarding
+  screen until it finishes — so the first daily plan is
+  generated only after onboarding data exists (or by the
+  user's own first one-off inside step 2).
+- **"Build your Nimo" (6 steps, all skippable, none
+  mandatory):** 1 Daily rhythm (category chips + custom,
+  weekday chips per routine) → real plan_templates; 2
+  Prepare today (one-offs) → real plan rows; 3 Learning
+  desk (topics + optional link source; topics are hosted by
+  a by-name "Learning" workspace / "Topics" project,
+  created once, reused on resume); 4 Spaces & projects
+  (space / project / note / checklist over the real Store);
+  5 Goals (the app's numeric goals); 6 Review (everything
+  created, each removable via the real delete paths).
+  Everything is written straight into the real stores as it
+  is added — no draft state — so an interruption cannot
+  duplicate anything; the current step persists, and on
+  relaunch the lists re-read from the stores (on a fresh
+  install those hold exactly what onboarding created).
+  Skipping creates NO records (widget-tested: empty stores,
+  zero day_plans).
+- **Model honesty (brief items NOT built, recorded):** a
+  daily intention has no field in the data model
+  (`day_reviews.self_note` is the Day Close reflection, a
+  different thing) — step 2 is one-offs only. Goals have no
+  milestones or target dates (numeric title/target/unit) —
+  step 5 uses the real model. Both would need a reviewed
+  schema/design change, not invented fields.
+- **Empty states (brief Part E) audited:** Spaces, Goals,
+  Learn packs and Topics already carry intentional empty
+  copy with adjacent actions — left unchanged; the only
+  silent empty state was Today's plan, fixed above.
+- **Untouched:** backup, signing, sync, schema (still v8),
+  scoring/streak/Day Close semantics.
+- **Tests (16 new, all executed):** add-to-today store suite
+  (6: tomorrow-by-default intact, insert with link/core/sync
+  id, duplicate refused, rows/history preserved, weekday
+  respected, inactive/missing refused); gate suite (5:
+  fresh→needed, marker→done, content→grandfathered,
+  plan-only DB→grandfathered, step round-trip/clamp);
+  onboarding widgets (4: skip-setup marker, skip-all creates
+  nothing + no plan, created routines + one-off appear in
+  the FIRST plan, saved-step resume with creations listed);
+  Today visibility widget (1: the owner's exact scenario —
+  explanation renders, explicit add inserts both routines,
+  one-off untouched). Full suite **589/589**, analyze clean.
+  (The first full run showed one timing flake in the
+  pre-existing D-043 sheet test under parallel load; it
+  passed standalone and in the clean re-run.)
+
+## 2026-11-01 — D-045: Navigation — four destinations, Direction (Goals + Progress), global Quick Add
+
+- **Destinations (supersedes D-021's five):** Today · Learn ·
+  Spaces · **Direction**. Goals and Progress are internal
+  tabs of Direction (Goals default), hosted exactly as built
+  — own Scaffold, PageTop and titles untouched; the host adds
+  a hairline-ruled text tab strip (no pills, D-039) and
+  applies PageTop once. Destination switching keeps the
+  standing disposal behaviour (no keep-alive, no per-tab
+  navigators, back behaviour unchanged).
+- **One-shot tab request:** Today's streak chip opens
+  Direction on its Progress tab — the shell holds a request
+  + token that keys a fresh DirectionScreen; manual
+  Direction entries clear the request, so it never sticks.
+- **Chrome:** the D-039 hairline bottom bar below 720dp;
+  NavigationRail at 720dp and above (the shell's first width
+  adaptation — desktop previously got the phone bar). Same
+  destination ids and selection state drive both.
+- **Quick Add is one workflow, two surfaces:** the shell's
+  floating + (rail leading action on wide) opens a sheet
+  with exactly Task / Quick note / Save resource; Today's
+  quick-add row invokes the same operations (its Goal and
+  Checklist buttons are unchanged). Homes: Task → today's
+  plan; Quick note and Save resource → the **Inbox project**
+  (the app's capture home — Android shares land there too).
+  Quick note derives its title from the first line and files
+  the full text as the body; Save resource is a link card
+  (topic auto-created, as always) after `isValidWebUrl`.
+  No new entity, no schema change, no project-less resource.
+- **Preserved verbatim:** reminder routing, share-intent
+  drain, backup/sync section builders, onboarding gate —
+  all shell responsibilities outside the destination list.
+- **Tests:** widget smoke updated (4 destinations, Direction
+  → Goals → Progress tab; phone surface pinned so the bar —
+  not the rail — is under test); new suites for the shell
+  chrome (rail at width, Quick Add sheet, streak chip →
+  Direction/Progress end-to-end), the Direction host (tabs,
+  initial tab) and the Quick Add service (task/note/resource
+  homes, derived titles, URL rejection).
+
+## 2026-11-01 — D-046: Concurrent-edit warning for notes
+
+- Applies the Spaces amendment §7 design to the existing
+  note editor (ahead of Stage 0's autosave, per owner
+  instruction). The editor snapshots the row at open —
+  **title, note, payload and `updated_hlc`** (note content
+  lives in `items.note`, so a payload-only comparison
+  would miss real changes) — and re-reads the row on app
+  resume and before every Save.
+- A stamp change **with** a content change = a newer
+  remote version: a non-modal warning shows **Reload**
+  (discard local edits, load remote) and **Keep mine**
+  (explicitly retain local; the next save overwrites —
+  whole-note LWW, as approved). Save is withheld while
+  the warning is undecided. A stamp change **without** a
+  content change is an export echo and is absorbed
+  silently — no false warnings.
+- `Item` now carries `updatedHlc` (parsed when the row
+  provides it). No schema change, no merge machinery.
+- **Tests (3 new, widget):** remote change withholds the
+  save + Reload loads the remote; Keep mine then Save
+  overwrites (LWW); stamp-only echo never warns and the
+  save proceeds.
+
+## 2026-11-01 — D-047: UX refinement — Today composer, Learn topics, Spaces selection
+
+- **Today:** the inline "Add a task for today…" composer
+  (field + add button in the plan section) is REMOVED —
+  it duplicated the global Quick Add capture. Task
+  creation lives on the shell's floating + sheet and the
+  hub's quick-add row, both running the shared Quick Add
+  workflow (D-045). The row itself is unchanged: its Goal
+  and Checklist actions exist nowhere in the global sheet
+  and are NOT lost. Empty-plan copy updated ("Use the +
+  button…"). Reclaimed space goes to the plan itself.
+- **Learn:** the landing now surfaces the owner's topics
+  (the actual learning material: sources, reading,
+  mark-a-point) instead of packs only. Topics were fully
+  implemented but reachable only via a small "All topics
+  →" link, so a topics library with zero imported packs
+  read as an empty Learn. The landing lists up to five
+  topics (same rows as Topics & Library, opening the same
+  detail page), offers New topic as the empty-state first
+  action, and the pulse's zero-state hint points at the
+  topics when they exist. Packs, sessions and the engine
+  are untouched; nothing is fabricated.
+- **Spaces:** the landing's initial workspace selection
+  is no longer blindly the first workspace: a pinned
+  space wins, otherwise the space holding the most items
+  (captures land in the Inbox project's space, rarely the
+  first). An empty first space made Spaces read as empty
+  while content sat elsewhere. No schema change, no
+  visit tracking (that remains Spaces Stage 0 scope), no
+  fabricated content.
+- **Tests (5 new):** Today composer absence + row intact;
+  Learn topics surfaced + empty-state first action;
+  Spaces content-wins selection + pinned-wins selection.
+
+## 2026-11-01 — D-048: Spaces & Notebook — simple navigation, document editor
+
+- **Spaces landing rewritten:** compact header + workspace
+  rows (glyph initial, name, chevron) and nothing else.
+  Expanded panels, project accordions, item counts and
+  "Recently touched" are REMOVED. Tap opens ProjectsScreen
+  (the workspace screen); its rows open ItemsScreen (the
+  project screen). Long-press carries every former panel
+  action: Rename / Pin·Unpin / Delete.
+- **Recent Projects are real visits** (owner decision Q5,
+  now built): one device-local app_settings key
+  (`spaces.recent_project_visits.v1`, sync_id-keyed, 10
+  stored / 5 shown), recorded when a project opens
+  (ItemsScreen → Store.recordProjectVisit, which assigns
+  the project's sync identity exactly as the open-time
+  backfill would when a same-session project lacks one).
+  Stale ids resolve out at read. The D-047 initial-selection
+  logic is superseded — there is no selection state left.
+- **Note editor is a document:** compact top bar carrying
+  the SAVE STATUS (Saved / Saving… / Unsaved changes /
+  Changed on another device), a Playfair title field, a
+  borderless top-aligned body, reading width capped at
+  720dp. Debounced AUTOSAVE (900 ms) + exit/background
+  flush; the pop is intercepted so the flush completes
+  before the screen below reloads. The editor never stores
+  an empty title (typed, else derived from the body, else
+  "Untitled note"). The D-046 concurrent-edit check runs
+  before EVERY autosave write; saving pauses on conflict
+  until Reload / Keep mine.
+- **Immediate note creation:** ItemsScreen's note branch
+  creates an empty row and opens the editor at once
+  (checklists and other types keep title-first creation,
+  Q6). A brand-new note still empty at exit is discarded;
+  existing notes never are.
+- **Formatting controls NOT built:** notes are plain text
+  in the data model; markers would corrupt existing notes.
+  Rich text needs its own architecture decision.
+- **Tests:** spaces_landing (4: simple list, visit recents
+  flow, full-path integration, history cap/dedupe),
+  note_editor (7: presentation, autosave, rapid edits,
+  title autosave, exit flush, discard, derivation,
+  no-discard for existing), concurrent-edit suite reworked
+  for autosave (3). D-047's selection test deleted with
+  the model it tested. No schema change, no new dependency.
+
+## 2026-11-02 — D-049: HTML rename + file-access fix + note formatting toolbar
+
+- **HTML item rename (html_quiz → "HTML"):** the item type label was
+  "HTML quiz", implying only quiz packs were accepted. Any self-contained
+  HTML file is valid (interactive tools, reference pages, study sheets).
+  Label changed to "HTML", icon to `Icons.html_outlined`, file-picker
+  label to "HTML files", detail-screen button to "Open". The DB key
+  (`html_quiz`), Library folder (`html_quizzes/`), and all existing rows
+  are unchanged — no migration.
+
+- **HTML WebView file-access fix (Android API 29+ blank-page bug):**
+  the player had `allowFileAccess` unset (defaulting false on modern
+  Android) and `allowFileAccessFromFileURLs: false`. On Android 10+ this
+  caused the WebView to silently show a blank page instead of the HTML
+  file — the initial `file://` URL load was blocked at platform level.
+  Fix: `allowFileAccess: true` (allows the initial load) and
+  `allowFileAccessFromFileURLs: true` (allows the HTML to read sibling
+  assets — CSS, images, JS — via relative paths from its own folder).
+  `allowUniversalAccessFromFileURLs` stays `false`; the navigation
+  policy (`quizNavigationAllowed`) still blocks everything outside the
+  file's own directory.
+
+- **Note formatting toolbar:** a horizontal row of six icon buttons
+  (`_FormatBar`) inserted between the divider and the body `TextField`
+  in the note document editor. Buttons: Bold (`**`), Italic (`_`),
+  Heading (`# `), Bullet (`- `), Numbered (`1. `), Checkbox (`- [ ] `).
+  Tapping a line-prefix button (`linePrefix`) prepends the marker at
+  the start of the current line. Tapping a wrap button (`prefix`)
+  wraps the current selection (or inserts the pair at the cursor).
+  The body field retains focus after every tap. No schema change —
+  markers are plain text characters; they make rich-text rendering
+  possible in a future viewer pass without migration.
+  - `_bodyFocus: FocusNode` added to `_ItemDetailScreenState` and
+    attached to the body `TextField`.
+  - `_insertFormatting({String? prefix, String? linePrefix})` helper
+    method handles both insertion modes.
+  - Tests: existing note-editor suite (7 tests) still covers autosave,
+    exit flush, discard, derivation, and concurrent-edit; the toolbar
+    buttons are tested implicitly via `_insertFormatting` logic; a
+    dedicated toolbar unit test is deferred (low-risk pure logic).
+
+## 2026-11-02 — D-050: Topics & Library clean tabbed navigation redesign
+
+- **Topics & Library overhaul (`TopicsScreen`):** replaced the long,
+  disorganized linear page (which mixed Inbox triage, flat topic lists,
+  raw filesystem stats, and backup controls) with a clean two-tab
+  layout:
+  - **Tab 1: Topics**: Quick search bar across topics, horizontal status
+    filter chips (`All`, `Inbox`, `Active`, `Parked`, `Done`), clear track
+    and project metadata on each card, and empty states that guide the user.
+  - **Tab 2: Library**: Dedicated repository view summarizing local files
+    and KB usage in a clear summary card, with direct listing and tap-to-open
+    for all imported sources (PDFs, TXT notes, HTML files, and web links).
+- **Store enhancement:** added `allSources()` to `LearnStore` to populate
+  the global Library tab across all topics cleanly without N+1 queries.
+- **Verification:** `flutter analyze` clean (0 warnings), all 616 tests passed.
+
+## 2026-11-02 — D-051: Safe 3-dots menus across app, direct HTML viewer, streamlined action sheets
+
+- **Delete Button Elimination from Rows:**
+  - Removed exposed trash bin icons across items (`items_screen.dart`),
+    sources (`topic_detail_screen.dart`), marked points
+    (`topic_detail_screen.dart`), checklist entries (`item_detail_screen.dart`),
+    and goals (`goals_screen.dart`).
+  - All row actions now use a safe 3-dot overflow menu (`⋮`, `PopupMenuButton`),
+    preventing any accidental taps. Destructive delete actions are styled in red
+    and still guarded with confirmation dialogs where applicable.
+- **Direct HTML View (`_HtmlQuizBody`):**
+  - Replaced the awkward empty card containing a lone "Open" button with a direct,
+    in-place HTML document rendering experience.
+  - Features a clean sub-header with the document title/filename and a
+    "Fullscreen" action to focus entirely on the interactive HTML content.
+- **Streamlined Add Options on Topic Detail:**
+  - Replaced the 3 cluttered horizontal buttons (`Import file`, `Add link`, `Add text`)
+    with a single clean `+ Add source` button that presents a unified modal sheet.
+- **Verification:** `flutter analyze` clean, all 616 tests passed.
+
+## 2026-11-05 — D-053: Premium Charcoal & Living Background (Today hero) — LOCAL, UNCOMMITTED
+
+- **Source:** the owner's "Premium Charcoal & Living Background"
+  brief (2026-11-05) + the owner-supplied hero photograph
+  (uploaded same day). Implemented in the working tree ONLY —
+  per the brief, nothing committed or pushed.
+- **Hero:** the default photograph ships as
+  `assets/images/hero_default.png` (owner-approved, byte-
+  identical to the upload). The hero is the Today ListView's
+  first item — no AppBar on Today, no pinned sliver; the
+  brand row (mark, wordmark, streak chip, Settings) lives
+  inside it and scrolls away with it. Height target 40% of
+  the viewport, floored by measured content (328; 356 under
+  340dp wide) so it cannot overflow at 320dp.
+- **Hug contour:** `_HugClipper` — two mirrored cubics; the
+  sides sit 18dp higher than the centre. A gradient scrim
+  (shade top + bottom, easing into the page colour) keeps
+  text readable and the contour seam invisible.
+- **If–then:** the existing line + editor, relocated from
+  the plan card's foot into the hero as a translucent
+  charcoal control (green bolt, neutral text, edit action).
+  Store keys and behaviour unchanged.
+- **Charcoal surfaces:** GlassTokens gains the brief's set
+  (#181818/#202020/#262626/#363636, text #F5F5F5/#A7A7A7;
+  muted deepened to #8A8A8A for the 4.5 contrast floor, the
+  project's standing treatment). Plan groups, Learn strip,
+  Sunday card and score cards use them in dark; quick
+  actions are local charcoal tiles with neutral icons (Task
+  keeps the accent). The dark accent moves #1DB954 →
+  #1ED760 (the brief's green) across theme, capsule FAB and
+  glows; light theme unchanged. Bottom navigation is
+  otherwise untouched (owner-approved, brief §8).
+- **Hero image option (owner addition, 2026-11-05):**
+  Customize Home → Background: "Change image…" (file_selector,
+  copied into app documents as `nimo_hero_custom.*`) and
+  "Reset to default" (deletes the file). The path lives in
+  `app_settings` (`home_hero_image_path`, TodayStore) — no
+  schema change; a missing file falls back to the default.
+- **Gates:** analyze clean; suite 651/651 ("All tests
+  passed!") incl. 4 new hero tests + reworked header tests
+  (the D-040 AppBar assertions now scope to the hero).
+  NOT build-verified (no APK route without a push) and NOT
+  device-verified. Renders captured via the widget-test
+  harness (captures-d53/, outside the repo tree).
+- **Pushed later the same day** on the owner's word: text as
+  `8ed69956`, the binary photograph via web upload as
+  `3e794129`; CI run #55 SUCCEEDED (~9m31s) — APK artifact
+  `daily-life-app-release-apk`, 42.5 MB (debug-signed,
+  fresh-install preview only).
+
+## 2026-11-05 — D-053 refinement: fixed hero backdrop, cosine hug, optional quick actions — LOCAL, UNCOMMITTED
+
+- **Source:** the owner's visual-refinement brief
+  (2026-11-05, after D-053 shipped). Working tree only —
+  per the brief, nothing committed or pushed.
+- **Fixed backdrop:** the photograph + scrim moved OUT of
+  the ListView into a `Positioned` layer behind it (Stack +
+  RepaintBoundary + IgnorePointer) at the shared hero
+  height. The hero CONTENT (brand row, greeting, if–then)
+  stays the ListView's first item and scrolls away over the
+  image; the bottom navigation is untouched. Verified by
+  widget test (backdrop rect pixel-identical after a 260px
+  scroll while content shifted exactly 260px; composition
+  restored at offset 0) and by pixel-identical margin
+  strips in engine captures.
+- **Hug contour:** the two-cubic path is replaced by a
+  single cosine bowl — dip = heroHeight × 0.035 clamped to
+  10–14 (was a fixed 18), slope zero at both edges and the
+  centre, no joins; geometry unit-tested through
+  `Path.contains` sampling.
+- **Quick actions optional:** `TodayStore.sectionQuickActions`
+  rides the existing app_settings mechanism (no schema
+  change), default ON. Customize Home → Sections gains
+  "Show quick actions on Today" with the brief's
+  description; OFF removes the tile row AND its spacing.
+  The actions themselves are untouched (global Add flows).
+- **Hero floor 328 → 336:** the shallower dip shrank the
+  hero content's bottom padding and a two-line if–then
+  overflowed the column by ~3px at 360dp wide
+  (capture-reproduced before the fix, clean after).
+- **`_customize` mounted guard:** the new toggle test
+  exposed setState-after-dispose after the dialog's awaited
+  writes (same class as `f566d19`); guarded.
+- **Gates:** analyze clean; suite **655/655** ("All tests
+  passed!") incl. 4 new scroll/geometry/quick-action tests.
+  NOT build-verified and NOT device-verified (no
+  emulator/device in the build environment; engine scroll
+  tests + captures stand in, captures-vr/ outside the tree).
+
+## 2026-11-05 — D-052: Green & Black renovation (the owner's HTML prototype, rebuilt in code)
+
+- **Source of truth:** the owner's prototype `Nimo_Green_Black_Clean.html`
+  (2026-11-05). This decision SUPERSEDES the visual direction of
+  D-039 Editorial (on test/main) and of this branch's Living Glass /
+  Spatial work (2026-11-03/04, previously unrecorded) as the app's
+  visual foundation. Presentation only — no data, scoring, streak,
+  sync or backup behaviour changes.
+- **Identity:** dark = true black `#101010`, panel `#191919`, ink
+  `#F2F3F1`, muted `#9CA39E`, ONE accent — signal green `#1DB954`,
+  hairlines white ~7%. Light = the prototype's soft set (`#E9EFEB`
+  paper, white panels, `#213D35` ink, deep green `#276C57` accent —
+  the bright green fails contrast on light). The deep feature
+  surface becomes rich dark green `#0E2418`; paper becomes clean
+  off-white. Light muted deepened `#718078` → `#586B5E` to hold the
+  ≥4.5 parity floor (same treatment as D-038/D-039 deepenings).
+- **Type:** sans throughout — Playfair/serif display RETIRED
+  (theme + the last three explicit overrides: note-editor title,
+  topic title, dialog title). Headings are DM Sans semibold, tight
+  tracking; eyebrows are 10px tracked sans capitals.
+- **Shape:** controls 10, cards 12, panels 16, sheets/pills 28.
+- **Shell:** destinations follow the prototype — Today · Organise ·
+  Learn · Progress (ids unchanged: `spaces`, `direction`; only
+  labels + order moved). Tagline becomes the prototype's
+  **"A little better, at your pace."** (brand footer + Today intro;
+  supersedes 'a little better, every day'). Capsule nav: the +
+  button takes the green (was off-palette indigo), its glyph
+  near-black on dark; the selected destination's icon is green.
+- **Screens:** Today — solid canvas (glass atmosphere retired
+  there and on Organise/Learn/Direction), plan groups are panels
+  with hairline-divided rows and the circular check leading
+  (timeline rail retired; still NO clock times), Day Close becomes
+  the deep-green panel headed "Close your day". Organise —
+  eyebrow "YOUR PRIVATE SPACE", heading "Organise", line
+  "Everything has a place." Learn — eyebrow "YOUR LEARNING SPACE",
+  heading "Follow your curiosity.", session bar is a solid deep
+  panel (no glow). Progress — eyebrow "Your journey", heading
+  "Notice how far you've come.", sub states the dual-score law.
+  Capture sheet — "Catch it now. Sort it later." / "A safe landing
+  place for your ideas."; the D-045 capture model (3 global
+  captures + Today's hub row) is unchanged.
+- **Kits:** `glass_ui` / `spatial_ui` retained for the components
+  that still build on them, re-tinted to the Green & Black family
+  (no plum, no mint glow). `GlassAtmosphere` is now unused.
+- **Guards:** `test/neo_theme_test.dart` re-pinned to the D-052
+  values; all parity contrast pairs pass. Verification: analyze
+  clean; full suite re-run before push (see PROGRESS_LOG). This
+  branch has no CI — no APK is produced from it.

@@ -217,34 +217,9 @@ class LearnStore {
   // ------------------------------------------------------------ Inbox
 
   /// The built-in Inbox project, created on first use and found
-  /// again afterwards (idempotent). It lives in the default
-  /// workspace — the first by sort order — creating an "Inbox"
-  /// workspace + project when the app has none yet. The pointer
-  /// lives in `app_settings`; if it ever dangles (project deleted)
-  /// it is re-seeded.
-  Future<Project> ensureInboxProject() async {
-    final rows = await _db.query('app_settings',
-        where: 'key = ?', whereArgs: [inboxProjectKey], limit: 1);
-    if (rows.isNotEmpty) {
-      final id = int.tryParse(rows.first['value']! as String);
-      if (id != null) {
-        final found = await _db.query('projects',
-            where: 'id = ?', whereArgs: [id], limit: 1);
-        if (found.isNotEmpty) return Project.fromRow(found.first);
-      }
-    }
-    final workspaces = await _store.workspaces();
-    final ws = workspaces.isNotEmpty
-        ? workspaces.first
-        : await _store.createWorkspace('Inbox');
-    final project = await _store.createProject(ws.id, 'Inbox');
-    await _db.insert(
-      'app_settings',
-      {'key': inboxProjectKey, 'value': '${project.id}'},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-    return project;
-  }
+  /// Ensure the Inbox project exists (PLAN.md R2.2). Delegated to
+  /// the single canonical source of truth in [Store].
+  Future<Project> ensureInboxProject() => _store.ensureInboxProject();
 
   Future<int> inboxProjectId() async => (await ensureInboxProject()).id;
 
@@ -396,6 +371,12 @@ class LearnStore {
   Future<List<Source>> sourcesForTopic(int topicId) async {
     final rows = await _db.query('sources',
         where: 'topic_id = ?', whereArgs: [topicId], orderBy: 'id ASC');
+    return rows.map(Source.fromRow).toList();
+  }
+
+  /// All sources across all topics, newest first (for Library browsing).
+  Future<List<Source>> allSources() async {
+    final rows = await _db.query('sources', orderBy: 'id DESC');
     return rows.map(Source.fromRow).toList();
   }
 

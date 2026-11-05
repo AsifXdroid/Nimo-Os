@@ -1,6 +1,6 @@
-// HTML quiz — detail body + player platform gate (S5 legacy
-// player). The detail screen shows the Play quiz button; the
-// player itself is NOT pumped into its WebView (platform views
+// HTML item — detail body + player platform gate (D-049 rename,
+// originally S5 legacy player). The detail screen shows the Open button;
+// the player itself is NOT pumped into its WebView (platform views
 // cannot run on the host) — only its non-Android message path
 // is pumped, which is deterministic on a Linux host
 // (Platform.isAndroid is false).
@@ -23,7 +23,8 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
-  testWidgets('ItemDetailScreen for an html_quiz item shows Play quiz',
+  // D-049: button renamed 'Play quiz' → 'Open'.
+  testWidgets('ItemDetailScreen for an html_quiz item shows Open button',
       (tester) async {
     await tester.runAsync(() async {
       final db = await AppDatabase.openInMemory();
@@ -47,9 +48,8 @@ void main() {
         ));
         await tester.pump();
 
-        expect(find.text('Play quiz'), findsOneWidget);
-        expect(find.widgetWithText(FilledButton, 'Play quiz'),
-            findsOneWidget);
+        // D-051: directly renders HTML view with Fullscreen action
+        expect(find.text('Fullscreen'), findsOneWidget);
         expect(find.text('quiz.html'), findsOneWidget);
       } finally {
         await tmp.delete(recursive: true);
@@ -77,7 +77,8 @@ void main() {
         ));
         await tester.pump();
 
-        expect(find.text('On desktop, HTML quizzes open in your browser.'),
+        // D-049: message updated to say 'HTML files', not 'HTML quizzes'.
+        expect(find.text('On desktop, HTML files open in your browser.'),
             findsOneWidget);
         expect(find.text('Open in browser'), findsOneWidget);
       } finally {
@@ -103,7 +104,8 @@ void main() {
         ));
         await tester.pump();
 
-        expect(find.text('This quiz file could not be found.'),
+        // D-049: error message updated to say 'HTML file', not 'quiz file'.
+        expect(find.text('This HTML file could not be found.'),
             findsOneWidget);
       } finally {
         await tmp.delete(recursive: true);

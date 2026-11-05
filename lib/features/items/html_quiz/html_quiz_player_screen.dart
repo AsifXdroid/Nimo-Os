@@ -1,18 +1,29 @@
-/// HTML quiz — legacy player (S5, §R10.2).
+/// HTML player (S5, §R10.2 / D-049).
 ///
-/// Plays a self-contained HTML quiz stored in the Library
+/// Plays a self-contained HTML file stored in the Library
 /// `html_quizzes/` folder in a hardened Android WebView.
-/// Linux/desktop has no stable WebView for this route (§R8.4),
-/// so on desktop (S7) the quiz opens in the system browser via a
-/// `file:` URL — the §R8.4 fallback. Other non-Android platforms
-/// keep the plain message.
 ///
-/// Hardening (§7 PLATFORM row, TESTING.md §9 S5): JavaScript
-/// is on only because quizzes need it; file access from file
-/// URLs and universal access are off; windows cannot open
-/// automatically; zoom is off; and every navigation is decided
-/// by [quizNavigationAllowed] — anything outside the quiz's
-/// own folder is cancelled and reported.
+/// D-049 rename: the item type is now called "HTML" (any HTML file),
+/// not "HTML quiz". The folder name (html_quizzes/) and DB key
+/// (html_quiz) are kept for backward compatibility — no migration.
+///
+/// Android hardening:
+///   • allowFileAccess: true  — lets the WebView open the local
+///     file:// URL that we hand it. Without this modern Android
+///     (API 29+) blocks the initial load and shows a blank page.
+///   • allowFileAccessFromFileURLs: true  — lets HTML/JS inside
+///     the file itself read sibling assets (CSS, images, scripts)
+///     via relative paths. Restricted to the quiz's own folder by
+///     [quizNavigationAllowed].
+///   • allowUniversalAccessFromFileURLs: false — still blocked, so
+///     the file cannot reach arbitrary file:// paths.
+///   • JavaScript on — required by most interactive HTML content.
+///   • All other outbound navigation (http/https, other folders)
+///     cancelled by [shouldOverrideUrlLoading].
+///
+/// Linux/desktop has no stable in-process WebView (§R8.4, S7):
+/// the file opens in the system browser instead. Other non-Android
+/// platforms show a plain message.
 library;
 
 import 'dart:io';
@@ -31,17 +42,19 @@ class HtmlQuizPlayerScreen extends StatelessWidget {
     required this.library,
     required this.payload,
     required this.title,
+    this.showAppBar = true,
   });
 
   final LibraryStore library;
-
-  /// Item payload; `file_rel_path` is the Library-relative path
-  /// of the quiz HTML file (see items_screen creation flow).
   final Map<String, Object?> payload;
   final String title;
+  final bool showAppBar;
 
   @override
   Widget build(BuildContext context) {
+    if (!showAppBar) {
+      return _body(context);
+    }
     return Scaffold(
       appBar: AppBar(title: Text(title)),
       body: _body(context),
@@ -55,7 +68,7 @@ class HtmlQuizPlayerScreen extends StatelessWidget {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(24),
-          child: Text('This quiz has no file attached.'),
+          child: Text('This HTML file has no file attached.'),
         ),
       );
     }
@@ -67,28 +80,27 @@ class HtmlQuizPlayerScreen extends StatelessWidget {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(24),
-          child: Text('This quiz file could not be found.'),
+          child: Text('This HTML file could not be found.'),
         ),
       );
     }
 
-    // Existence check is synchronous on purpose: a vanished file
-    // must degrade to a plain message, never a WebView error
-    // page or a crash. Quiz files are small and local.
+    // Existence check is synchronous: a vanished file must degrade
+    // to a plain message, never a WebView error page or a crash.
     if (!file.existsSync()) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(24),
-          child: Text('This quiz file could not be found.'),
+          child: Text('This HTML file could not be found.'),
         ),
       );
     }
 
     if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
-      // Desktop fallback (§R8.4, S7): no stable WebView — hand
-      // the file to the system browser. The quiz is the owner's
-      // own local file from their Library; the browser is outside
-      // the app's hardening boundary, which the copy says plainly.
+      // Desktop fallback (§R8.4, S7): no stable in-process WebView.
+      // Hand the file to the system browser. The file is the owner's
+      // own local content; the browser is outside the app's hardening
+      // boundary, which the message states plainly.
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -96,7 +108,7 @@ class HtmlQuizPlayerScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'On desktop, HTML quizzes open in your browser.',
+                'On desktop, HTML files open in your browser.',
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -118,19 +130,29 @@ class HtmlQuizPlayerScreen extends StatelessWidget {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(24),
-          child: Text('HTML quizzes play in the Android app.'),
+          child: Text('HTML files play in the Android app.'),
         ),
       );
     }
 
-    final quizFilePath = file.path;
-    final initialUrl = URLRequest(url: WebUri(Uri.file(quizFilePath).toString()));
+    final filePath = file.path;
+    final initialUrl = URLRequest(
+        url: WebUri(Uri.file(filePath).toString()));
 
     return InAppWebView(
       initialUrlRequest: initialUrl,
       initialSettings: InAppWebViewSettings(
         javaScriptEnabled: true,
-        allowFileAccessFromFileURLs: false,
+        // D-049 fix: allowFileAccess must be true so Android (API 29+)
+        // permits the initial file:// load. Without it the WebView
+        // silently shows a blank page on modern Android builds.
+        allowFileAccess: true,
+        // Allow the HTML itself to load relative sibling assets (CSS,
+        // images, JS) from its own directory via file:// URLs.
+        // Cross-directory access is still blocked by the nav policy.
+        allowFileAccessFromFileURLs: true,
+        // Still off: the file must not be able to read arbitrary
+        // file:// paths outside its own folder.
         allowUniversalAccessFromFileURLs: false,
         useShouldOverrideUrlLoading: true,
         javaScriptCanOpenWindowsAutomatically: false,
@@ -138,18 +160,18 @@ class HtmlQuizPlayerScreen extends StatelessWidget {
       ),
       shouldOverrideUrlLoading: (controller, navigationAction) async {
         final url = navigationAction.request.url?.toString() ?? '';
-        // The quiz's own folder may use plain relative names in
-        // markup; the WebView reports them resolved, but keep the
-        // file-name check honest for the raw string too.
+        // The file's own folder may use plain relative names in
+        // markup; the WebView reports them resolved. Block anything
+        // that leaves the file's own folder.
         final allowed = quizNavigationAllowed(
           url,
-          quizFilePath: quizFilePath,
+          quizFilePath: filePath,
         );
         if (!allowed) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('External links are blocked inside quizzes.'),
+                content: Text('External links are blocked in HTML files.'),
               ),
             );
           }
@@ -161,7 +183,7 @@ class HtmlQuizPlayerScreen extends StatelessWidget {
   }
 }
 
-/// The display name for a quiz payload (file base name), used by
+/// The display name for an HTML payload (file base name), used by
 /// the detail screen. Type-tolerant like other payload reads.
 String htmlQuizFileName(Map<String, Object?>? payload) {
   final raw = payload?['file_rel_path'];

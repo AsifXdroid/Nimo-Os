@@ -31,10 +31,12 @@ const List<ItemTypeDef> itemTypes = [
       key: ItemType.linkCard,
       label: 'Link card',
       icon: Icons.grid_view_outlined),
+  // D-049: renamed from 'HTML quiz' → 'HTML' so any HTML file is accepted,
+  // not just quiz packs. The DB key (html_quiz) is intentionally unchanged.
   ItemTypeDef(
       key: ItemType.htmlQuiz,
-      label: 'HTML quiz',
-      icon: Icons.quiz_outlined),
+      label: 'HTML',
+      icon: Icons.html_outlined),
 ];
 
 ItemTypeDef itemTypeDef(String key) => itemTypes.firstWhere(

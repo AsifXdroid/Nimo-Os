@@ -346,6 +346,114 @@ void main() {
     await db.close();
   });
 
+  /// Re-encode [zip] with [transform] applied to the decoded
+  /// manifest map and/or the raw database bytes.
+  Future<File> reencode(
+    File zip,
+    String outName, {
+    Map<String, Object?> Function(Map<String, Object?> m)? manifest,
+    List<int> Function(List<int> b)? database,
+  }) async {
+    final archive = ZipDecoder().decodeBytes(await zip.readAsBytes());
+    final out = File('${tmp.path}/$outName');
+    final encoder = ZipFileEncoder();
+    encoder.create(out.path);
+    for (final f in archive.files) {
+      if (!f.isFile) continue;
+      if (f.name == 'backup.json' && manifest != null) {
+        final m = (jsonDecode(utf8.decode(f.content)) as Map)
+            .cast<String, Object?>();
+        final bytes = utf8.encode(jsonEncode(manifest(m)));
+        encoder.addArchiveFile(
+            ArchiveFile('backup.json', bytes.length, bytes));
+      } else if (f.name == 'database.sqlite' && database != null) {
+        final bytes = database(List<int>.of(f.content));
+        encoder.addArchiveFile(
+            ArchiveFile('database.sqlite', bytes.length, bytes));
+      } else {
+        encoder.addArchiveFile(ArchiveFile(f.name, f.size, f.content));
+      }
+    }
+    await encoder.close();
+    return out;
+  }
+
+  test('D-043: exports carry a database digest and inspect '
+      'verifies it', () async {
+    final db = await seedDb('digest');
+    final zip = await backup.exportBackup(db: db, libraryRoot: libraryRoot);
+    await db.close();
+    final manifest = await backup.inspectBackup(zip);
+    expect(manifest.dbSha256, isNotNull);
+    expect(manifest.dbSha256, hasLength(64));
+  });
+
+  test('D-043: a tampered database inside the zip fails the '
+      'integrity check at inspect time', () async {
+    final db = await seedDb('tamper');
+    final zip = await backup.exportBackup(db: db, libraryRoot: libraryRoot);
+    await db.close();
+    final tampered = await reencode(zip, 'tampered.zip', database: (b) {
+      b[b.length ~/ 2] = b[b.length ~/ 2] ^ 0xFF;
+      return b;
+    });
+    await expectLater(
+      backup.inspectBackup(tampered),
+      throwsA(predicate<BackupException>(
+          (e) => e.message.contains('integrity check'))),
+    );
+  });
+
+  test('D-043: a legacy backup without a digest still inspects '
+      '(digest is optional, format stays v1)', () async {
+    final db = await seedDb('legacy');
+    final zip = await backup.exportBackup(db: db, libraryRoot: libraryRoot);
+    await db.close();
+    final legacy = await reencode(zip, 'legacy.zip', manifest: (m) {
+      m.remove('db_sha256');
+      return m;
+    });
+    final manifest = await backup.inspectBackup(legacy);
+    expect(manifest.dbSha256, isNull);
+    expect(manifest.formatVersion, BackupStore.formatVersion);
+  });
+
+  test('D-043: restore covers content folders beyond the old '
+      'hand-maintained list', () async {
+    var db = await seedDb('folders');
+    await seedLibrary('folders');
+    // A content folder the S4-era restore list never heard of.
+    final audioDir = Directory('${libraryRoot.path}/audio');
+    await audioDir.create();
+    await File('${audioDir.path}/clip.bin')
+        .writeAsBytes([1, 2, 3, 4]);
+    final zip = await backup.exportBackup(db: db, libraryRoot: libraryRoot);
+    await db.close();
+
+    // Wipe + plant a stale file in the same folder: restore must
+    // both bring the backup's file back AND clear the stale one.
+    await File(dbPath).delete();
+    db = await AppDatabase.openFile(dbPath);
+    await db.close();
+    await File('${audioDir.path}/clip.bin').delete();
+    await File('${audioDir.path}/stale.bin').writeAsBytes([9]);
+
+    await backup.restoreBackup(
+      zip: zip,
+      dbPath: dbPath,
+      libraryRoot: libraryRoot,
+      replaceConfirmed: false,
+    );
+    expect(await File('${audioDir.path}/clip.bin').readAsBytes(),
+        [1, 2, 3, 4]);
+    expect(await File('${audioDir.path}/stale.bin').exists(), isFalse);
+    // .nimo identity still exists and parses after the restore.
+    final meta = jsonDecode(await File(
+            '${libraryRoot.path}/.nimo/library.json')
+        .readAsString()) as Map;
+    expect(meta['library_id'], isNotNull);
+  });
+
   test('databaseHasUserData: missing file is empty, foreign file '
       'counts as data', () async {
     expect(await backup.databaseHasUserData('${tmp.path}/nope.db'),

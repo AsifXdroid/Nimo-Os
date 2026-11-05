@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
+import '../../core/spatial_ui.dart';
 import '../../core/theme.dart';
 import '../review/review_store.dart';
 import '../today/today_store.dart';
@@ -171,12 +172,17 @@ class _ProgressScreenState extends State<ProgressScreen> {
           final model = buildJourney(data.journey, today: DateTime.now());
           return ListView(
             padding: const EdgeInsets.fromLTRB(
-                Space.page, Gap.md, Space.page, Gap.lg),
+                Space.page, Gap.md, Space.page, 110.0),
             children: [
               const NeoPageTitle(
-                eyebrow: 'The long view',
-                heading: 'Look how far you’ve come.',
-                sub: 'A record of showing up, not a measure of your worth.',
+                // D-052: the prototype's Progress header. The
+                // sub states the product law — the two scores
+                // tell different stories and stay separate.
+                eyebrow: 'Your journey',
+                heading: 'Notice how far you’ve come.',
+                sub: 'Activity and personal experience tell '
+                    'different stories.',
+                compact: true,
               ),
               const SizedBox(height: Gap.lg),
               _streakHeader(context, data.streak),
@@ -223,29 +229,40 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   ),
                 ],
               ),
+              const SizedBox(height: 2),
               Text(label, style: theme.textTheme.labelSmall),
             ],
           ),
         );
-    return Row(
-      children: [
-        stat(Icons.local_fire_department_outlined,
-            '${streak.currentStreak}', 'current streak'),
-        stat(Icons.emoji_events_outlined, '${streak.bestStreak}', 'best'),
-        stat(Icons.route_outlined, '${streak.totalDays}', 'days travelled'),
-        stat(Icons.shield_outlined, '${streak.shieldsHeld}', 'shields held'),
-      ],
+    return SpatialCard(
+      elevation: SpatialDepth.elevated,
+      borderRadius: RadiusToken.card,
+      padding: const EdgeInsets.symmetric(vertical: Space.s4, horizontal: Space.s3),
+      child: Row(
+        children: [
+          stat(Icons.local_fire_department_outlined,
+              '${streak.currentStreak}', 'current streak'),
+          stat(Icons.emoji_events_outlined, '${streak.bestStreak}', 'best'),
+          stat(Icons.route_outlined, '${streak.totalDays}', 'days travelled'),
+          stat(Icons.shield_outlined, '${streak.shieldsHeld}', 'shields held'),
+        ],
+      ),
     );
   }
 
   Widget _journeyCard(
       BuildContext context, _ProgressData data, JourneyModel model) {
     final theme = Theme.of(context);
-    return NeoPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const NeoSectionHead(title: 'Your journey path'),
+    return SpatialCard(
+      elevation: SpatialDepth.elevated,
+      borderRadius: RadiusToken.card,
+      padding: EdgeInsets.zero,
+      enablePerspective: true,
+      child: NeoPanel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const NeoSectionHead(title: 'Your journey path'),
           const SizedBox(height: Gap.sm),
             if (model.isFresh)
               Padding(
@@ -287,8 +304,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
             ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _legend(BuildContext context, String text) => Text(
         text,

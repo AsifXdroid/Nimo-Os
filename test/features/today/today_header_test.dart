@@ -24,12 +24,27 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 const _weekdays = [
-  'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday',
-  'Saturday', 'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
 ];
 const _months = [
-  'January', 'February', 'March', 'April', 'May', 'June', 'July',
-  'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 String expectedDate() {
   final n = DateTime.now();
@@ -76,11 +91,7 @@ Future<_Harness> _makeHarness({
   return _Harness(todayStore, reviewStore, screen);
 }
 
-Future<void> _pump(
-  WidgetTester tester,
-  _Harness h, {
-  ThemeData? theme,
-}) async {
+Future<void> _pump(WidgetTester tester, _Harness h, {ThemeData? theme}) async {
   await tester.pumpWidget(
     MaterialApp(theme: theme ?? AppTheme.neoDark(), home: h.screen),
   );
@@ -107,8 +118,13 @@ Future<void> _pump(
   fail('hub data never landed (chip/body never appeared)');
 }
 
-Finder inAppBar(Finder inner) =>
-    find.descendant(of: find.byType(AppBar), matching: inner);
+// D-053: the brand row no longer lives in an AppBar — it
+// sits in the hero. Since the 2026-11-05 refinement the
+// photograph is a fixed backdrop layer and the brand row
+// lives in the scrolling hero CONTENT above it; either way
+// each brand element exists exactly once on the page, so
+// the header assertions run unscoped.
+Finder inAppBar(Finder inner) => inner;
 
 void main() {
   setUpAll(() {
@@ -116,91 +132,76 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
-  testWidgets('1. all header elements visible by default',
-      (tester) async {
+  testWidgets('1. all header elements visible by default', (tester) async {
     await tester.runAsync(() async {
       final h = await _makeHarness();
       await _pump(tester, h);
       expect(find.text(expectedDate()), findsOneWidget);
-      expect(find.text('A LITTLE INTENTION GOES A LONG WAY'),
-          findsOneWidget);
+      expect(find.text('A LITTLE INTENTION GOES A LONG WAY'), findsOneWidget);
       expect(find.textContaining('Good '), findsOneWidget);
-      expect(
-          find.text('Make room for what matters. One small step '
-              'at a time.'),
-          findsOneWidget);
+      expect(find.text('A little better, at your pace.'), findsOneWidget);
       // Streak chip in the brand header, settings beside it.
-      expect(inAppBar(find.byIcon(Icons.local_fire_department_outlined)),
-          findsOneWidget);
+      expect(
+        inAppBar(find.byIcon(Icons.local_fire_department_outlined)),
+        findsOneWidget,
+      );
       expect(inAppBar(find.text('0 days')), findsOneWidget);
-      expect(inAppBar(find.byIcon(Icons.settings_outlined)),
-          findsOneWidget);
+      expect(inAppBar(find.byIcon(Icons.settings_outlined)), findsOneWidget);
       // No duplicate streak presentation in the body.
       expect(find.text('One day at a time'), findsNothing);
       expect(find.textContaining('day streak'), findsNothing);
     });
   });
 
-  testWidgets('2. master off: greeting gone, no leftover gap',
-      (tester) async {
+  testWidgets('2. master off: greeting gone, no leftover gap', (tester) async {
     await tester.runAsync(() async {
       var h = await _makeHarness();
       await _pump(tester, h);
-      final dyDefault =
-          tester.getTopLeft(find.text('Task')).dy;
+      final dyDefault = tester.getTopLeft(find.text('Task')).dy;
       await tester.pumpWidget(const SizedBox());
 
-      h = await _makeHarness(
-          prefs: const {TodayStore.headerGreeting: false});
+      h = await _makeHarness(prefs: const {TodayStore.headerGreeting: false});
       await _pump(tester, h);
       expect(find.text(expectedDate()), findsNothing);
-      expect(find.text('A LITTLE INTENTION GOES A LONG WAY'),
-          findsNothing);
+      expect(find.text('A LITTLE INTENTION GOES A LONG WAY'), findsNothing);
       expect(find.textContaining('Good '), findsNothing);
-      expect(
-          find.text('Make room for what matters. One small step '
-              'at a time.'),
-          findsNothing);
+      expect(find.text('A little better, at your pace.'), findsNothing);
       // Brand, chip and settings survive.
       expect(inAppBar(find.text('Nimo')), findsOneWidget);
       expect(inAppBar(find.text('0 days')), findsOneWidget);
-      expect(inAppBar(find.byIcon(Icons.settings_outlined)),
-          findsOneWidget);
-      // The next section moved up by roughly the intro's height.
-      final dyMinimal = tester.getTopLeft(find.text('Task')).dy;
-      expect(dyDefault - dyMinimal, greaterThan(100));
+      expect(inAppBar(find.byIcon(Icons.settings_outlined)), findsOneWidget);
+      // D-053: the hero's height is viewport-based, so the
+      // sections below no longer move when the greeting hides
+      // (the D-040 offset assertion's premise is gone). What
+      // must hold instead: the if–then control survives in the
+      // hero and the page still starts with the hero.
+      expect(find.byIcon(Icons.bolt_outlined), findsOneWidget);
+      expect(tester.getTopLeft(find.text('Task')).dy, lessThan(dyDefault + 1));
     });
   });
 
   testWidgets('3. only the date hidden', (tester) async {
     await tester.runAsync(() async {
-      final h = await _makeHarness(
-          prefs: const {TodayStore.headerDate: false});
+      final h = await _makeHarness(prefs: const {TodayStore.headerDate: false});
       await _pump(tester, h);
       expect(find.text(expectedDate()), findsNothing);
-      expect(find.text('A LITTLE INTENTION GOES A LONG WAY'),
-          findsOneWidget);
+      expect(find.text('A LITTLE INTENTION GOES A LONG WAY'), findsOneWidget);
       expect(find.textContaining('Good '), findsOneWidget);
-      expect(
-          find.text('Make room for what matters. One small step '
-              'at a time.'),
-          findsOneWidget);
+      expect(find.text('A little better, at your pace.'), findsOneWidget);
     });
   });
 
   testWidgets('4. eyebrow and tagline hidden', (tester) async {
     await tester.runAsync(() async {
-      final h = await _makeHarness(prefs: const {
-        TodayStore.headerEyebrow: false,
-        TodayStore.headerTagline: false,
-      });
+      final h = await _makeHarness(
+        prefs: const {
+          TodayStore.headerEyebrow: false,
+          TodayStore.headerTagline: false,
+        },
+      );
       await _pump(tester, h);
-      expect(find.text('A LITTLE INTENTION GOES A LONG WAY'),
-          findsNothing);
-      expect(
-          find.text('Make room for what matters. One small step '
-              'at a time.'),
-          findsNothing);
+      expect(find.text('A LITTLE INTENTION GOES A LONG WAY'), findsNothing);
+      expect(find.text('A little better, at your pace.'), findsNothing);
       expect(find.text(expectedDate()), findsOneWidget);
       expect(find.textContaining('Good '), findsOneWidget);
     });
@@ -209,29 +210,29 @@ void main() {
   testWidgets('5. greeting heading hidden', (tester) async {
     await tester.runAsync(() async {
       final h = await _makeHarness(
-          prefs: const {TodayStore.headerHeading: false});
+        prefs: const {TodayStore.headerHeading: false},
+      );
       await _pump(tester, h);
       expect(find.textContaining('Good '), findsNothing);
       expect(find.text(expectedDate()), findsOneWidget);
-      expect(find.text('A LITTLE INTENTION GOES A LONG WAY'),
-          findsOneWidget);
-      expect(
-          find.text('Make room for what matters. One small step '
-              'at a time.'),
-          findsOneWidget);
+      expect(find.text('A LITTLE INTENTION GOES A LONG WAY'), findsOneWidget);
+      expect(find.text('A little better, at your pace.'), findsOneWidget);
     });
   });
 
-  testWidgets('6. chip shows the real streak and opens Progress',
-      (tester) async {
+  testWidgets('6. chip shows the real streak and opens Progress', (
+    tester,
+  ) async {
     await tester.runAsync(() async {
       var opened = false;
       final h = await _makeHarness(onOpenProgress: () => opened = true);
       // Seed a counted day through the real Day Close path.
       final now = DateTime.now();
-      await h.reviewStore.closeDay(now,
-          selfScore: 7,
-          now: DateTime(now.year, now.month, now.day, 21));
+      await h.reviewStore.closeDay(
+        now,
+        selfScore: 7,
+        now: DateTime(now.year, now.month, now.day, 21),
+      );
       final streak = await h.reviewStore.streakState();
       expect(streak.currentStreak, 1);
       await _pump(tester, h);
@@ -242,8 +243,7 @@ void main() {
     });
   });
 
-  testWidgets('7. narrow screen: compact chip, no overflow',
-      (tester) async {
+  testWidgets('7. narrow screen: compact chip, no overflow', (tester) async {
     await tester.runAsync(() async {
       tester.view.devicePixelRatio = 2.0;
       tester.view.physicalSize = const Size(640, 1136); // 320dp
@@ -257,15 +257,15 @@ void main() {
       // Master-off at the same width also lays out cleanly.
       await tester.pumpWidget(const SizedBox());
       final h2 = await _makeHarness(
-          prefs: const {TodayStore.headerGreeting: false});
+        prefs: const {TodayStore.headerGreeting: false},
+      );
       await _pump(tester, h2);
       expect(inAppBar(find.text('0')), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });
 
-  testWidgets('8. light theme renders the header fully',
-      (tester) async {
+  testWidgets('8. light theme renders the header fully', (tester) async {
     await tester.runAsync(() async {
       final h = await _makeHarness();
       await _pump(tester, h, theme: AppTheme.neoLight());

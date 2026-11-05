@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.13.7
+  sdk: ">=3.13.0 <4.0.0"
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -86,6 +86,12 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # D-053: the Today hero's default background photograph
+  # (owner-approved 2026-11-05; a user-chosen replacement is
+  # stored as a file at runtime, never as an asset).
+  assets:
+    - assets/images/hero_default.png
 
   # D-039 Editorial typefaces (OFL 1.1; licences in assets/fonts/).
   # Official static instances from Google Fonts, verified by

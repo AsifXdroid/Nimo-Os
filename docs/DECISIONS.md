@@ -1168,6 +1168,51 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
     with a single clean `+ Add source` button that presents a unified modal sheet.
 - **Verification:** `flutter analyze` clean, all 616 tests passed.
 
+## 2026-11-05 — D-053: Premium Charcoal & Living Background (Today hero) — LOCAL, UNCOMMITTED
+
+- **Source:** the owner's "Premium Charcoal & Living Background"
+  brief (2026-11-05) + the owner-supplied hero photograph
+  (uploaded same day). Implemented in the working tree ONLY —
+  per the brief, nothing committed or pushed.
+- **Hero:** the default photograph ships as
+  `assets/images/hero_default.png` (owner-approved, byte-
+  identical to the upload). The hero is the Today ListView's
+  first item — no AppBar on Today, no pinned sliver; the
+  brand row (mark, wordmark, streak chip, Settings) lives
+  inside it and scrolls away with it. Height target 40% of
+  the viewport, floored by measured content (328; 356 under
+  340dp wide) so it cannot overflow at 320dp.
+- **Hug contour:** `_HugClipper` — two mirrored cubics; the
+  sides sit 18dp higher than the centre. A gradient scrim
+  (shade top + bottom, easing into the page colour) keeps
+  text readable and the contour seam invisible.
+- **If–then:** the existing line + editor, relocated from
+  the plan card's foot into the hero as a translucent
+  charcoal control (green bolt, neutral text, edit action).
+  Store keys and behaviour unchanged.
+- **Charcoal surfaces:** GlassTokens gains the brief's set
+  (#181818/#202020/#262626/#363636, text #F5F5F5/#A7A7A7;
+  muted deepened to #8A8A8A for the 4.5 contrast floor, the
+  project's standing treatment). Plan groups, Learn strip,
+  Sunday card and score cards use them in dark; quick
+  actions are local charcoal tiles with neutral icons (Task
+  keeps the accent). The dark accent moves #1DB954 →
+  #1ED760 (the brief's green) across theme, capsule FAB and
+  glows; light theme unchanged. Bottom navigation is
+  otherwise untouched (owner-approved, brief §8).
+- **Hero image option (owner addition, 2026-11-05):**
+  Customize Home → Background: "Change image…" (file_selector,
+  copied into app documents as `nimo_hero_custom.*`) and
+  "Reset to default" (deletes the file). The path lives in
+  `app_settings` (`home_hero_image_path`, TodayStore) — no
+  schema change; a missing file falls back to the default.
+- **Gates:** analyze clean; suite 651/651 ("All tests
+  passed!") incl. 4 new hero tests + reworked header tests
+  (the D-040 AppBar assertions now scope to the hero).
+  NOT build-verified (no APK route without a push) and NOT
+  device-verified. Renders captured via the widget-test
+  harness (captures-d53/, outside the repo tree).
+
 ## 2026-11-05 — D-052: Green & Black renovation (the owner's HTML prototype, rebuilt in code)
 
 - **Source of truth:** the owner's prototype `Nimo_Green_Black_Clean.html`

@@ -14,18 +14,13 @@
 library;
 
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import 'theme.dart';
 
 /// Depth tiers in the Living Glass material hierarchy.
-enum GlassTier {
-  atmosphere,
-  primary,
-  secondary,
-  floating,
-  recessed,
-}
+enum GlassTier { atmosphere, primary, secondary, floating, recessed }
 
 /// Centralized glass tokens for blur, opacity, borders, and ambient glow.
 abstract final class GlassTokens {
@@ -59,13 +54,28 @@ abstract final class GlassTokens {
   static const Color lightBorderSubtle = Color(0x24000000);
 
   // Atmospheric glow colors (D-052: the one green, no plum)
-  static const Color darkGlowMint = Color(0x1F1DB954);
+  static const Color darkGlowMint = Color(0x1F1ED760);
   static const Color darkGlowForest = Color(0x3314301D);
-  static const Color darkGlowPlum = Color(0x141DB954);
+  static const Color darkGlowPlum = Color(0x141ED760);
 
   static const Color lightGlowTeal = Color(0x1A276C57);
   static const Color lightGlowSun = Color(0x28FFF8E7);
   static const Color lightGlowPlum = Color(0x0F276C57);
+
+  // D-053 Premium Charcoal (the Today redesign's surface
+  // system, owner brief 2026-11-05). Dark values are the
+  // brief's set; fills carry their alpha so surfaces read as
+  // translucent charcoal over the page base. Text values are
+  // for use ON these surfaces. The light theme keeps its
+  // D-052 soft surfaces — charcoal is a dark-mode system.
+  static const Color darkCharcoal = Color(0xE6181818);
+  static const Color darkCharcoalSolid = Color(0xFF181818);
+  static const Color darkCharcoalRaised = Color(0xEB202020);
+  static const Color darkCharcoalElevated = Color(0xFF262626);
+  static const Color darkCharcoalBorder = Color(0xFF363636);
+  static const Color darkOnCharcoal = Color(0xFFF5F5F5);
+  static const Color darkOnCharcoalSecondary = Color(0xFFA7A7A7);
+  static const Color darkOnCharcoalMuted = Color(0xFF8A8A8A);
 }
 
 /// Ambient atmospheric background providing depth beneath translucent layers.
@@ -82,8 +92,9 @@ class GlassAtmosphere extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final baseColor =
-        dark ? GlassTokens.darkAtmosphere : GlassTokens.lightAtmosphere;
+    final baseColor = dark
+        ? GlassTokens.darkAtmosphere
+        : GlassTokens.lightAtmosphere;
 
     if (!showGlows) {
       return ColoredBox(color: baseColor, child: child);
@@ -96,16 +107,8 @@ class GlassAtmosphere extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: dark
-              ? const [
-                  Color(0xFF0F1511),
-                  Color(0xFF0B100C),
-                  Color(0xFF090D0A),
-                ]
-              : const [
-                  Color(0xFFF4F0E6),
-                  Color(0xFFECE7DB),
-                  Color(0xFFE4DFD1),
-                ],
+              ? const [Color(0xFF0F1511), Color(0xFF0B100C), Color(0xFF090D0A)]
+              : const [Color(0xFFF4F0E6), Color(0xFFECE7DB), Color(0xFFE4DFD1)],
         ),
       ),
       child: Stack(
@@ -195,23 +198,28 @@ class GlassContainer extends StatelessWidget {
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
 
-    final baseFill = color ??
+    final baseFill =
+        color ??
         switch (tier) {
           GlassTier.atmosphere => Colors.transparent,
           GlassTier.primary =>
             dark ? GlassTokens.darkGlassPrimary : GlassTokens.lightGlassPrimary,
-          GlassTier.secondary => dark
-              ? GlassTokens.darkGlassSecondary
-              : GlassTokens.lightGlassSecondary,
-          GlassTier.floating => dark
-              ? GlassTokens.darkGlassFloating
-              : GlassTokens.lightGlassFloating,
-          GlassTier.recessed => dark
-              ? GlassTokens.darkGlassRecessed
-              : GlassTokens.lightGlassRecessed,
+          GlassTier.secondary =>
+            dark
+                ? GlassTokens.darkGlassSecondary
+                : GlassTokens.lightGlassSecondary,
+          GlassTier.floating =>
+            dark
+                ? GlassTokens.darkGlassFloating
+                : GlassTokens.lightGlassFloating,
+          GlassTier.recessed =>
+            dark
+                ? GlassTokens.darkGlassRecessed
+                : GlassTokens.lightGlassRecessed,
         };
 
-    final effectiveBlur = blur ??
+    final effectiveBlur =
+        blur ??
         switch (tier) {
           GlassTier.floating => GlassTokens.blurDense,
           GlassTier.primary => GlassTokens.blurStandard,
@@ -220,15 +228,16 @@ class GlassContainer extends StatelessWidget {
           GlassTier.atmosphere => 0.0,
         };
 
-    final effectiveBorder = border ??
+    final effectiveBorder =
+        border ??
         Border.all(
           color: dark
               ? (tier == GlassTier.primary
-                  ? GlassTokens.darkBorder
-                  : GlassTokens.darkBorderSubtle)
+                    ? GlassTokens.darkBorder
+                    : GlassTokens.darkBorderSubtle)
               : (tier == GlassTier.primary
-                  ? GlassTokens.lightBorder
-                  : GlassTokens.lightBorderSubtle),
+                    ? GlassTokens.lightBorder
+                    : GlassTokens.lightBorderSubtle),
           width: 1.0,
         );
 
@@ -249,9 +258,7 @@ class GlassContainer extends StatelessWidget {
             ),
           if (tier == GlassTier.floating)
             BoxShadow(
-              color: dark
-                  ? const Color(0x66000000)
-                  : const Color(0x1F000000),
+              color: dark ? const Color(0x66000000) : const Color(0x1F000000),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -273,10 +280,7 @@ class GlassContainer extends StatelessWidget {
         ),
       );
     } else {
-      content = ClipRRect(
-        borderRadius: borderRadius,
-        child: content,
-      );
+      content = ClipRRect(borderRadius: borderRadius, child: content);
     }
 
     if (onTap == null && onLongPress == null) return content;
@@ -290,8 +294,9 @@ class GlassContainer extends StatelessWidget {
         onLongPress: onLongPress,
         splashColor: (dark ? const Color(0xFFA9D5C6) : const Color(0xFF2F6B57))
             .withValues(alpha: 0.12),
-        highlightColor:
-            (dark ? Colors.white : Colors.black).withValues(alpha: 0.04),
+        highlightColor: (dark ? Colors.white : Colors.black).withValues(
+          alpha: 0.04,
+        ),
         child: content,
       ),
     );

@@ -87,6 +87,12 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # D-053: the Today hero's default background photograph
+  # (owner-approved 2026-11-05; a user-chosen replacement is
+  # stored as a file at runtime, never as an asset).
+  assets:
+    - assets/images/hero_default.png
+
   # D-039 Editorial typefaces (OFL 1.1; licences in assets/fonts/).
   # Official static instances from Google Fonts, verified by
   # name table + OS/2 weight class (2026-10-31): Playfair

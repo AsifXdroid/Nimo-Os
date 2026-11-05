@@ -68,19 +68,19 @@ class PlanTemplate {
   }
 
   factory PlanTemplate.fromRow(Map<String, Object?> r) => PlanTemplate(
-        id: r['id'] as int,
-        title: r['title'] as String,
-        position: r['position'] as int,
-        isActive: (r['is_active'] as int) == 1,
-        createdAt: r['created_at'] as int,
-        starterTitle: r['starter_title'] as String?,
-        anchorText: r['anchor_text'] as String?,
-        track: r['track'] as String?,
-        countsCore: ((r['counts_core'] as int?) ?? 1) == 1,
-        weekdays: r['weekdays'] as int?,
-        itemId: r['item_id'] as int?,
-        url: r['url'] as String?,
-      );
+    id: r['id'] as int,
+    title: r['title'] as String,
+    position: r['position'] as int,
+    isActive: (r['is_active'] as int) == 1,
+    createdAt: r['created_at'] as int,
+    starterTitle: r['starter_title'] as String?,
+    anchorText: r['anchor_text'] as String?,
+    track: r['track'] as String?,
+    countsCore: ((r['counts_core'] as int?) ?? 1) == 1,
+    weekdays: r['weekdays'] as int?,
+    itemId: r['item_id'] as int?,
+    url: r['url'] as String?,
+  );
 }
 
 /// Life-area tracks offered for habits (§R5.5; owner-extensible —
@@ -141,18 +141,18 @@ class DayPlanItem {
   bool get hasResource => url != null || itemId != null;
 
   factory DayPlanItem.fromRow(Map<String, Object?> r) => DayPlanItem(
-        id: r['id'] as int,
-        dayPlanId: r['day_plan_id'] as int,
-        title: r['title'] as String,
-        kind: r['kind'] as String,
-        templateId: r['template_id'] as int?,
-        done: (r['done'] as int) == 1,
-        carried: (r['carried'] as int) == 1,
-        position: r['position'] as int,
-        countsCore: ((r['counts_core'] as int?) ?? 0) == 1,
-        itemId: r['item_id'] as int?,
-        url: r['url'] as String?,
-      );
+    id: r['id'] as int,
+    dayPlanId: r['day_plan_id'] as int,
+    title: r['title'] as String,
+    kind: r['kind'] as String,
+    templateId: r['template_id'] as int?,
+    done: (r['done'] as int) == 1,
+    carried: (r['carried'] as int) == 1,
+    position: r['position'] as int,
+    countsCore: ((r['counts_core'] as int?) ?? 0) == 1,
+    itemId: r['item_id'] as int?,
+    url: r['url'] as String?,
+  );
 }
 
 /// One day's unticked items, for the weekly pending view.
@@ -192,8 +192,10 @@ class TodayStore {
   // ------------------------------------------------------------ templates
 
   Future<List<PlanTemplate>> templates() async {
-    final rows =
-        await _db.query('plan_templates', orderBy: 'position ASC, id ASC');
+    final rows = await _db.query(
+      'plan_templates',
+      orderBy: 'position ASC, id ASC',
+    );
     return rows.map(PlanTemplate.fromRow).toList();
   }
 
@@ -204,20 +206,29 @@ class TodayStore {
       'is_active': 1,
       'created_at': AppDatabase.nowMs(),
     });
-    return (await _db.query('plan_templates',
-            where: 'id = ?', whereArgs: [id]))
-        .map(PlanTemplate.fromRow)
-        .single;
+    return (await _db.query(
+      'plan_templates',
+      where: 'id = ?',
+      whereArgs: [id],
+    )).map(PlanTemplate.fromRow).single;
   }
 
   Future<void> renameTemplate(int id, String title) async {
-    await _db.update('plan_templates', {'title': title},
-        where: 'id = ?', whereArgs: [id]);
+    await _db.update(
+      'plan_templates',
+      {'title': title},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<void> setTemplateActive(int id, bool active) async {
-    await _db.update('plan_templates', {'is_active': active ? 1 : 0},
-        where: 'id = ?', whereArgs: [id]);
+    await _db.update(
+      'plan_templates',
+      {'is_active': active ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<void> deleteTemplate(int id) async {
@@ -259,8 +270,12 @@ class TodayStore {
   /// Idempotent — an existing plan is returned unchanged.
   Future<int> ensurePlanFor(DateTime date) async {
     final key = dateKey(date);
-    final existing = await _db.query('day_plans',
-        where: 'date = ?', whereArgs: [key], limit: 1);
+    final existing = await _db.query(
+      'day_plans',
+      where: 'date = ?',
+      whereArgs: [key],
+      limit: 1,
+    );
     if (existing.isNotEmpty) return existing.single['id'] as int;
 
     final planId = await _db.insert('day_plans', {
@@ -303,8 +318,11 @@ class TodayStore {
       });
     }
 
-    final templates = await _db.query('plan_templates',
-        where: 'is_active = 1', orderBy: 'position ASC, id ASC');
+    final templates = await _db.query(
+      'plan_templates',
+      where: 'is_active = 1',
+      orderBy: 'position ASC, id ASC',
+    );
     for (final t in templates) {
       // D-042: weekday scheduling is a generation-time filter
       // only. A skipped template produces NO row for this
@@ -328,15 +346,20 @@ class TodayStore {
       );
     }
 
-    final prevKey =
-        dateKey(DateTime(date.year, date.month, date.day - 1));
-    final prev = await _db.query('day_plans',
-        where: 'date = ?', whereArgs: [prevKey], limit: 1);
+    final prevKey = dateKey(DateTime(date.year, date.month, date.day - 1));
+    final prev = await _db.query(
+      'day_plans',
+      where: 'date = ?',
+      whereArgs: [prevKey],
+      limit: 1,
+    );
     if (prev.isNotEmpty) {
-      final prevItems = await _db.query('day_plan_items',
-          where: "day_plan_id = ? AND kind = 'oneoff' AND done = 0",
-          whereArgs: [prev.single['id']],
-          orderBy: 'position ASC, id ASC');
+      final prevItems = await _db.query(
+        'day_plan_items',
+        where: "day_plan_id = ? AND kind = 'oneoff' AND done = 0",
+        whereArgs: [prev.single['id']],
+        orderBy: 'position ASC, id ASC',
+      );
       for (final r in prevItems) {
         await addItem(
           title: r['title'] as String,
@@ -357,10 +380,12 @@ class TodayStore {
   /// The day's plan items (generating the plan first if needed).
   Future<List<DayPlanItem>> planItems(DateTime date) async {
     final planId = await ensurePlanFor(date);
-    final rows = await _db.query('day_plan_items',
-        where: 'day_plan_id = ?',
-        whereArgs: [planId],
-        orderBy: 'position ASC, id ASC');
+    final rows = await _db.query(
+      'day_plan_items',
+      where: 'day_plan_id = ?',
+      whereArgs: [planId],
+      orderBy: 'position ASC, id ASC',
+    );
     return rows.map(DayPlanItem.fromRow).toList();
   }
 
@@ -376,12 +401,20 @@ class TodayStore {
   }
 
   Future<void> toggleItem(DayPlanItem item) async {
-    await _db.update('day_plan_items', {'done': item.done ? 0 : 1},
-        where: 'id = ?', whereArgs: [item.id]);
+    await _db.update(
+      'day_plan_items',
+      {'done': item.done ? 0 : 1},
+      where: 'id = ?',
+      whereArgs: [item.id],
+    );
   }
 
-  Future<DayPlanItem> addOneOff(DateTime date, String title,
-      {int? itemId, String? url}) async {
+  Future<DayPlanItem> addOneOff(
+    DateTime date,
+    String title, {
+    int? itemId,
+    String? url,
+  }) async {
     final planId = await ensurePlanFor(date);
     final id = await _db.insert('day_plan_items', {
       'day_plan_id': planId,
@@ -393,12 +426,18 @@ class TodayStore {
       'item_id': itemId,
       'url': url,
       'position':
-          (await _maxPosition('day_plan_items', where: 'day_plan_id = ?', whereArgs: [planId])) + 1,
+          (await _maxPosition(
+            'day_plan_items',
+            where: 'day_plan_id = ?',
+            whereArgs: [planId],
+          )) +
+          1,
     });
-    return (await _db.query('day_plan_items',
-            where: 'id = ?', whereArgs: [id]))
-        .map(DayPlanItem.fromRow)
-        .single;
+    return (await _db.query(
+      'day_plan_items',
+      where: 'id = ?',
+      whereArgs: [id],
+    )).map(DayPlanItem.fromRow).single;
   }
 
   Future<void> deletePlanItem(int id) async {
@@ -415,9 +454,14 @@ class TodayStore {
   /// would have produced — same deterministic sync_id — so a
   /// peer that generated it normally dedupes against it.
   Future<AddRoutineResult> addRoutineToToday(
-      int templateId, DateTime date) async {
-    final rows = await _db.query('plan_templates',
-        where: 'id = ?', whereArgs: [templateId]);
+    int templateId,
+    DateTime date,
+  ) async {
+    final rows = await _db.query(
+      'plan_templates',
+      where: 'id = ?',
+      whereArgs: [templateId],
+    );
     if (rows.isEmpty) return AddRoutineResult.notFound;
     final t = PlanTemplate.fromRow(rows.single);
     if (!t.isActive) return AddRoutineResult.inactive;
@@ -426,13 +470,18 @@ class TodayStore {
     // this call had to generate it, generation itself placed
     // the row (the template is active and scheduled — checked
     // above), so the add did happen, by generation.
-    final planExisted = (await _db.query('day_plans',
-            where: 'date = ?', whereArgs: [dateKey(date)], limit: 1))
-        .isNotEmpty;
+    final planExisted = (await _db.query(
+      'day_plans',
+      where: 'date = ?',
+      whereArgs: [dateKey(date)],
+      limit: 1,
+    )).isNotEmpty;
     final planId = await ensurePlanFor(date);
-    final existing = await _db.query('day_plan_items',
-        where: 'day_plan_id = ? AND template_id = ?',
-        whereArgs: [planId, templateId]);
+    final existing = await _db.query(
+      'day_plan_items',
+      where: 'day_plan_id = ? AND template_id = ?',
+      whereArgs: [planId, templateId],
+    );
     if (existing.isNotEmpty) {
       return planExisted
           ? AddRoutineResult.alreadyInPlan
@@ -445,8 +494,12 @@ class TodayStore {
       'template_id': templateId,
       'done': 0,
       'carried': 0,
-      'position': (await _maxPosition('day_plan_items',
-              where: 'day_plan_id = ?', whereArgs: [planId])) +
+      'position':
+          (await _maxPosition(
+            'day_plan_items',
+            where: 'day_plan_id = ?',
+            whereArgs: [planId],
+          )) +
           1,
       'counts_core': t.countsCore ? 1 : 0,
       'item_id': t.itemId,
@@ -461,8 +514,12 @@ class TodayStore {
   /// routine row never touches its template (which keeps its
   /// own rename in the Routine editor).
   Future<void> renamePlanItem(int id, String title) async {
-    await _db.update('day_plan_items', {'title': title},
-        where: 'id = ?', whereArgs: [id]);
+    await _db.update(
+      'day_plan_items',
+      {'title': title},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   /// Set or clear a plan row's linked resource (D-042). One
@@ -503,8 +560,9 @@ class TodayStore {
     final result = <DayPending>[];
     for (var i = 0; i < 7; i++) {
       final day = DateTime(monday.year, monday.month, monday.day + i);
-      final items =
-          (await existingPlanItems(day)).where((e) => !e.done).toList();
+      final items = (await existingPlanItems(day))
+          .where((e) => !e.done)
+          .toList();
       if (items.isNotEmpty) result.add(DayPending(date: day, items: items));
     }
     return result;
@@ -564,8 +622,12 @@ class TodayStore {
   ];
 
   Future<bool> homeSectionVisible(String key) async {
-    final rows = await _db.query('app_settings',
-        where: 'key = ?', whereArgs: ['home_show_$key'], limit: 1);
+    final rows = await _db.query(
+      'app_settings',
+      where: 'key = ?',
+      whereArgs: ['home_show_$key'],
+      limit: 1,
+    );
     if (rows.isEmpty) return true;
     return rows.single['value'] == '1';
   }
@@ -574,17 +636,15 @@ class TodayStore {
     return {
       for (final key in homeSections) key: await homeSectionVisible(key),
       // D-040: header prefs ride the same map the hub loads.
-      for (final key in headerSections)
-        key: await homeSectionVisible(key),
+      for (final key in headerSections) key: await homeSectionVisible(key),
     };
   }
 
   Future<void> setHomeSectionVisible(String key, bool visible) async {
-    await _db.insert(
-      'app_settings',
-      {'key': 'home_show_$key', 'value': visible ? '1' : '0'},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _db.insert('app_settings', {
+      'key': 'home_show_$key',
+      'value': visible ? '1' : '0',
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   // ------------------------------------------------------------ if–then
@@ -592,24 +652,68 @@ class TodayStore {
   /// The owner's if–then line ("If …, then I will …", §R1.3),
   /// stored in `app_settings`; empty string when unset.
   Future<String> ifThenLine() async {
-    final rows = await _db.query('app_settings',
-        where: 'key = ?', whereArgs: ['if_then_line'], limit: 1);
+    final rows = await _db.query(
+      'app_settings',
+      where: 'key = ?',
+      whereArgs: ['if_then_line'],
+      limit: 1,
+    );
     if (rows.isEmpty) return '';
     return rows.single['value'] as String;
   }
 
   Future<void> setIfThenLine(String text) async {
-    await _db.insert(
-      'app_settings',
-      {'key': 'if_then_line', 'value': text.trim()},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _db.insert('app_settings', {
+      'key': 'if_then_line',
+      'value': text.trim(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  Future<int> _maxPosition(String table,
-      {String? where, List<Object?>? whereArgs}) async {
-    final rows = await _db.query(table,
-        columns: ['MAX(position) AS m'], where: where, whereArgs: whereArgs);
+  // ------------------------------------------------------- hero image
+
+  /// D-053: the owner's custom Today hero image — a file path
+  /// inside app storage, stored in `app_settings`. Null means
+  /// the shipped default photograph is used. The file itself
+  /// is managed by the Today screen (copy in / delete); this
+  /// store only remembers where it lives.
+  Future<String?> heroImagePath() async {
+    final rows = await _db.query(
+      'app_settings',
+      where: 'key = ?',
+      whereArgs: ['home_hero_image_path'],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    final value = rows.single['value'] as String;
+    return value.isEmpty ? null : value;
+  }
+
+  Future<void> setHeroImagePath(String? path) async {
+    if (path == null) {
+      await _db.delete(
+        'app_settings',
+        where: 'key = ?',
+        whereArgs: ['home_hero_image_path'],
+      );
+      return;
+    }
+    await _db.insert('app_settings', {
+      'key': 'home_hero_image_path',
+      'value': path,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<int> _maxPosition(
+    String table, {
+    String? where,
+    List<Object?>? whereArgs,
+  }) async {
+    final rows = await _db.query(
+      table,
+      columns: ['MAX(position) AS m'],
+      where: where,
+      whereArgs: whereArgs,
+    );
     return (rows.single['m'] as int?) ?? -1;
   }
 
@@ -621,8 +725,12 @@ class TodayStore {
     final existing = row['sync_id'] as String?;
     if (existing != null && existing.isNotEmpty) return existing;
     final id = newUuid();
-    await _db.update(table, {'sync_id': id},
-        where: 'id = ?', whereArgs: [row['id']]);
+    await _db.update(
+      table,
+      {'sync_id': id},
+      where: 'id = ?',
+      whereArgs: [row['id']],
+    );
     return id;
   }
 }

@@ -37,7 +37,7 @@
 /// direction as the visual foundation):
 ///   • dark  = true black (#101010), panel #191919, ink
 ///     #F2F3F1, muted #9CA39E, ONE accent — signal green
-///     #1DB954; hairlines are white at ~7%;
+///     #1ED760; hairlines are white at ~7%;
 ///   • light = the prototype's soft set: pale green paper
 ///     (#E9EFEB), white panels, deep green ink (#213D35) and
 ///     the deep green accent #276C57 (the bright green fails
@@ -75,24 +75,24 @@ enum AppPlate { calm, midnight, warm }
 extension AppPlateInfo on AppPlate {
   /// Human name shown in previews and settings.
   String get label => switch (this) {
-        AppPlate.calm => 'Calm Focus',
-        AppPlate.midnight => 'Midnight',
-        AppPlate.warm => 'Warm Paper',
-      };
+    AppPlate.calm => 'Calm Focus',
+    AppPlate.midnight => 'Midnight',
+    AppPlate.warm => 'Warm Paper',
+  };
 
   /// Seed the plate's Material 3 colour scheme is generated from.
   Color get seed => switch (this) {
-        AppPlate.calm => const Color(0xFF3D5AFE),
-        AppPlate.midnight => const Color(0xFF1DB954),
-        AppPlate.warm => const Color(0xFFD96C3D),
-      };
+    AppPlate.calm => const Color(0xFF3D5AFE),
+    AppPlate.midnight => const Color(0xFF1ED760),
+    AppPlate.warm => const Color(0xFFD96C3D),
+  };
 
   /// Card corner radius that gives each plate its shape character.
   double get cardRadius => switch (this) {
-        AppPlate.calm => 24,
-        AppPlate.midnight => 20,
-        AppPlate.warm => 16,
-      };
+    AppPlate.calm => 24,
+    AppPlate.midnight => 20,
+    AppPlate.warm => 16,
+  };
 }
 
 /// Spacing scale — the ONLY spacing source. 4pt grid, named
@@ -170,13 +170,13 @@ abstract final class AppType {
   /// in sans/serif and reserves mono for labels. [size] 30 by
   /// default (pulse cells), 32 in score wells.
   static TextStyle statistic({double size = 30}) => TextStyle(
-        fontFamily: fontSans,
-        fontFamilyFallback: fontSansFallback,
-        fontSize: size,
-        fontWeight: FontWeight.w500,
-        letterSpacing: size >= 28 ? -1 : -0.5,
-        fontFeatures: const [FontFeature.tabularFigures()],
-      );
+    fontFamily: fontSans,
+    fontFamilyFallback: fontSansFallback,
+    fontSize: size,
+    fontWeight: FontWeight.w500,
+    letterSpacing: size >= 28 ? -1 : -0.5,
+    fontFeatures: const [FontFeature.tabularFigures()],
+  );
 
   /// Technical information: DM Mono — device ids, file paths,
   /// sync status. Colour comes from the theme at the use site.
@@ -221,21 +221,20 @@ abstract final class BrandColors {
 /// and info move toward the mint/sage family.
 ({Color success, Color warning, Color error, Color info}) semanticFor(
   Brightness brightness,
-) =>
-    switch (brightness) {
-      Brightness.dark => (
-          success: const Color(0xFF1DB954),
-          warning: const Color(0xFFF5B86B),
-          error: const Color(0xFFF09A94),
-          info: const Color(0xFF9CA39E),
-        ),
-      Brightness.light => (
-          success: const Color(0xFF276C57),
-          warning: const Color(0xFF8B622C),
-          error: const Color(0xFFA44451),
-          info: const Color(0xFF718078),
-        ),
-    };
+) => switch (brightness) {
+  Brightness.dark => (
+    success: const Color(0xFF1ED760),
+    warning: const Color(0xFFF5B86B),
+    error: const Color(0xFFF09A94),
+    info: const Color(0xFF9CA39E),
+  ),
+  Brightness.light => (
+    success: const Color(0xFF276C57),
+    warning: const Color(0xFF8B622C),
+    error: const Color(0xFFA44451),
+    info: const Color(0xFF718078),
+  ),
+};
 
 /// The two rationed FEATURE surfaces (D-039, from the concept):
 /// a deep-green tint panel (the "pulse") and a paper card.
@@ -293,7 +292,7 @@ class EditorialColors extends ThemeExtension<EditorialColors> {
     onDeep: Color(0xFFE3EEE6),
     deepMuted: Color(0xFFA7B9AE),
     deepLine: Color(0xFF40584B),
-    deepAccent: Color(0xFF1DB954),
+    deepAccent: Color(0xFF1ED760),
     onDeepAccent: Color(0xFF07130B),
     paper: Color(0xFFF2F3F1),
     onPaper: Color(0xFF101010),
@@ -326,18 +325,17 @@ class EditorialColors extends ThemeExtension<EditorialColors> {
     Color? paper,
     Color? onPaper,
     Color? paperMuted,
-  }) =>
-      EditorialColors(
-        deep: deep ?? this.deep,
-        onDeep: onDeep ?? this.onDeep,
-        deepMuted: deepMuted ?? this.deepMuted,
-        deepLine: deepLine ?? this.deepLine,
-        deepAccent: deepAccent ?? this.deepAccent,
-        onDeepAccent: onDeepAccent ?? this.onDeepAccent,
-        paper: paper ?? this.paper,
-        onPaper: onPaper ?? this.onPaper,
-        paperMuted: paperMuted ?? this.paperMuted,
-      );
+  }) => EditorialColors(
+    deep: deep ?? this.deep,
+    onDeep: onDeep ?? this.onDeep,
+    deepMuted: deepMuted ?? this.deepMuted,
+    deepLine: deepLine ?? this.deepLine,
+    deepAccent: deepAccent ?? this.deepAccent,
+    onDeepAccent: onDeepAccent ?? this.onDeepAccent,
+    paper: paper ?? this.paper,
+    onPaper: onPaper ?? this.onPaper,
+    paperMuted: paperMuted ?? this.paperMuted,
+  );
 
   @override
   EditorialColors lerp(EditorialColors? other, double t) {
@@ -348,8 +346,7 @@ class EditorialColors extends ThemeExtension<EditorialColors> {
       deepMuted: Color.lerp(deepMuted, other.deepMuted, t)!,
       deepLine: Color.lerp(deepLine, other.deepLine, t)!,
       deepAccent: Color.lerp(deepAccent, other.deepAccent, t)!,
-      onDeepAccent:
-          Color.lerp(onDeepAccent, other.onDeepAccent, t)!,
+      onDeepAccent: Color.lerp(onDeepAccent, other.onDeepAccent, t)!,
       paper: Color.lerp(paper, other.paper, t)!,
       onPaper: Color.lerp(onPaper, other.onPaper, t)!,
       paperMuted: Color.lerp(paperMuted, other.paperMuted, t)!,
@@ -366,45 +363,54 @@ abstract final class AppTheme {
 
   static ThemeData _editorial(Brightness brightness) {
     final dark = brightness == Brightness.dark;
-    final scheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF1DB954),
-      brightness: brightness,
-    ).copyWith(
-      // D-052: ONE accent — signal green on black; the deep
-      // green on the light set (contrast).
-      primary: dark ? const Color(0xFF1DB954) : const Color(0xFF276C57),
-      onPrimary: dark ? const Color(0xFF07130B) : const Color(0xFFFFFFFF),
-      primaryContainer:
-          dark ? const Color(0xFF14301D) : const Color(0xFFD3E4D8),
-      onPrimaryContainer:
-          dark ? const Color(0xFF97D6B6) : const Color(0xFF1E3A2F),
-      secondary: dark ? const Color(0xFF97D6B6) : const Color(0xFF41765F),
-      onSecondary: dark ? const Color(0xFF0E1A13) : Colors.white,
-      // No plum in the interface (D-052): tertiary is a quiet
-      // sage, used only as a tint role.
-      tertiary: dark ? const Color(0xFFA7B9AE) : const Color(0xFF718078),
-      onTertiary: dark ? const Color(0xFF101410) : Colors.white,
-      surface: dark ? const Color(0xFF101010) : const Color(0xFFE9EFEB),
-      onSurface: dark ? const Color(0xFFF2F3F1) : const Color(0xFF213D35),
-      onSurfaceVariant:
-          dark ? const Color(0xFF9CA39E) : const Color(0xFF586B5E),
-      surfaceContainerLowest:
-          dark ? const Color(0xFF0A0A0A) : const Color(0xFFDCE5DE),
-      surfaceContainerLow:
-          dark ? const Color(0xFF161616) : const Color(0xFFE3EAE4),
-      surfaceContainer:
-          dark ? const Color(0xFF191919) : const Color(0xFFFFFFFF),
-      surfaceContainerHigh:
-          dark ? const Color(0xFF202020) : const Color(0xFFFFFFFF),
-      surfaceContainerHighest:
-          dark ? const Color(0xFF262626) : const Color(0xFFF4F7F4),
-      outline: dark ? const Color(0xFF2E2E2E) : const Color(0xFFB9C8BE),
-      outlineVariant:
-          dark ? const Color(0xFF1F1F1F) : const Color(0xFFCAD6CE),
-      error: semanticFor(brightness).error,
-    );
-    final scaffold =
-        dark ? const Color(0xFF101010) : const Color(0xFFE9EFEB);
+    final scheme =
+        ColorScheme.fromSeed(
+          seedColor: const Color(0xFF1ED760),
+          brightness: brightness,
+        ).copyWith(
+          // D-052: ONE accent — signal green on black; the deep
+          // green on the light set (contrast).
+          primary: dark ? const Color(0xFF1ED760) : const Color(0xFF276C57),
+          onPrimary: dark ? const Color(0xFF07130B) : const Color(0xFFFFFFFF),
+          primaryContainer: dark
+              ? const Color(0xFF14301D)
+              : const Color(0xFFD3E4D8),
+          onPrimaryContainer: dark
+              ? const Color(0xFF97D6B6)
+              : const Color(0xFF1E3A2F),
+          secondary: dark ? const Color(0xFF97D6B6) : const Color(0xFF41765F),
+          onSecondary: dark ? const Color(0xFF0E1A13) : Colors.white,
+          // No plum in the interface (D-052): tertiary is a quiet
+          // sage, used only as a tint role.
+          tertiary: dark ? const Color(0xFFA7B9AE) : const Color(0xFF718078),
+          onTertiary: dark ? const Color(0xFF101410) : Colors.white,
+          surface: dark ? const Color(0xFF101010) : const Color(0xFFE9EFEB),
+          onSurface: dark ? const Color(0xFFF2F3F1) : const Color(0xFF213D35),
+          onSurfaceVariant: dark
+              ? const Color(0xFF9CA39E)
+              : const Color(0xFF586B5E),
+          surfaceContainerLowest: dark
+              ? const Color(0xFF0A0A0A)
+              : const Color(0xFFDCE5DE),
+          surfaceContainerLow: dark
+              ? const Color(0xFF161616)
+              : const Color(0xFFE3EAE4),
+          surfaceContainer: dark
+              ? const Color(0xFF191919)
+              : const Color(0xFFFFFFFF),
+          surfaceContainerHigh: dark
+              ? const Color(0xFF202020)
+              : const Color(0xFFFFFFFF),
+          surfaceContainerHighest: dark
+              ? const Color(0xFF262626)
+              : const Color(0xFFF4F7F4),
+          outline: dark ? const Color(0xFF2E2E2E) : const Color(0xFFB9C8BE),
+          outlineVariant: dark
+              ? const Color(0xFF1F1F1F)
+              : const Color(0xFFCAD6CE),
+          error: semanticFor(brightness).error,
+        );
+    final scaffold = dark ? const Color(0xFF101010) : const Color(0xFFE9EFEB);
     final base = ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
@@ -417,31 +423,57 @@ abstract final class AppTheme {
     // D-052: display type is SANS semibold with tight
     // tracking (the prototype's system-ui headings) — the
     // serif helper is retired.
-    TextStyle? display(TextStyle? s, double size, FontWeight w,
-            {double ls = -0.5, double h = 1.15}) =>
-        s?.copyWith(
-          fontFamily: fontSans,
-          fontFamilyFallback: fontSansFallback,
-          fontSize: size,
-          fontWeight: w,
-          letterSpacing: ls,
-          height: h,
-        );
+    TextStyle? display(
+      TextStyle? s,
+      double size,
+      FontWeight w, {
+      double ls = -0.5,
+      double h = 1.15,
+    }) => s?.copyWith(
+      fontFamily: fontSans,
+      fontFamilyFallback: fontSansFallback,
+      fontSize: size,
+      fontWeight: w,
+      letterSpacing: ls,
+      height: h,
+    );
     final textTheme = base.textTheme.copyWith(
-      displayMedium: display(base.textTheme.displayMedium, 30,
-          FontWeight.w600,
-          ls: -0.8, h: 1.1),
-      headlineLarge: display(base.textTheme.headlineLarge, 27,
-          FontWeight.w600,
-          ls: -0.6, h: 1.15),
-      headlineMedium: display(base.textTheme.headlineMedium, 23,
-          FontWeight.w600,
-          ls: -0.5, h: 1.2),
-      titleLarge: display(base.textTheme.titleLarge, 20, FontWeight.w600,
-          ls: -0.3, h: 1.25),
+      displayMedium: display(
+        base.textTheme.displayMedium,
+        30,
+        FontWeight.w600,
+        ls: -0.8,
+        h: 1.1,
+      ),
+      headlineLarge: display(
+        base.textTheme.headlineLarge,
+        27,
+        FontWeight.w600,
+        ls: -0.6,
+        h: 1.15,
+      ),
+      headlineMedium: display(
+        base.textTheme.headlineMedium,
+        23,
+        FontWeight.w600,
+        ls: -0.5,
+        h: 1.2,
+      ),
+      titleLarge: display(
+        base.textTheme.titleLarge,
+        20,
+        FontWeight.w600,
+        ls: -0.3,
+        h: 1.25,
+      ),
       // Section-heading role: sans 17 semibold.
-      titleMedium: display(base.textTheme.titleMedium, 17, FontWeight.w600,
-          ls: -0.25, h: 1.3),
+      titleMedium: display(
+        base.textTheme.titleMedium,
+        17,
+        FontWeight.w600,
+        ls: -0.25,
+        h: 1.3,
+      ),
       // Card-heading role: 16 / w600.
       titleSmall: base.textTheme.titleSmall?.copyWith(
         fontSize: 16,
@@ -449,12 +481,12 @@ abstract final class AppTheme {
         letterSpacing: -0.2,
         height: 1.3,
       ),
-      bodyLarge:
-          base.textTheme.bodyLarge?.copyWith(fontSize: 16, height: 1.5),
-      bodyMedium:
-          base.textTheme.bodyMedium?.copyWith(fontSize: 15, height: 1.5),
-      bodySmall:
-          base.textTheme.bodySmall?.copyWith(fontSize: 13, height: 1.45),
+      bodyLarge: base.textTheme.bodyLarge?.copyWith(fontSize: 16, height: 1.5),
+      bodyMedium: base.textTheme.bodyMedium?.copyWith(
+        fontSize: 15,
+        height: 1.5,
+      ),
+      bodySmall: base.textTheme.bodySmall?.copyWith(fontSize: 13, height: 1.45),
       // Micro labels are small tracked sans (nav labels, meta).
       labelSmall: base.textTheme.labelSmall?.copyWith(
         fontFamily: fontSans,
@@ -464,8 +496,10 @@ abstract final class AppTheme {
         letterSpacing: 1.1,
       ),
       // Action labels (buttons) read semibold sans.
-      labelLarge: base.textTheme.labelLarge
-          ?.copyWith(fontSize: 14, fontWeight: FontWeight.w600),
+      labelLarge: base.textTheme.labelLarge?.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+      ),
     );
     final cardShape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(RadiusToken.card),
@@ -518,8 +552,9 @@ abstract final class AppTheme {
       bottomSheetTheme: const BottomSheetThemeData(
         // The prototype's modal sheet: the one large radius (28).
         shape: RoundedRectangleBorder(
-          borderRadius:
-              BorderRadius.vertical(top: Radius.circular(RadiusToken.sheet)),
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(RadiusToken.sheet),
+          ),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
@@ -534,9 +569,7 @@ abstract final class AppTheme {
             fontSize: 10,
             fontWeight: FontWeight.w600,
             letterSpacing: 1.1,
-            color: selected
-                ? scheme.onSurface
-                : scheme.onSurfaceVariant,
+            color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
           );
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
@@ -553,7 +586,10 @@ abstract final class AppTheme {
           borderRadius: BorderRadius.circular(RadiusToken.control),
         ),
       ),
-      dividerTheme: DividerThemeData(color: scheme.outlineVariant, thickness: 1),
+      dividerTheme: DividerThemeData(
+        color: scheme.outlineVariant,
+        thickness: 1,
+      ),
     );
   }
 
@@ -579,10 +615,10 @@ abstract final class AppTheme {
 
   /// Theme for any design plate (test harness).
   static ThemeData forPlate(AppPlate plate) => switch (plate) {
-        AppPlate.calm => light(),
-        AppPlate.midnight => neoDark(),
-        AppPlate.warm => _warm(),
-      };
+    AppPlate.calm => light(),
+    AppPlate.midnight => neoDark(),
+    AppPlate.warm => _warm(),
+  };
 
   static ThemeData _warm() {
     final scheme = ColorScheme.fromSeed(seedColor: AppPlate.warm.seed);
@@ -599,10 +635,14 @@ abstract final class AppTheme {
         ),
       ),
       textTheme: base.textTheme.copyWith(
-        headlineMedium: base.textTheme.headlineMedium
-            ?.copyWith(fontFamily: 'serif', fontWeight: FontWeight.w600),
-        titleLarge: base.textTheme.titleLarge
-            ?.copyWith(fontFamily: 'serif', fontWeight: FontWeight.w600),
+        headlineMedium: base.textTheme.headlineMedium?.copyWith(
+          fontFamily: 'serif',
+          fontWeight: FontWeight.w600,
+        ),
+        titleLarge: base.textTheme.titleLarge?.copyWith(
+          fontFamily: 'serif',
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

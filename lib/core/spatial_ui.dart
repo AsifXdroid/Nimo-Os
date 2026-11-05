@@ -1,6 +1,7 @@
 library;
 
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import 'glass_ui.dart';
@@ -108,10 +109,7 @@ class _SpatialPerspectiveState extends State<SpatialPerspective>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: Motion.micro,
-    );
+    _controller = AnimationController(vsync: this, duration: Motion.micro);
   }
 
   @override
@@ -187,8 +185,12 @@ class _SpatialPerspectiveState extends State<SpatialPerspective>
                     ? ((_pointerOffset.dy / _size.height) - 0.5) * 2.0
                     : 0.0;
 
-                final tiltX = -normalizedY * widget.maxTilt * (_isInteracting ? 1.0 : 0.0);
-                final tiltY = normalizedX * widget.maxTilt * (_isInteracting ? 1.0 : 0.0);
+                final tiltX =
+                    -normalizedY *
+                    widget.maxTilt *
+                    (_isInteracting ? 1.0 : 0.0);
+                final tiltY =
+                    normalizedX * widget.maxTilt * (_isInteracting ? 1.0 : 0.0);
 
                 final scale = _isInteracting ? widget.depthScale : 1.0;
 
@@ -251,7 +253,9 @@ class SpatialCard extends StatelessWidget {
 
     final defaultBg = dark
         ? const Color(0xFF191919)
-        : (enableGlass ? Colors.white.withValues(alpha: 0.90) : const Color(0xFFF4F7F4));
+        : (enableGlass
+              ? Colors.white.withValues(alpha: 0.90)
+              : const Color(0xFFF4F7F4));
 
     final effectiveBg = backgroundColor ?? defaultBg;
     final r = BorderRadius.circular(borderRadius);
@@ -290,20 +294,13 @@ class SpatialCard extends StatelessWidget {
         ),
       );
     } else {
-      content = ClipRRect(
-        borderRadius: r,
-        child: content,
-      );
+      content = ClipRRect(borderRadius: r, child: content);
     }
 
     if (onTap != null) {
       content = Material(
         color: Colors.transparent,
-        child: InkWell(
-          borderRadius: r,
-          onTap: onTap,
-          child: content,
-        ),
+        child: InkWell(borderRadius: r, onTap: onTap, child: content),
       );
     }
 
@@ -344,7 +341,9 @@ class _SpatialTactileTileState extends State<SpatialTactileTile> {
     final dark = theme.brightness == Brightness.dark;
 
     final elevation = _pressed ? SpatialDepth.base : SpatialDepth.elevated;
-    final activeColor = widget.color ?? (dark ? const Color(0xFF97D6B6) : const Color(0xFF276C57));
+    final activeColor =
+        widget.color ??
+        (dark ? const Color(0xFF97D6B6) : const Color(0xFF276C57));
     final surfaceColor = dark ? const Color(0xFF191919) : Colors.white;
 
     return Semantics(
@@ -385,7 +384,9 @@ class _SpatialTactileTileState extends State<SpatialTactileTile> {
                 style: theme.textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                   fontSize: 12,
-                  color: dark ? const Color(0xFFF2F3F1) : const Color(0xFF213D35),
+                  color: dark
+                      ? const Color(0xFFF2F3F1)
+                      : const Color(0xFF213D35),
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -417,9 +418,7 @@ class SpatialActionSheet extends StatelessWidget {
     final theme = Theme.of(context);
     final dark = theme.brightness == Brightness.dark;
 
-    final bgColor = dark
-        ? const Color(0xFA101010)
-        : const Color(0xFAF4F7F4);
+    final bgColor = dark ? const Color(0xFA101010) : const Color(0xFAF4F7F4);
 
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
@@ -504,8 +503,11 @@ class SpatialMetricRing extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final dark = theme.brightness == Brightness.dark;
-    final ringColor = color ?? (dark ? const Color(0xFF1DB954) : const Color(0xFF276C57));
-    final trackColor = dark ? Colors.white10 : Colors.black.withValues(alpha: 0.06);
+    final ringColor =
+        color ?? (dark ? const Color(0xFF1ED760) : const Color(0xFF276C57));
+    final trackColor = dark
+        ? Colors.white10
+        : Colors.black.withValues(alpha: 0.06);
 
     final clamped = value.clamp(0.0, 1.0);
 

@@ -1,3 +1,13 @@
+## 2026-11-05 — D-053 Premium Charcoal hero (local-test, UNCOMMITTED)
+
+Today-only redesign per the owner's brief: photographic hero
+(owner-supplied image as `assets/images/hero_default.png`) with
+the hug-shaped bottom contour, brand row + greeting + if–then
+inside the hero, charcoal floating surfaces below, dark accent
+#1ED760, and a Customize Home option to change/reset the hero
+image. Nothing committed or pushed (brief instruction). Analyze
+clean, 651/651 tests. See DECISIONS.md D-053.
+
 ## 2026-11-05 — D-052: Green & Black renovation (local-test)
 - The owner's `Nimo_Green_Black_Clean.html` prototype rebuilt in
   code on this branch: new theme foundation (black #101010 /

@@ -1,6 +1,7 @@
 library;
 
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import 'glass_ui.dart';
@@ -65,7 +66,7 @@ class FloatingCapsuleBar extends StatelessWidget {
     // Accent button colour (D-052): the one signal green on
     // dark; the deep green on light. The + glyph is near-black
     // on the bright green, white on the deep green.
-    final fabBg = dark ? const Color(0xFF1DB954) : const Color(0xFF276C57);
+    final fabBg = dark ? const Color(0xFF1ED760) : const Color(0xFF276C57);
     final fabIcon = dark ? const Color(0xFF07130B) : Colors.white;
 
     return SafeArea(
@@ -142,11 +143,7 @@ class FloatingCapsuleBar extends StatelessWidget {
                     highlightElevation: 6,
                     shape: const CircleBorder(),
                     backgroundColor: fabBg,
-                    child: Icon(
-                      Icons.add,
-                      color: fabIcon,
-                      size: 28,
-                    ),
+                    child: Icon(Icons.add, color: fabIcon, size: 28),
                   ),
                 ),
               ],
@@ -173,14 +170,14 @@ class _CapsuleItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeTextColor =
-        dark ? const Color(0xFFF2F3F1) : const Color(0xFF213D35);
-    final inactiveIconColor =
-        dark ? const Color(0xFF9CA39E) : const Color(0xFF213D35);
+    final activeTextColor = dark
+        ? const Color(0xFFF2F3F1)
+        : const Color(0xFF213D35);
+    final inactiveIconColor = dark
+        ? const Color(0xFF9CA39E)
+        : const Color(0xFF213D35);
 
-    final activePillBg = dark
-        ? const Color(0xFF262626)
-        : Colors.white;
+    final activePillBg = dark ? const Color(0xFF262626) : Colors.white;
 
     final activePillShadow = isSelected
         ? [
@@ -227,7 +224,9 @@ class _CapsuleItem extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        isSelected ? destination.selectedIcon : destination.icon,
+                        isSelected
+                            ? destination.selectedIcon
+                            : destination.icon,
                         size: 22,
                         // D-052: the selected destination's icon
                         // carries the one green accent.

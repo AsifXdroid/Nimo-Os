@@ -37,16 +37,10 @@ void main() {
 
     test('D-052: the ONE green accent in BOTH themes; lavender '
         'never is', () {
-      expect(
-        AppTheme.neoDark().colorScheme.primary,
-        const Color(0xFF1DB954),
-      );
+      expect(AppTheme.neoDark().colorScheme.primary, const Color(0xFF1ED760));
       // Light uses the deep green — the bright green fails
       // contrast on light surfaces; still never lavender.
-      expect(
-        AppTheme.neoLight().colorScheme.primary,
-        const Color(0xFF276C57),
-      );
+      expect(AppTheme.neoLight().colorScheme.primary, const Color(0xFF276C57));
       for (final t in [AppTheme.neoDark(), AppTheme.neoLight()]) {
         expect(t.colorScheme.primary, isNot(BrandColors.lavender));
         expect(t.colorScheme.secondary, isNot(BrandColors.lavender));
@@ -56,10 +50,7 @@ void main() {
     test('Neo shape + type discipline holds in both themes', () {
       for (final t in [AppTheme.neoDark(), AppTheme.neoLight()]) {
         final card = t.cardTheme.shape! as RoundedRectangleBorder;
-        expect(
-          card.borderRadius,
-          BorderRadius.circular(RadiusToken.card),
-        );
+        expect(card.borderRadius, BorderRadius.circular(RadiusToken.card));
         expect(t.textTheme.bodyMedium!.fontSize, 15);
         expect(t.textTheme.bodyLarge!.fontSize, 16);
       }
@@ -75,8 +66,9 @@ void main() {
   });
 
   group('Brand mark (D-035)', () {
-    testWidgets('NimoBrand renders mark + wordmark in both themes',
-        (tester) async {
+    testWidgets('NimoBrand renders mark + wordmark in both themes', (
+      tester,
+    ) async {
       for (final theme in [AppTheme.neoDark(), AppTheme.neoLight()]) {
         await tester.pumpWidget(
           MaterialApp(
@@ -124,10 +116,7 @@ void main() {
     test('statistic role uses tabular figures; eyebrow is tracked', () {
       final stat = AppType.statistic();
       expect(stat.fontSize, 30);
-      expect(
-        stat.fontFeatures,
-        contains(const FontFeature.tabularFigures()),
-      );
+      expect(stat.fontFeatures, contains(const FontFeature.tabularFigures()));
       // Eyebrow (D-052): DM Sans 10 / w600 / tracked 1.8.
       expect(AppType.eyebrow.letterSpacing, 1.8);
       expect(AppType.eyebrow.fontWeight, FontWeight.w600);
@@ -141,10 +130,12 @@ void main() {
         'does, emphasis uses the floating colour', (tester) async {
       BoxDecoration decoFor(NeoSurfaceLevel level) {
         final containers = tester
-            .widgetList<Container>(find.descendant(
-              of: find.byType(NeoPanel),
-              matching: find.byType(Container),
-            ))
+            .widgetList<Container>(
+              find.descendant(
+                of: find.byType(NeoPanel),
+                matching: find.byType(Container),
+              ),
+            )
             .toList();
         return containers.first.decoration! as BoxDecoration;
       }
@@ -154,10 +145,7 @@ void main() {
           MaterialApp(
             theme: AppTheme.neoDark(),
             home: Scaffold(
-              body: NeoPanel(
-                level: level,
-                child: const Text('marker'),
-              ),
+              body: NeoPanel(level: level, child: const Text('marker')),
             ),
           ),
         );
@@ -226,13 +214,21 @@ void main() {
         ('onSurface/scaffold', s.onSurface, scaffold, 4.5),
         ('onSurface/surface', s.onSurface, s.surface, 4.5),
         ('onSurfaceVariant/scaffold', s.onSurfaceVariant, scaffold, 4.5),
-        ('onSurfaceVariant/flat', s.onSurfaceVariant,
-            s.surfaceContainerLow, 4.5),
+        (
+          'onSurfaceVariant/flat',
+          s.onSurfaceVariant,
+          s.surfaceContainerLow,
+          4.5,
+        ),
         ('primary text/surface', s.primary, s.surface, 4.5),
         ('onPrimary/primary', s.onPrimary, s.primary, 4.5),
         ('tertiary icon/surface', s.tertiary, s.surface, 3.0),
-        ('avatar letter/container', s.onPrimaryContainer,
-            s.primaryContainer, 4.5),
+        (
+          'avatar letter/container',
+          s.onPrimaryContainer,
+          s.primaryContainer,
+          4.5,
+        ),
         ('error/surface', s.error, s.surface, 4.5),
         // D-039 Stage 6: the two feature surfaces join the
         // guarded set. paperMuted was deepened #60685E →
@@ -241,8 +237,7 @@ void main() {
         ('onDeep/deep', ed.onDeep, ed.deep, 4.5),
         ('deepMuted/deep', ed.deepMuted, ed.deep, 4.5),
         ('deepAccent/deep', ed.deepAccent, ed.deep, 4.5),
-        ('onDeepAccent/deepAccent', ed.onDeepAccent, ed.deepAccent,
-            4.5),
+        ('onDeepAccent/deepAccent', ed.onDeepAccent, ed.deepAccent, 4.5),
         ('onPaper/paper', ed.onPaper, ed.paper, 4.5),
         ('paperMuted/paper', ed.paperMuted, ed.paper, 4.5),
         // The week dot and similar marks: graphical floor.
@@ -250,8 +245,11 @@ void main() {
       ];
       for (final (label, fg, bg, floor) in pairs) {
         test('$name $label ≥ $floor', () {
-          expect(ratio(fg, bg), greaterThanOrEqualTo(floor),
-              reason: '$name $label');
+          expect(
+            ratio(fg, bg),
+            greaterThanOrEqualTo(floor),
+            reason: '$name $label',
+          );
         });
       }
     }

@@ -7,9 +7,14 @@
 /// optional sections show is persisted in `app_settings`.
 library;
 
+import 'dart:io';
+
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../core/brand.dart';
+import '../../core/glass_ui.dart';
 import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
 import '../../core/spatial_ui.dart';
@@ -35,12 +40,27 @@ import 'today_store.dart';
 import 'plan_link.dart';
 
 const _weekdayNames = [
-  'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
   'Sunday',
 ];
 const _monthNames = [
-  'January', 'February', 'March', 'April', 'May', 'June', 'July',
-  'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 String _formatDate(DateTime d) =>
@@ -72,6 +92,7 @@ class _HubData {
     this.weekSummary,
     this.linkedItems = const {},
     this.templates = const [],
+    this.heroImagePath,
   });
 
   final List<DayPlanItem> items;
@@ -111,6 +132,11 @@ class _HubData {
   /// A missing id (deleted resource) simply has no entry —
   /// the FK already nulled it; this is belt-and-braces.
   final Map<int, Item> linkedItems;
+
+  /// D-053: the resolved custom hero image path (null = the
+  /// shipped default photograph). Resolved at load — the file
+  /// must exist, or the default quietly takes over.
+  final String? heroImagePath;
 
   /// D-044: every routine template, so the plan card can
   /// explain routines that are not in today's plan (created
@@ -251,9 +277,15 @@ class _TodayScreenState extends State<TodayScreen> {
     // PROGRESS (S6): the Sunday summary is computed only when its
     // card is due (Sunday ≥18:00, §R5.4) — a pure recompute over
     // stored data, never a stored artefact.
-    final weekSummary = (widget.progressStore != null &&
-            sundaySummaryDue(now))
+    final weekSummary = (widget.progressStore != null && sundaySummaryDue(now))
         ? await widget.progressStore!.weeklySummary(now, now: now)
+        : null;
+    // D-053: resolve the custom hero image (a missing file —
+    // e.g. storage cleared — falls back to the default photo).
+    final heroStored = await widget.todayStore.heroImagePath();
+    final heroImagePath =
+        (heroStored != null && await File(heroStored).exists())
+        ? heroStored
         : null;
     return _HubData(
       items: items,
@@ -273,6 +305,7 @@ class _TodayScreenState extends State<TodayScreen> {
       linkedItems: linkedItems,
       weekSummary: weekSummary,
       templates: templates,
+      heroImagePath: heroImagePath,
     );
   }
 
@@ -281,12 +314,15 @@ class _TodayScreenState extends State<TodayScreen> {
   /// D-045: the shared Quick Add capture workflow — the same
   /// operations the shell's Quick Add sheet runs.
   QuickAddService get _quickAdd => QuickAddService(
-        store: widget.store,
-        todayStore: widget.todayStore,
-        learnStore: widget.learn.store,
-        linkCards: LinkCardService(
-            widget.store, widget.learn.store, widget.thumbnails),
-      );
+    store: widget.store,
+    todayStore: widget.todayStore,
+    learnStore: widget.learn.store,
+    linkCards: LinkCardService(
+      widget.store,
+      widget.learn.store,
+      widget.thumbnails,
+    ),
+  );
 
   Future<void> _quickAddTask() async {
     if (await quickAddTaskFlow(context, service: _quickAdd)) {
@@ -329,11 +365,18 @@ class _TodayScreenState extends State<TodayScreen> {
   Future<void> _quickAddItem(String type) async {
     final messenger = ScaffoldMessenger.of(context);
     final def = itemTypeDef(type);
-    final title = await promptText(context,
-        title: 'New ${def.label.toLowerCase()}', label: 'Title');
+    final title = await promptText(
+      context,
+      title: 'New ${def.label.toLowerCase()}',
+      label: 'Title',
+    );
     if (title == null || title.isEmpty) return;
     final inbox = await widget.learn.store.ensureInboxProject();
-    final item = await widget.store.createItem(inbox.id, type: type, title: title);
+    final item = await widget.store.createItem(
+      inbox.id,
+      type: type,
+      title: title,
+    );
     if (!mounted) return;
     messenger.showSnackBar(
       SnackBar(
@@ -378,6 +421,10 @@ class _TodayScreenState extends State<TodayScreen> {
       context: context,
       builder: (context) {
         final values = Map<String, bool>.of(data.sections);
+        // D-053: the hero image state rides along in the
+        // dialog (changed immediately, not via Save — picking
+        // a file can't wait for the switch form).
+        var heroCustom = data.heroImagePath != null;
         return AlertDialog(
           title: const Text('Customize Home'),
           content: StatefulBuilder(
@@ -390,13 +437,16 @@ class _TodayScreenState extends State<TodayScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Header',
-                        style: Theme.of(context).textTheme.labelLarge),
+                    Text(
+                      'Header',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
                     SwitchListTile(
                       title: const Text('Show editorial greeting'),
                       value: masterOn,
                       onChanged: (v) => setDialogState(
-                          () => values[TodayStore.headerGreeting] = v),
+                        () => values[TodayStore.headerGreeting] = v,
+                      ),
                     ),
                     for (final (key, label) in headerLabels)
                       SwitchListTile(
@@ -405,19 +455,53 @@ class _TodayScreenState extends State<TodayScreen> {
                         // Editable only while the master greeting
                         // is on (D-040).
                         onChanged: masterOn
-                            ? (v) =>
-                                setDialogState(() => values[key] = v)
+                            ? (v) => setDialogState(() => values[key] = v)
                             : null,
                       ),
                     const Divider(),
-                    Text('Sections',
-                        style: Theme.of(context).textTheme.labelLarge),
+                    Text(
+                      'Background',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.image_outlined),
+                      title: const Text('Hero image'),
+                      subtitle: Text(
+                        heroCustom ? 'Your photo' : 'Default photograph',
+                      ),
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.photo_library_outlined),
+                      title: const Text('Change image…'),
+                      onTap: () async {
+                        if (await _changeHeroImage()) {
+                          setDialogState(() => heroCustom = true);
+                        }
+                      },
+                    ),
+                    if (heroCustom)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.restart_alt_outlined),
+                        title: const Text('Reset to default'),
+                        onTap: () async {
+                          if (await _resetHeroImage()) {
+                            setDialogState(() => heroCustom = false);
+                          }
+                        },
+                      ),
+                    const Divider(),
+                    Text(
+                      'Sections',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
                     for (final key in TodayStore.homeSections)
                       SwitchListTile(
                         title: Text(labels[key]!),
                         value: values[key] ?? true,
-                        onChanged: (v) =>
-                            setDialogState(() => values[key] = v),
+                        onChanged: (v) => setDialogState(() => values[key] = v),
                       ),
                   ],
                 ),
@@ -444,34 +528,71 @@ class _TodayScreenState extends State<TodayScreen> {
     setState(_reload);
   }
 
+  /// D-053: pick a replacement hero photograph. The picked
+  /// file is COPIED into app storage first (a picker may hand
+  /// back a cache path that later vanishes), and the store
+  /// remembers where the copy lives. Returns true when the
+  /// hero actually changed.
+  Future<bool> _changeHeroImage() async {
+    final picked = await openFile(
+      acceptedTypeGroups: const [
+        XTypeGroup(label: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp']),
+      ],
+    );
+    if (picked == null || !mounted) return false;
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final ext = picked.name.contains('.')
+          ? picked.name.split('.').last.toLowerCase()
+          : 'jpg';
+      final dest = File('${dir.path}/nimo_hero_custom.$ext');
+      await File(picked.path).copy(dest.path);
+      // A previous custom image with a different extension
+      // would linger beside the new one — remove siblings.
+      await for (final f in dir.list()) {
+        if (f is File &&
+            f.path.contains('nimo_hero_custom') &&
+            f.path != dest.path) {
+          await f.delete();
+        }
+      }
+      await widget.todayStore.setHeroImagePath(dest.path);
+      if (!mounted) return true;
+      setState(_reload);
+      return true;
+    } catch (e) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not use that image: $e')));
+      return false;
+    }
+  }
+
+  /// D-053: back to the shipped default photograph — the
+  /// custom file is deleted and the stored path cleared.
+  Future<bool> _resetHeroImage() async {
+    final stored = await widget.todayStore.heroImagePath();
+    if (stored != null) {
+      final f = File(stored);
+      if (await f.exists()) await f.delete();
+    }
+    await widget.todayStore.setHeroImagePath(null);
+    if (!mounted) return true;
+    setState(_reload);
+    return true;
+  }
+
   // ------------------------------------------------------------ build
 
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
+    // D-053: Today has NO AppBar — the brand row lives inside
+    // the hero and scrolls away with it (the hero is the
+    // screen's environment, not a pinned bar). The shell's
+    // bottom capsule navigation is untouched and stays fixed.
     return Scaffold(
-      // BRAND (D-035): the static Nimo logo lives top-left in the
-      // app's home header — same mark, same place, always.
-      // D-040: the header also carries the streak chip (the
-      // streak's one home now) and the Settings action, which
-      // moved up from the intro's date row.
-      appBar: AppBar(
-        title: const NimoBrand(),
-        actions: [
-          FutureBuilder<_HubData>(
-            future: _data,
-            builder: (context, snap) => snap.hasData
-                ? _streakChip(context, snap.data!.streak)
-                : const SizedBox.shrink(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip:
-                widget.onOpenSettings == null ? 'Coming soon' : 'Settings',
-            onPressed: widget.onOpenSettings,
-          ),
-        ],
-      ),
       body: FutureBuilder<_HubData>(
         future: _data,
         builder: (context, snapshot) {
@@ -480,7 +601,11 @@ class _TodayScreenState extends State<TodayScreen> {
             // usually land first and show nothing.
             return const Padding(
               padding: EdgeInsets.fromLTRB(
-                  Space.page, Gap.md, Space.page, Gap.lg),
+                Space.page,
+                Gap.md,
+                Space.page,
+                Gap.lg,
+              ),
               child: DelayedSkeleton(skeleton: SkeletonList()),
             );
           }
@@ -490,45 +615,47 @@ class _TodayScreenState extends State<TodayScreen> {
           // hidden means NO placeholder and NO leftover gap:
           // each block below carries its own trailing spacing.
           bool on(String k) => data.sections[k] ?? true;
-          final showIntro = on(TodayStore.headerGreeting) &&
+          final showIntro =
+              on(TodayStore.headerGreeting) &&
               (on(TodayStore.headerDate) ||
                   on(TodayStore.headerEyebrow) ||
                   on(TodayStore.headerHeading) ||
                   on(TodayStore.headerTagline));
           final showWeek = on(TodayStore.sectionWeekStrip);
-          // D-052: solid canvas — the prototype's clean black
-          // (the glass atmosphere's glows are retired here).
+          // The hero spans the full width; everything below it
+          // keeps the page margin.
+          Widget pad(Widget w) => Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Space.page),
+            child: w,
+          );
           return ListView(
-              padding: const EdgeInsets.fromLTRB(
-                  Space.page, Gap.md, Space.page, 110.0),
-              children: [
-                if (showIntro) ...[
-                _intro(context, now, data),
-                const SizedBox(height: Gap.lg),
-              ],
+            padding: const EdgeInsets.only(bottom: 110.0),
+            children: [
+              _hero(context, now, data, showIntro: showIntro),
+              const SizedBox(height: Gap.md),
               if (data.weekSummary != null) ...[
-                _sundaySummaryCard(context, data.weekSummary!),
+                pad(_sundaySummaryCard(context, data.weekSummary!)),
                 const SizedBox(height: Gap.lg),
               ],
               if (showWeek) ...[
-                _dailyProgress(context, data),
+                pad(_dailyProgress(context, data)),
                 const SizedBox(height: Gap.md),
               ],
-              _quickAddRow(context),
+              pad(_quickAddRow(context)),
               const SizedBox(height: Gap.lg),
               if (_showWeek)
-                _weekCard(context, data)
+                pad(_weekCard(context, data))
               else
-                _planCard(context, data),
+                pad(_planCard(context, data)),
               if (data.dueCount + data.newCount > 0) ...[
                 const SizedBox(height: Gap.lg),
-                _learnSection(context, data),
+                pad(_learnSection(context, data)),
               ],
               const SizedBox(height: Gap.lg),
-              _scoresSection(context, data),
+              pad(_scoresSection(context, data)),
               if (data.sections[TodayStore.sectionDayClose] ?? true) ...[
                 const SizedBox(height: Gap.lg),
-                _dayCloseSection(context, data),
+                pad(_dayCloseSection(context, data)),
               ],
               const SizedBox(height: Gap.sm),
               Center(
@@ -545,17 +672,160 @@ class _TodayScreenState extends State<TodayScreen> {
     );
   }
 
-  /// The editorial greeting block (D-037, element switches
-  /// D-040): date, eyebrow, greeting heading, tagline — each
-  /// rendered only when its Customize Home switch is on, with
-  /// the original rhythm kept between the parts that remain.
-  /// The master switch and the all-off case are handled by
-  /// the caller, which omits this block (and its spacing)
-  /// entirely. Settings no longer lives here — it sits in the
-  /// AppBar beside the streak chip.
-  Widget _intro(BuildContext context, DateTime now, _HubData data) {
+  /// D-053: Today's floating-surface decoration — translucent
+  /// charcoal with the #363636 hairline and a soft lift in
+  /// dark; the D-052 scheme surface in light (the charcoal
+  /// system is dark-only). Used by the plan groups, the Learn
+  /// strip and the Sunday card so the page reads as layered
+  /// surfaces over the environment, not stacked opaque cards.
+  BoxDecoration _surfaceDeco(
+    BuildContext context, {
+    double radius = RadiusToken.card,
+  }) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
+    return BoxDecoration(
+      color: dark
+          ? GlassTokens.darkCharcoal
+          : theme.colorScheme.surfaceContainer,
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(
+        color: dark
+            ? GlassTokens.darkCharcoalBorder
+            : theme.colorScheme.outlineVariant,
+      ),
+      boxShadow: dark
+          ? const [
+              BoxShadow(
+                color: Color(0x40000000),
+                blurRadius: 18,
+                offset: Offset(0, 8),
+              ),
+            ]
+          : null,
+    );
+  }
+
+  /// D-053 hero: the Today screen's environment — the
+  /// background photograph (the owner-approved default, or
+  /// the owner's own image) carrying the brand row, the
+  /// greeting and the if–then control, and ending in the
+  /// hug-shaped contour (see [_HugClipper]). It is the first
+  /// item of the page's ListView, so it scrolls away with
+  /// the page — nothing here is pinned.
+  Widget _hero(
+    BuildContext context,
+    DateTime now,
+    _HubData data, {
+    required bool showIntro,
+  }) {
+    final theme = Theme.of(context);
+    final media = MediaQuery.of(context);
+    // ~40% of the viewport is the TARGET height. The floor
+    // is the measured worst case for the content — brand
+    // row + full greeting + if–then — and grows on narrow
+    // screens, where the same text wraps taller; the Spacer
+    // absorbs any slack on taller heroes.
+    final floor = media.size.width < 340 ? 356.0 : 328.0;
+    final target = (media.size.height * 0.40).clamp(floor, 440.0);
+    const dip = 18.0;
+    final ImageProvider image = data.heroImagePath != null
+        ? FileImage(File(data.heroImagePath!))
+        : const AssetImage('assets/images/hero_default.png');
+    return ClipPath(
+      clipper: const _HugClipper(dip),
+      child: SizedBox(
+        height: target,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image(
+              // Decode near the displayed size, never the
+              // full-resolution photograph.
+              image: ResizeImage(
+                image,
+                width: (media.size.width * media.devicePixelRatio).round(),
+              ),
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+            ),
+            // Readability scrim: shade at the top (brand row)
+            // and toward the bottom (greeting + if–then),
+            // easing into the page colour at the very edge so
+            // the hug contour shows no seam.
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.42),
+                    Colors.black.withValues(alpha: 0.05),
+                    Colors.black.withValues(alpha: 0.38),
+                    theme.scaffoldBackgroundColor.withValues(alpha: 0.92),
+                  ],
+                  stops: const [0.0, 0.38, 0.72, 1.0],
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                Space.page,
+                media.padding.top + Space.s2,
+                Space.page,
+                dip + Space.s2,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const NimoMark(size: 30),
+                      const SizedBox(width: Space.s3),
+                      Text(
+                        'Nimo',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3,
+                          color: GlassTokens.darkOnCharcoal,
+                        ),
+                      ),
+                      const Spacer(),
+                      _streakChip(context, data.streak, onPhoto: true),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.settings_outlined,
+                          color: GlassTokens.darkOnCharcoal,
+                        ),
+                        tooltip: widget.onOpenSettings == null
+                            ? 'Coming soon'
+                            : 'Settings',
+                        onPressed: widget.onOpenSettings,
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  if (showIntro) ...[
+                    _heroIntro(context, now, data),
+                    const SizedBox(height: Space.s3),
+                  ],
+                  _ifThenControl(context, data),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The greeting block ON the photograph (D-053): the same
+  /// D-040 element switches as the old intro — date, eyebrow,
+  /// greeting heading, tagline — in white-family colours for
+  /// the image. The caller omits the block entirely when the
+  /// master switch is off.
+  Widget _heroIntro(BuildContext context, DateTime now, _HubData data) {
+    final theme = Theme.of(context);
     bool on(String k) => data.sections[k] ?? true;
     final parts = <Widget>[];
     void add(Widget part, double gapBefore) {
@@ -566,33 +836,45 @@ class _TodayScreenState extends State<TodayScreen> {
     if (on(TodayStore.headerDate)) {
       add(
         Text(
-          // The concept's date chip: mono, uppercase.
           _formatDate(now).toUpperCase(),
           style: AppType.eyebrow.copyWith(
             fontSize: 10,
             letterSpacing: 1.2,
-            color: scheme.onSurfaceVariant,
+            color: GlassTokens.darkOnCharcoalSecondary,
           ),
         ),
         0,
       );
     }
     if (on(TodayStore.headerEyebrow)) {
-      add(const NeoEyebrow('A little intention goes a long way'), Gap.sm);
+      add(
+        Text(
+          'A LITTLE INTENTION GOES A LONG WAY',
+          style: AppType.eyebrow.copyWith(
+            letterSpacing: 1.2,
+            color: GlassTokens.darkOnCharcoalSecondary,
+          ),
+        ),
+        Gap.sm,
+      );
     }
     if (on(TodayStore.headerHeading)) {
       add(
-        Text(_greeting(now), style: AppType.display(theme.textTheme)),
+        Text(
+          _greeting(now),
+          style: AppType.display(theme.textTheme)
+              ?.copyWith(color: GlassTokens.darkOnCharcoal),
+        ),
         Space.s3,
       );
     }
     if (on(TodayStore.headerTagline)) {
       add(
         Text(
-          // D-052: the prototype's tagline under the greeting.
           'A little better, at your pace.',
-          style: theme.textTheme.bodyMedium
-              ?.copyWith(color: scheme.onSurfaceVariant),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: GlassTokens.darkOnCharcoalSecondary,
+          ),
         ),
         Space.s2,
       );
@@ -603,49 +885,130 @@ class _TodayScreenState extends State<TodayScreen> {
     );
   }
 
+  /// The if–then line as the hero's translucent charcoal
+  /// control (D-053): bolt in the accent green, the line in
+  /// neutral white, the edit affordance at the end. Same
+  /// action as always ([_editIfThen]) — only its home moved;
+  /// it used to sit at the foot of the plan card.
+  Widget _ifThenControl(BuildContext context, _HubData data) {
+    final theme = Theme.of(context);
+    final empty = data.ifThen.isEmpty;
+    final radius = BorderRadius.circular(RadiusToken.card + 2);
+    return Material(
+      color: GlassTokens.darkCharcoal,
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: const BorderSide(color: GlassTokens.darkCharcoalBorder),
+      ),
+      child: InkWell(
+        onTap: () => _editIfThen(data),
+        borderRadius: radius,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Space.s4,
+            vertical: Space.s3,
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.bolt_outlined,
+                size: 18,
+                color: Color(0xFF1ED760),
+              ),
+              const SizedBox(width: Space.s3),
+              Expanded(
+                child: Text(
+                  empty
+                      ? 'Set your if–then line: '
+                            '"If …, then I will …"'
+                      : data.ifThen,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: empty
+                        ? GlassTokens.darkOnCharcoalSecondary
+                        : GlassTokens.darkOnCharcoal,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.edit_outlined,
+                size: 16,
+                color: GlassTokens.darkOnCharcoalSecondary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   /// The header streak chip (D-040): the streak's one home on
-  /// Today, beside the brand in the AppBar. Fed by the SAME
-  /// hub load as everything else — no second calculation.
-  /// Compact by design (mono micro-label, visually secondary
-  /// to the brand); on narrow screens (< 360dp) it reduces to
-  /// the flame and the number. A full-height tap target, and
+  /// Today, beside the brand. Fed by the SAME hub load as
+  /// everything else — no second calculation. Compact by
+  /// design (mono micro-label, visually secondary to the
+  /// brand); on narrow screens (< 360dp) it reduces to the
+  /// flame and the number. A full-height tap target, and
   /// tapping opens Direction on its Progress tab, where the
   /// streak detail lives, when the shell provides the callback.
-  Widget _streakChip(BuildContext context, StreakState streak) {
+  /// D-053: on the hero photograph the chip sits on a
+  /// translucent charcoal pill so it stays readable.
+  Widget _streakChip(
+    BuildContext context,
+    StreakState streak, {
+    bool onPhoto = false,
+  }) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final n = streak.currentStreak;
     final label = n == 1 ? '1 day' : '$n days';
     final narrow = MediaQuery.sizeOf(context).width < 360;
+    final body = SizedBox(
+      height: 48,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Space.s3),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.local_fire_department_outlined,
+              size: 16,
+              color: scheme.primary,
+            ),
+            const SizedBox(width: Space.s1),
+            ExcludeSemantics(
+              child: Text(
+                narrow ? '$n' : label,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: onPhoto
+                      ? GlassTokens.darkOnCharcoalSecondary
+                      : scheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
     return Semantics(
       container: true,
       button: widget.onOpenProgress != null,
-      label: 'Current streak: $label'
+      label:
+          'Current streak: $label'
           '${widget.onOpenProgress != null ? '. Opens Journey in Progress.' : ''}',
       child: InkWell(
         onTap: widget.onOpenProgress,
         borderRadius: BorderRadius.circular(RadiusToken.round),
-        child: SizedBox(
-          height: 48,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Space.s3),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.local_fire_department_outlined,
-                    size: 16, color: scheme.primary),
-                const SizedBox(width: Space.s1),
-                ExcludeSemantics(
-                  child: Text(
-                    narrow ? '$n' : label,
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: scheme.onSurfaceVariant),
-                  ),
+        child: onPhoto
+            ? Container(
+                decoration: BoxDecoration(
+                  color: GlassTokens.darkCharcoal,
+                  borderRadius: BorderRadius.circular(RadiusToken.round),
+                  border: Border.all(color: GlassTokens.darkCharcoalBorder),
                 ),
-              ],
-            ),
-          ),
-        ),
+                child: body,
+              )
+            : body,
       ),
     );
   }
@@ -659,9 +1022,7 @@ class _TodayScreenState extends State<TodayScreen> {
     final scheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: scheme.outlineVariant),
-        ),
+        border: Border(top: BorderSide(color: scheme.outlineVariant)),
       ),
       padding: const EdgeInsets.only(top: Space.s3),
       child: _weekCells(context, data),
@@ -673,22 +1034,34 @@ class _TodayScreenState extends State<TodayScreen> {
   /// is not needed because it simply stops being due on Monday,
   /// and the full summary lives in Progress afterwards.
   Widget _sundaySummaryCard(BuildContext context, WeeklySummary summary) {
-    return NeoPanel(
-      level: NeoSurfaceLevel.flat,
-      padding: const EdgeInsets.symmetric(
-          horizontal: Space.s6, vertical: Space.s2),
-      onTap: widget.onOpenWeeklySummary == null
-          ? null
-          : () => widget.onOpenWeeklySummary!(summary.monday),
-      child: NeoListRow(
-        icon: Icons.auto_stories_outlined,
-        title: 'Your week, wrapped up',
-        sub: summary.isEmpty
-            ? 'A quiet week — see the summary in Progress.'
-            : 'You showed up ${summary.daysCounted} of 7 days'
-                '${summary.shieldDays > 0 ? ' · ${summary.shieldDays} shield day${summary.shieldDays == 1 ? '' : 's'}' : ''}'
-                '${summary.majorPoints.isNotEmpty ? ' · ${summary.majorPoints.length} major point${summary.majorPoints.length == 1 ? '' : 's'} captured' : ''}',
-        last: true,
+    // D-053: same floating charcoal surface as the plan
+    // groups (was a flat NeoPanel).
+    return Container(
+      decoration: _surfaceDeco(context),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: widget.onOpenWeeklySummary == null
+              ? null
+              : () => widget.onOpenWeeklySummary!(summary.monday),
+          borderRadius: BorderRadius.circular(RadiusToken.card),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.s6,
+              vertical: Space.s2,
+            ),
+            child: NeoListRow(
+              icon: Icons.auto_stories_outlined,
+              title: 'Your week, wrapped up',
+              sub: summary.isEmpty
+                  ? 'A quiet week — see the summary in Progress.'
+                  : 'You showed up ${summary.daysCounted} of 7 days'
+                        '${summary.shieldDays > 0 ? ' · ${summary.shieldDays} shield day${summary.shieldDays == 1 ? '' : 's'}' : ''}'
+                        '${summary.majorPoints.isNotEmpty ? ' · ${summary.majorPoints.length} major point${summary.majorPoints.length == 1 ? '' : 's'} captured' : ''}',
+              last: true,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -747,32 +1120,103 @@ class _TodayScreenState extends State<TodayScreen> {
   }
 
   Widget _quickAddRow(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    Widget button(IconData icon, String label, VoidCallback onTap, {bool primary = false}) =>
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: SpatialTactileTile(
-              icon: icon,
-              label: label,
-              onTap: onTap,
-              color: primary ? scheme.primary : null,
-            ),
-          ),
-        );
+    Widget button(
+      IconData icon,
+      String label,
+      VoidCallback onTap, {
+      bool primary = false,
+    }) => Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: _quickTile(context, icon, label, onTap, primary: primary),
+      ),
+    );
     return Row(
       children: [
         button(Icons.add_task_outlined, 'Task', _quickAddTask, primary: true),
         button(Icons.flag_outlined, 'Goal', _quickAddGoal),
         button(Icons.note_outlined, 'Note', _quickAddNote),
-        button(Icons.checklist_outlined, 'Checklist',
-            () => _quickAddItem(ItemType.checklist)),
+        button(
+          Icons.checklist_outlined,
+          'Checklist',
+          () => _quickAddItem(ItemType.checklist),
+        ),
       ],
     );
   }
 
-  Future<void> _openDayClose(_HubData data,
-      {DateTime? date, bool? isLate}) async {
+  /// One quick-action tile (D-053): a floating charcoal
+  /// surface — translucent fill, grey hairline, soft lift —
+  /// with a NEUTRAL icon; only the primary action (Task)
+  /// carries the accent green. Same layout rhythm as the
+  /// spatial tile it replaces (icon over label, centred),
+  /// restyled for the charcoal system. Light theme keeps a
+  /// white tile on the paper page.
+  Widget _quickTile(
+    BuildContext context,
+    IconData icon,
+    String label,
+    VoidCallback onTap, {
+    bool primary = false,
+  }) {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    final radius = BorderRadius.circular(14);
+    return Material(
+      color: dark ? GlassTokens.darkCharcoalRaised : Colors.white,
+      elevation: dark ? 3 : 1,
+      shadowColor: Colors.black.withValues(alpha: dark ? 0.45 : 0.18),
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(
+          color: dark
+              ? GlassTokens.darkCharcoalBorder
+              : theme.colorScheme.outlineVariant,
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 24,
+                color: primary
+                    ? theme.colorScheme.primary
+                    : (dark
+                          ? GlassTokens.darkOnCharcoal
+                          : theme.colorScheme.onSurface),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                  color: dark
+                      ? GlassTokens.darkOnCharcoal
+                      : theme.colorScheme.onSurface,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openDayClose(
+    _HubData data, {
+    DateTime? date,
+    bool? isLate,
+  }) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -820,13 +1264,11 @@ class _TodayScreenState extends State<TodayScreen> {
         ),
         const SizedBox(height: Space.s2),
         Container(
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainer,
-            borderRadius: BorderRadius.circular(RadiusToken.card),
-            border: Border.all(color: scheme.outlineVariant),
-          ),
+          decoration: _surfaceDeco(context),
           padding: const EdgeInsets.symmetric(
-              horizontal: Space.s4, vertical: Space.s3),
+            horizontal: Space.s4,
+            vertical: Space.s3,
+          ),
           child: Row(
             children: [
               Icon(Icons.school_outlined, size: 20, color: scheme.primary),
@@ -904,6 +1346,11 @@ class _TodayScreenState extends State<TodayScreen> {
                 borderRadius: 14,
                 padding: EdgeInsets.zero,
                 enablePerspective: true,
+                // D-053: charcoal in dark (was the spatial
+                // kit's default surface).
+                backgroundColor: Theme.of(context).brightness == Brightness.dark
+                    ? GlassTokens.darkCharcoalSolid
+                    : null,
                 child: NeoScoreWell(
                   label: 'Done score · auto',
                   value: closed && review.doneScore != null
@@ -924,12 +1371,17 @@ class _TodayScreenState extends State<TodayScreen> {
                 borderRadius: 14,
                 padding: EdgeInsets.zero,
                 enablePerspective: true,
+                backgroundColor: Theme.of(context).brightness == Brightness.dark
+                    ? GlassTokens.darkCharcoalSolid
+                    : null,
                 child: NeoScoreWell(
                   label: 'Self score · yours',
                   value: closed && review.selfScore != null
                       ? '${review.selfScore}'
                       : '—',
-                  sub: closed ? 'Your own reflection' : 'Add yours at Day Close',
+                  sub: closed
+                      ? 'Your own reflection'
+                      : 'Add yours at Day Close',
                   accentValue: true,
                   fraction: closed && review.selfScore != null
                       ? review.selfScore! / 10
@@ -943,8 +1395,11 @@ class _TodayScreenState extends State<TodayScreen> {
           const SizedBox(height: Space.s4),
           Row(
             children: [
-              Icon(Icons.shield_outlined,
-                  size: 18, color: theme.colorScheme.tertiary),
+              Icon(
+                Icons.shield_outlined,
+                size: 18,
+                color: theme.colorScheme.tertiary,
+              ),
               const SizedBox(width: Space.s2),
               Expanded(
                 child: Text(
@@ -952,7 +1407,8 @@ class _TodayScreenState extends State<TodayScreen> {
                   '${streak.shieldsHeld == 1 ? '' : 's'} available · '
                   'a little room for life.',
                   style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant),
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             ],
@@ -1017,8 +1473,11 @@ class _TodayScreenState extends State<TodayScreen> {
                   shape: BoxShape.circle,
                   border: Border.all(color: ed.deepLine),
                 ),
-                child: Icon(Icons.nightlight_outlined,
-                    size: 17, color: ed.deepAccent),
+                child: Icon(
+                  Icons.nightlight_outlined,
+                  size: 17,
+                  color: ed.deepAccent,
+                ),
               ),
               const SizedBox(width: Space.s4),
               Expanded(
@@ -1026,22 +1485,22 @@ class _TodayScreenState extends State<TodayScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      closed
-                          ? 'A day, gently closed.'
-                          : 'Close your day',
-                      style: theme.textTheme.titleLarge
-                          ?.copyWith(color: ed.onDeep),
+                      closed ? 'A day, gently closed.' : 'Close your day',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: ed.onDeep,
+                      ),
                     ),
                     const SizedBox(height: Space.s1),
                     Text(
                       data.closeTarget.isLate
                           ? "Yesterday isn't closed yet — you can "
-                              'still close it.'
+                                'still close it.'
                           : closed
-                              ? 'Your reflection is here when you need it.'
-                              : 'A two-minute check-in. Just for you.',
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: ed.deepMuted),
+                          ? 'Your reflection is here when you need it.'
+                          : 'A two-minute check-in. Just for you.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: ed.deepMuted,
+                      ),
                     ),
                   ],
                 ),
@@ -1064,8 +1523,8 @@ class _TodayScreenState extends State<TodayScreen> {
                   data.closeTarget.isLate
                       ? 'Close yesterday'
                       : closed
-                          ? 'Revisit reflection'
-                          : 'Begin Day Close',
+                      ? 'Revisit reflection'
+                      : 'Begin Day Close',
                 ),
               ),
               // While the late window is open the primary action
@@ -1073,11 +1532,8 @@ class _TodayScreenState extends State<TodayScreen> {
               // be blocked behind it.
               if (data.closeTarget.isLate)
                 TextButton(
-                  onPressed: () => _openDayClose(
-                    data,
-                    date: DateTime.now(),
-                    isLate: false,
-                  ),
+                  onPressed: () =>
+                      _openDayClose(data, date: DateTime.now(), isLate: false),
                   child: const Text('Close today instead'),
                 ),
             ],
@@ -1089,7 +1545,6 @@ class _TodayScreenState extends State<TodayScreen> {
 
   Widget _planCard(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final items = data.items;
     final routines = items.where((e) => e.isRoutine).toList();
     final oneoffs = items.where((e) => !e.isRoutine).toList();
@@ -1108,8 +1563,7 @@ class _TodayScreenState extends State<TodayScreen> {
     final missing = active
         .where((t) => t.scheduledOn(now) && !inPlan.contains(t.id))
         .toList();
-    final notToday =
-        active.where((t) => !t.scheduledOn(now)).toList();
+    final notToday = active.where((t) => !t.scheduledOn(now)).toList();
     // D-039: the plan is an editorial TIMELINE on the canvas —
     // a hairline rail through node marks (see _planRow). The
     // data model carries no clock times, so the rail shows
@@ -1126,12 +1580,13 @@ class _TodayScreenState extends State<TodayScreen> {
         Row(
           children: [
             Expanded(
-              child: NeoTrack(
-                  value: items.isEmpty ? 0 : done / items.length),
+              child: NeoTrack(value: items.isEmpty ? 0 : done / items.length),
             ),
             const SizedBox(width: Space.s4),
-            Text('$done of ${items.length} done',
-                style: theme.textTheme.bodySmall),
+            Text(
+              '$done of ${items.length} done',
+              style: theme.textTheme.bodySmall,
+            ),
           ],
         ),
         const SizedBox(height: Space.s4),
@@ -1143,8 +1598,7 @@ class _TodayScreenState extends State<TodayScreen> {
               ButtonSegment(value: true, label: Text('This week')),
             ],
             selected: {_showWeek},
-            onSelectionChanged: (s) =>
-                setState(() => _showWeek = s.first),
+            onSelectionChanged: (s) => setState(() => _showWeek = s.first),
           ),
         ),
         const SizedBox(height: Space.s2),
@@ -1152,9 +1606,10 @@ class _TodayScreenState extends State<TodayScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: Space.s4),
             child: Text(
-                'Nothing planned yet. Use the + button to add a '
-                'task, or build your routine template.',
-                style: theme.textTheme.bodyMedium),
+              'Nothing planned yet. Use the + button to add a '
+              'task, or build your routine template.',
+              style: theme.textTheme.bodyMedium,
+            ),
           )
         else ...[
           // D-042: the plan is SECTIONED by kind — Daily To-do
@@ -1168,8 +1623,12 @@ class _TodayScreenState extends State<TodayScreen> {
             _planGroup(context, data, 'Daily To-do', routines)
           else ...[
             _groupHead(context, 'Daily To-do'),
-            _routineNote(context, missing, notToday,
-                noRoutinesAtAll: active.isEmpty),
+            _routineNote(
+              context,
+              missing,
+              notToday,
+              noRoutinesAtAll: active.isEmpty,
+            ),
           ],
           if (oneoffs.isNotEmpty) ...[
             const SizedBox(height: Space.s4),
@@ -1178,43 +1637,9 @@ class _TodayScreenState extends State<TodayScreen> {
           if (routines.isNotEmpty &&
               (missing.isNotEmpty || notToday.isNotEmpty)) ...[
             const SizedBox(height: Space.s3),
-            _routineNote(context, missing, notToday,
-                noRoutinesAtAll: false),
+            _routineNote(context, missing, notToday, noRoutinesAtAll: false),
           ],
         ],
-        Container(
-          decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(color: scheme.outlineVariant),
-            ),
-          ),
-          margin: const EdgeInsets.only(top: Space.s4),
-          padding: const EdgeInsets.only(top: Space.s4),
-          child: InkWell(
-            onTap: () => _editIfThen(data),
-            child: Row(
-              children: [
-                Icon(Icons.bolt_outlined,
-                    size: 18, color: scheme.primary),
-                const SizedBox(width: Space.s3),
-                Expanded(
-                  child: Text(
-                    data.ifThen.isEmpty
-                        ? 'Set your if–then line: '
-                            '"If …, then I will …"'
-                        : data.ifThen,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: data.ifThen.isEmpty
-                          ? scheme.onSurfaceVariant
-                          : null,
-                    ),
-                  ),
-                ),
-                const Icon(Icons.edit_outlined, size: 16),
-              ],
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -1225,39 +1650,42 @@ class _TodayScreenState extends State<TodayScreen> {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => RoutineScreen(
-            todayStore: widget.todayStore, store: widget.store),
+        builder: (_) =>
+            RoutineScreen(todayStore: widget.todayStore, store: widget.store),
       ),
     );
     setState(_reload);
   }
 
   static String _weekdayName(DateTime d) => const [
-        'Monday',
-        'Tuesday',
-        'Wednesday',
-        'Thursday',
-        'Friday',
-        'Saturday',
-        'Sunday',
-      ][d.weekday - 1];
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ][d.weekday - 1];
 
   /// D-044: add every scheduled-but-missing routine to today's
   /// plan (the explicit exception to tomorrow-by-default).
   Future<void> _addMissingToToday(List<PlanTemplate> missing) async {
     var added = 0;
     for (final t in missing) {
-      final r = await widget.todayStore
-          .addRoutineToToday(t.id, DateTime.now());
+      final r = await widget.todayStore.addRoutineToToday(t.id, DateTime.now());
       if (r == AddRoutineResult.added) added++;
     }
     if (!mounted) return;
     if (added > 0) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(added == 1
-            ? 'Routine added to today\'s plan.'
-            : '$added routines added to today\'s plan.'),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            added == 1
+                ? 'Routine added to today\'s plan.'
+                : '$added routines added to today\'s plan.',
+          ),
+        ),
+      );
     }
     await _afterPlanEdit();
     setState(_reload);
@@ -1335,15 +1763,17 @@ class _TodayScreenState extends State<TodayScreen> {
           ),
         ),
         const SizedBox(width: Space.s3),
-        Expanded(
-          child: Container(height: 1, color: scheme.outlineVariant),
-        ),
+        Expanded(child: Container(height: 1, color: scheme.outlineVariant)),
       ],
     );
   }
 
-  Widget _planGroup(BuildContext context, _HubData data, String label,
-      List<DayPlanItem> group) {
+  Widget _planGroup(
+    BuildContext context,
+    _HubData data,
+    String label,
+    List<DayPlanItem> group,
+  ) {
     final scheme = Theme.of(context).colorScheme;
     // D-052: the plan group is a PANEL (the prototype's task
     // card) — rows on the panel surface, hairline-divided.
@@ -1355,11 +1785,7 @@ class _TodayScreenState extends State<TodayScreen> {
         _groupHead(context, label),
         const SizedBox(height: Space.s2),
         Container(
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainer,
-            borderRadius: BorderRadius.circular(RadiusToken.card),
-            border: Border.all(color: scheme.outlineVariant),
-          ),
+          decoration: _surfaceDeco(context),
           child: Column(
             children: [
               for (var i = 0; i < group.length; i++) ...[
@@ -1411,7 +1837,9 @@ class _TodayScreenState extends State<TodayScreen> {
             // leads, title + quiet classification under it, the
             // ⋯ options at the right.
             padding: const EdgeInsets.symmetric(
-                horizontal: Space.s4, vertical: Space.s3),
+              horizontal: Space.s4,
+              vertical: Space.s3,
+            ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1425,8 +1853,9 @@ class _TodayScreenState extends State<TodayScreen> {
                         item.title,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w500,
-                          decoration:
-                              item.done ? TextDecoration.lineThrough : null,
+                          decoration: item.done
+                              ? TextDecoration.lineThrough
+                              : null,
                           color: item.done ? scheme.onSurfaceVariant : null,
                         ),
                       ),
@@ -1435,8 +1864,9 @@ class _TodayScreenState extends State<TodayScreen> {
                         item.isRoutine
                             ? (item.countsCore ? 'Routine · Core' : 'Routine')
                             : 'One-off',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: scheme.onSurfaceVariant),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
                       ),
                       if (item.hasResource)
                         _resourceAction(context, data, item),
@@ -1451,8 +1881,7 @@ class _TodayScreenState extends State<TodayScreen> {
                   icon: const Icon(Icons.more_horiz, size: 18),
                   tooltip: 'Task options',
                   visualDensity: VisualDensity.compact,
-                  onPressed: () =>
-                      _showPlanItemSheet(context, data, item),
+                  onPressed: () => _showPlanItemSheet(context, data, item),
                 ),
               ],
             ),
@@ -1466,10 +1895,12 @@ class _TodayScreenState extends State<TodayScreen> {
   /// link — never stored, never toggles completion. A link
   /// whose item has vanished renders nothing.
   Widget _resourceAction(
-      BuildContext context, _HubData data, DayPlanItem item) {
+    BuildContext context,
+    _HubData data,
+    DayPlanItem item,
+  ) {
     final scheme = Theme.of(context).colorScheme;
-    final linked =
-        item.itemId == null ? null : data.linkedItems[item.itemId];
+    final linked = item.itemId == null ? null : data.linkedItems[item.itemId];
     if (item.url == null && linked == null) {
       return const SizedBox.shrink();
     }
@@ -1518,10 +1949,12 @@ class _TodayScreenState extends State<TodayScreen> {
   /// confirms; removing a completed core routine names its
   /// streak consequence first (owner decision).
   Future<void> _showPlanItemSheet(
-      BuildContext context, _HubData data, DayPlanItem item) async {
+    BuildContext context,
+    _HubData data,
+    DayPlanItem item,
+  ) async {
     final theme = Theme.of(context);
-    final linked =
-        item.itemId == null ? null : data.linkedItems[item.itemId];
+    final linked = item.itemId == null ? null : data.linkedItems[item.itemId];
     await showModalBottomSheet<void>(
       context: context,
       builder: (sheetContext) => SafeArea(
@@ -1531,28 +1964,28 @@ class _TodayScreenState extends State<TodayScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 2),
-              child: Text(item.title,
-                  style: theme.textTheme.titleMedium),
+              child: Text(item.title, style: theme.textTheme.titleMedium),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
               child: Text(
                 item.isRoutine
-                    ? (item.countsCore
-                        ? 'Daily to-do · Core'
-                        : 'Daily to-do')
+                    ? (item.countsCore ? 'Daily to-do · Core' : 'Daily to-do')
                     : 'Today',
                 style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant),
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
             if (item.url != null || linked != null)
               ListTile(
-                leading: Icon(
-                    resourceActionIcon(url: item.url, item: linked)),
-                title: Text(resourceActionLabel(
-                        url: item.url, item: linked)
-                    .replaceAll(' →', '')),
+                leading: Icon(resourceActionIcon(url: item.url, item: linked)),
+                title: Text(
+                  resourceActionLabel(
+                    url: item.url,
+                    item: linked,
+                  ).replaceAll(' →', ''),
+                ),
                 onTap: () async {
                   Navigator.pop(sheetContext);
                   await openPlanResource(
@@ -1571,13 +2004,13 @@ class _TodayScreenState extends State<TodayScreen> {
               title: const Text('Edit title'),
               onTap: () async {
                 Navigator.pop(sheetContext);
-                final title = await promptText(context,
-                    title: 'Edit title',
-                    label: 'Title',
-                    initial: item.title);
-                if (title == null ||
-                    title.isEmpty ||
-                    title == item.title) {
+                final title = await promptText(
+                  context,
+                  title: 'Edit title',
+                  label: 'Title',
+                  initial: item.title,
+                );
+                if (title == null || title.isEmpty || title == item.title) {
                   return;
                 }
                 await widget.todayStore.renamePlanItem(item.id, title);
@@ -1586,8 +2019,7 @@ class _TodayScreenState extends State<TodayScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.link),
-              title: Text(
-                  item.hasResource ? 'Change link' : 'Attach a link'),
+              title: Text(item.hasResource ? 'Change link' : 'Attach a link'),
               onTap: () async {
                 Navigator.pop(sheetContext);
                 await _attachLink(context, item);
@@ -1608,16 +2040,16 @@ class _TodayScreenState extends State<TodayScreen> {
               ListTile(
                 leading: const Icon(Icons.tune_outlined),
                 title: const Text('Edit in Routine'),
-                subtitle:
-                    const Text('Changes every day, from tomorrow'),
+                subtitle: const Text('Changes every day, from tomorrow'),
                 onTap: () async {
                   Navigator.pop(sheetContext);
                   await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => RoutineScreen(
-                          todayStore: widget.todayStore,
-                          store: widget.store),
+                        todayStore: widget.todayStore,
+                        store: widget.store,
+                      ),
                     ),
                   );
                   if (mounted) setState(_reload);
@@ -1633,11 +2065,14 @@ class _TodayScreenState extends State<TodayScreen> {
               ),
             ] else
               ListTile(
-                leading: Icon(Icons.delete_outline,
-                    color: theme.colorScheme.error),
-                title: Text('Delete task',
-                    style:
-                        TextStyle(color: theme.colorScheme.error)),
+                leading: Icon(
+                  Icons.delete_outline,
+                  color: theme.colorScheme.error,
+                ),
+                title: Text(
+                  'Delete task',
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
                 onTap: () async {
                   Navigator.pop(sheetContext);
                   await _deleteOneOff(context, item);
@@ -1666,8 +2101,7 @@ class _TodayScreenState extends State<TodayScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.folder_open_outlined),
-              title: const Text(
-                  'Choose a note, link or quiz from Spaces'),
+              title: const Text('Choose a note, link or quiz from Spaces'),
               onTap: () => Navigator.pop(c, 'item'),
             ),
           ],
@@ -1684,7 +2118,9 @@ class _TodayScreenState extends State<TodayScreen> {
           content: TextField(
             controller: controller,
             decoration: const InputDecoration(
-                labelText: 'URL', hintText: 'https://…'),
+              labelText: 'URL',
+              hintText: 'https://…',
+            ),
             keyboardType: TextInputType.url,
             autofocus: true,
           ),
@@ -1704,8 +2140,11 @@ class _TodayScreenState extends State<TodayScreen> {
       controller.dispose();
       if (saved != true || !context.mounted) return;
       if (!isValidWebUrl(raw)) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text("That doesn't look like a valid web link.")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("That doesn't look like a valid web link."),
+          ),
+        );
         return;
       }
       await widget.todayStore.setPlanItemLink(item.id, url: raw);
@@ -1747,7 +2186,8 @@ class _TodayScreenState extends State<TodayScreen> {
     final ok = await _confirmAction(
       context,
       title: 'Delete this task?',
-      body: 'It will be removed from today and will not carry '
+      body:
+          'It will be removed from today and will not carry '
           'over to tomorrow.',
       action: 'Delete',
     );
@@ -1757,32 +2197,35 @@ class _TodayScreenState extends State<TodayScreen> {
     if (mounted) setState(_reload);
   }
 
-  Future<void> _removeFromToday(
-      BuildContext context, DayPlanItem item) async {
+  Future<void> _removeFromToday(BuildContext context, DayPlanItem item) async {
     // Owner decision (D-042): allowed, never silent — and a
     // completed CORE row carries the explicit consequence.
     final (title, body) = switch ((item.done, item.countsCore)) {
       (true, true) => (
-          'Remove a completed core task?',
-          'This task is done and counts toward today\'s core. '
-              'Removing it recalculates today\'s Done Score from '
-              'the remaining tasks — and today may stop counting '
-              'toward your streak. The task stays in your '
-              'routine and returns tomorrow.'
-        ),
+        'Remove a completed core task?',
+        'This task is done and counts toward today\'s core. '
+            'Removing it recalculates today\'s Done Score from '
+            'the remaining tasks — and today may stop counting '
+            'toward your streak. The task stays in your '
+            'routine and returns tomorrow.',
+      ),
       (true, false) => (
-          'Remove this task for today?',
-          'It is done, so today\'s Done Score will be '
-              'recalculated from the remaining tasks. The task '
-              'stays in your routine and returns tomorrow.'
-        ),
+        'Remove this task for today?',
+        'It is done, so today\'s Done Score will be '
+            'recalculated from the remaining tasks. The task '
+            'stays in your routine and returns tomorrow.',
+      ),
       _ => (
-          'Remove this task for today?',
-          'The task stays in your routine and returns tomorrow.'
-        ),
+        'Remove this task for today?',
+        'The task stays in your routine and returns tomorrow.',
+      ),
     };
-    final ok = await _confirmAction(context,
-        title: title, body: body, action: 'Remove for today');
+    final ok = await _confirmAction(
+      context,
+      title: title,
+      body: body,
+      action: 'Remove for today',
+    );
     if (!ok) return;
     await widget.todayStore.deletePlanItem(item.id);
     await _afterPlanEdit();
@@ -1809,16 +2252,17 @@ class _TodayScreenState extends State<TodayScreen> {
               ButtonSegment(value: true, label: Text('This week')),
             ],
             selected: {_showWeek},
-            onSelectionChanged: (s) =>
-                setState(() => _showWeek = s.first),
+            onSelectionChanged: (s) => setState(() => _showWeek = s.first),
           ),
         ),
         const SizedBox(height: Gap.md),
         if (data.weekPending.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: Space.s4),
-            child: Text('Nothing pending this week.',
-                style: theme.textTheme.bodyMedium),
+            child: Text(
+              'Nothing pending this week.',
+              style: theme.textTheme.bodyMedium,
+            ),
           )
         else
           for (final day in data.weekPending) ...[
@@ -1860,4 +2304,33 @@ class _TodayScreenState extends State<TodayScreen> {
       ],
     );
   }
+}
+
+/// The hero's hug-shaped bottom edge (D-053): both sides
+/// curve gently UP while the centre reaches lowest — a
+/// shallow, symmetrical embrace. Not a U, not a rounded
+/// rectangle: the dip is only [dip] deep across the full
+/// width. Two mirrored cubic segments keep the tangent
+/// smooth through the centre point.
+class _HugClipper extends CustomClipper<Path> {
+  const _HugClipper(this.dip);
+
+  /// How much higher the sides sit than the centre.
+  final double dip;
+
+  @override
+  Path getClip(Size size) {
+    final w = size.width;
+    final h = size.height;
+    return Path()
+      ..moveTo(0, 0)
+      ..lineTo(w, 0)
+      ..lineTo(w, h - dip)
+      ..cubicTo(w * 0.74, h - dip * 0.45, w * 0.62, h, w * 0.5, h)
+      ..cubicTo(w * 0.38, h, w * 0.26, h - dip * 0.45, 0, h - dip)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(_HugClipper oldClipper) => oldClipper.dip != dip;
 }

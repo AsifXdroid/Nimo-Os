@@ -8,7 +8,6 @@ library;
 
 import 'package:flutter/material.dart';
 
-import '../../core/glass_ui.dart';
 import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
 import '../../core/spatial_ui.dart';
@@ -178,16 +177,28 @@ class _LearnScreenState extends State<LearnScreen> {
     final total = _due + _new;
     return Scaffold(
       body: PageTop(
-        child: GlassAtmosphere(
-          child: ListView(
+        // D-052: solid canvas + the prototype's Learn header —
+        // eyebrow, curiosity heading, one-line promise.
+        child: ListView(
             padding: const EdgeInsets.fromLTRB(
                 Space.page, Gap.md, Space.page, 110.0),
             children: [
               Text(
-                'Learn',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontFamily: fontSerif,
-                      fontWeight: FontWeight.bold,
+                'YOUR LEARNING SPACE',
+                style: AppType.eyebrow.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: Space.s2),
+              Text(
+                'Follow your curiosity.',
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              const SizedBox(height: Space.s2),
+              Text(
+                'Read, revisit, and make an idea your own.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
               ),
               if (total > 0) ...[
@@ -230,7 +241,6 @@ class _LearnScreenState extends State<LearnScreen> {
               ],
             ],
           ),
-        ),
       ),
     );
   }
@@ -239,12 +249,10 @@ class _LearnScreenState extends State<LearnScreen> {
   Widget _compactSessionBar(BuildContext context, int total) {
     final theme = Theme.of(context);
     final ed = EditorialColors.of(context);
-    final dark = theme.brightness == Brightness.dark;
     return SpatialCard(
       elevation: SpatialDepth.elevated,
       enablePerspective: true,
       backgroundColor: ed.deep,
-      glowColor: dark ? GlassTokens.darkGlowMint : null,
       padding: const EdgeInsets.all(Space.s4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

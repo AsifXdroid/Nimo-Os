@@ -1167,3 +1167,52 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
   - Replaced the 3 cluttered horizontal buttons (`Import file`, `Add link`, `Add text`)
     with a single clean `+ Add source` button that presents a unified modal sheet.
 - **Verification:** `flutter analyze` clean, all 616 tests passed.
+
+## 2026-11-05 — D-052: Green & Black renovation (the owner's HTML prototype, rebuilt in code)
+
+- **Source of truth:** the owner's prototype `Nimo_Green_Black_Clean.html`
+  (2026-11-05). This decision SUPERSEDES the visual direction of
+  D-039 Editorial (on test/main) and of this branch's Living Glass /
+  Spatial work (2026-11-03/04, previously unrecorded) as the app's
+  visual foundation. Presentation only — no data, scoring, streak,
+  sync or backup behaviour changes.
+- **Identity:** dark = true black `#101010`, panel `#191919`, ink
+  `#F2F3F1`, muted `#9CA39E`, ONE accent — signal green `#1DB954`,
+  hairlines white ~7%. Light = the prototype's soft set (`#E9EFEB`
+  paper, white panels, `#213D35` ink, deep green `#276C57` accent —
+  the bright green fails contrast on light). The deep feature
+  surface becomes rich dark green `#0E2418`; paper becomes clean
+  off-white. Light muted deepened `#718078` → `#586B5E` to hold the
+  ≥4.5 parity floor (same treatment as D-038/D-039 deepenings).
+- **Type:** sans throughout — Playfair/serif display RETIRED
+  (theme + the last three explicit overrides: note-editor title,
+  topic title, dialog title). Headings are DM Sans semibold, tight
+  tracking; eyebrows are 10px tracked sans capitals.
+- **Shape:** controls 10, cards 12, panels 16, sheets/pills 28.
+- **Shell:** destinations follow the prototype — Today · Organise ·
+  Learn · Progress (ids unchanged: `spaces`, `direction`; only
+  labels + order moved). Tagline becomes the prototype's
+  **"A little better, at your pace."** (brand footer + Today intro;
+  supersedes 'a little better, every day'). Capsule nav: the +
+  button takes the green (was off-palette indigo), its glyph
+  near-black on dark; the selected destination's icon is green.
+- **Screens:** Today — solid canvas (glass atmosphere retired
+  there and on Organise/Learn/Direction), plan groups are panels
+  with hairline-divided rows and the circular check leading
+  (timeline rail retired; still NO clock times), Day Close becomes
+  the deep-green panel headed "Close your day". Organise —
+  eyebrow "YOUR PRIVATE SPACE", heading "Organise", line
+  "Everything has a place." Learn — eyebrow "YOUR LEARNING SPACE",
+  heading "Follow your curiosity.", session bar is a solid deep
+  panel (no glow). Progress — eyebrow "Your journey", heading
+  "Notice how far you've come.", sub states the dual-score law.
+  Capture sheet — "Catch it now. Sort it later." / "A safe landing
+  place for your ideas."; the D-045 capture model (3 global
+  captures + Today's hub row) is unchanged.
+- **Kits:** `glass_ui` / `spatial_ui` retained for the components
+  that still build on them, re-tinted to the Green & Black family
+  (no plum, no mint glow). `GlassAtmosphere` is now unused.
+- **Guards:** `test/neo_theme_test.dart` re-pinned to the D-052
+  values; all parity contrast pairs pass. Verification: analyze
+  clean; full suite re-run before push (see PROGRESS_LOG). This
+  branch has no CI — no APK is produced from it.

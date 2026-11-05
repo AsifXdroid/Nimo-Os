@@ -952,10 +952,8 @@ class NeoInfoButton extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                        fontFamily: fontSerif,
-                        fontFamilyFallback: fontSerifFallback,
-                      ),
+                  // D-052: theme title (sans) — no serif override.
+                  style: Theme.of(ctx).textTheme.titleMedium,
                 ),
                 const SizedBox(height: Gap.sm),
                 Text(

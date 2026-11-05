@@ -127,7 +127,7 @@ void main() {
 
     if (tabIndex > 0) {
       // Tap destination
-      final destLabels = ['Today', 'Learn', 'Spaces', 'Progress'];
+      final destLabels = ['Today', 'Organise', 'Learn', 'Progress'];
       final target = find.text(destLabels[tabIndex]);
       if (target.evaluate().isNotEmpty) {
         await tester.tap(target);

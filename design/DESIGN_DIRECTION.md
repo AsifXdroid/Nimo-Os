@@ -1,3 +1,5 @@
+> **SUPERSEDED (2026-11-05, D-052):** the Green & Black prototype is now the app's visual foundation — see docs/DECISIONS.md D-052. This document is kept as the record of the Spatial direction it replaced.
+
 # DESIGN DIRECTION: SOFT NEUTRAL SPATIAL — ARCHITECTURAL MINIMALISM
 Generated: November 4, 2026
 Direction: Production-Grade Spatial Mobile UI

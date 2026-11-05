@@ -26,26 +26,26 @@ void main() {
   });
 
   group('Neo themes (D-036)', () {
-    test('dark is Editorial charcoal; light is Editorial paper', () {
+    test('dark is Green & Black; light is the soft set (D-052)', () {
       final dark = AppTheme.neoDark();
       expect(dark.brightness, Brightness.dark);
-      expect(dark.scaffoldBackgroundColor, const Color(0xFF111411));
+      expect(dark.scaffoldBackgroundColor, const Color(0xFF101010));
       final light = AppTheme.neoLight();
       expect(light.brightness, Brightness.light);
-      expect(light.scaffoldBackgroundColor, const Color(0xFFDFDBC9));
+      expect(light.scaffoldBackgroundColor, const Color(0xFFE9EFEB));
     });
 
-    test('Route A: mint/teal is the functional accent in BOTH '
-        'themes; lavender never is', () {
+    test('D-052: the ONE green accent in BOTH themes; lavender '
+        'never is', () {
       expect(
         AppTheme.neoDark().colorScheme.primary,
-        const Color(0xFFA9D5C6),
+        const Color(0xFF1DB954),
       );
-      // Light deepens the same family for paper contrast —
-      // still teal, never the brand lavender.
+      // Light uses the deep green — the bright green fails
+      // contrast on light surfaces; still never lavender.
       expect(
         AppTheme.neoLight().colorScheme.primary,
-        const Color(0xFF2F6B57),
+        const Color(0xFF276C57),
       );
       for (final t in [AppTheme.neoDark(), AppTheme.neoLight()]) {
         expect(t.colorScheme.primary, isNot(BrandColors.lavender));
@@ -99,12 +99,13 @@ void main() {
         expect(tt.titleSmall!.fontSize, 16);
         expect(tt.titleSmall!.fontWeight, FontWeight.w600);
         expect(tt.titleSmall!.fontFamily, fontSans);
-        // Section-heading role (D-039): SERIF 20 / w500.
-        expect(tt.titleMedium!.fontSize, 20);
-        expect(tt.titleMedium!.fontWeight, FontWeight.w500);
-        expect(tt.titleMedium!.fontFamily, fontSerif);
-        // Page title is serif; body is sans (D-039 families).
-        expect(tt.headlineLarge!.fontFamily, fontSerif);
+        // Section-heading role (D-052): SANS 17 / w600 — the
+        // serif display is retired.
+        expect(tt.titleMedium!.fontSize, 17);
+        expect(tt.titleMedium!.fontWeight, FontWeight.w600);
+        expect(tt.titleMedium!.fontFamily, fontSans);
+        // Page title is sans; body is sans (D-052).
+        expect(tt.headlineLarge!.fontFamily, fontSans);
         expect(tt.bodyMedium!.fontFamily, fontSans);
         // Caption role floored at 13; body keeps 15/16.
         expect(tt.bodySmall!.fontSize, 13);
@@ -127,10 +128,11 @@ void main() {
         stat.fontFeatures,
         contains(const FontFeature.tabularFigures()),
       );
-      // Eyebrow (D-039): DM Mono 11 / w500 / tracked 1.6.
-      expect(AppType.eyebrow.letterSpacing, 1.6);
-      expect(AppType.eyebrow.fontWeight, FontWeight.w500);
-      expect(AppType.eyebrow.fontFamily, fontMono);
+      // Eyebrow (D-052): DM Sans 10 / w600 / tracked 1.8.
+      expect(AppType.eyebrow.letterSpacing, 1.8);
+      expect(AppType.eyebrow.fontWeight, FontWeight.w600);
+      expect(AppType.eyebrow.fontFamily, fontSans);
+      expect(AppType.eyebrow.fontSize, 10);
       expect(AppType.technical.fontSize, 13);
       expect(AppType.technical.fontFamily, fontMono);
     });
@@ -263,18 +265,20 @@ void main() {
       final d = AppTheme.neoDark().extension<EditorialColors>()!;
       final l = AppTheme.neoLight().extension<EditorialColors>()!;
       // The deep surface is the same device in both themes.
-      expect(d.deep, const Color(0xFF1C2822));
-      expect(l.deep, const Color(0xFF1C2822));
-      // Paper: the concept value on dark; lightest paper on light.
-      expect(d.paper, const Color(0xFFE8E5DA));
-      expect(l.paper, const Color(0xFFF2F0E8));
-      expect(d.onPaper, const Color(0xFF20231E));
+      expect(d.deep, const Color(0xFF0E2418));
+      expect(l.deep, const Color(0xFF0E2418));
+      // Paper: the clean off-white on dark; white on light.
+      expect(d.paper, const Color(0xFFF2F3F1));
+      expect(l.paper, const Color(0xFFFFFFFF));
+      expect(d.onPaper, const Color(0xFF101010));
     });
 
-    test('editorial radius scale: controls 3, cards 10, nav 17', () {
-      expect(RadiusToken.control, 3);
-      expect(RadiusToken.card, 10);
-      expect(RadiusToken.nav, 17);
+    test('green & black radius scale: controls 10, cards 12, '
+        'nav 16, sheets 28', () {
+      expect(RadiusToken.control, 10);
+      expect(RadiusToken.card, 12);
+      expect(RadiusToken.nav, 16);
+      expect(RadiusToken.sheet, 28);
     });
   });
 

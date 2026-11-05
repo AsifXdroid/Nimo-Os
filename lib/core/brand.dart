@@ -80,7 +80,9 @@ class NimoBrandFooter extends StatelessWidget {
           ),
         ),
         Text(
-          'a little better, every day',
+          // D-052: the Green & Black prototype's tagline
+          // (supersedes 'a little better, every day').
+          'A little better, at your pace.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),

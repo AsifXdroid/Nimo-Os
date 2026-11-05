@@ -51,7 +51,7 @@ class FloatingCapsuleBar extends StatelessWidget {
 
     // Surface colors
     final capsuleBg = dark
-        ? const Color(0xEE161D18)
+        ? const Color(0xEE141414)
         : Colors.white.withValues(alpha: 0.94);
 
     final rimColor = dark
@@ -62,9 +62,11 @@ class FloatingCapsuleBar extends StatelessWidget {
         ? Colors.black.withValues(alpha: 0.45)
         : Colors.black.withValues(alpha: 0.10);
 
-    // Accent button color (+ icon)
-    // Vibrant indigo-blue from reference design, complementing Nimo's palette
-    final fabBg = dark ? const Color(0xFF5A52FF) : const Color(0xFF4F46E5);
+    // Accent button colour (D-052): the one signal green on
+    // dark; the deep green on light. The + glyph is near-black
+    // on the bright green, white on the deep green.
+    final fabBg = dark ? const Color(0xFF1DB954) : const Color(0xFF276C57);
+    final fabIcon = dark ? const Color(0xFF07130B) : Colors.white;
 
     return SafeArea(
       top: false,
@@ -140,9 +142,9 @@ class FloatingCapsuleBar extends StatelessWidget {
                     highlightElevation: 6,
                     shape: const CircleBorder(),
                     backgroundColor: fabBg,
-                    child: const Icon(
+                    child: Icon(
                       Icons.add,
-                      color: Colors.white,
+                      color: fabIcon,
                       size: 28,
                     ),
                   ),
@@ -172,12 +174,12 @@ class _CapsuleItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final activeTextColor =
-        dark ? const Color(0xFFF1F0E9) : const Color(0xFF1B201C);
+        dark ? const Color(0xFFF2F3F1) : const Color(0xFF213D35);
     final inactiveIconColor =
-        dark ? const Color(0xFFA5ADA1) : const Color(0xFF1B201C);
+        dark ? const Color(0xFF9CA39E) : const Color(0xFF213D35);
 
     final activePillBg = dark
-        ? const Color(0xFF27312A)
+        ? const Color(0xFF262626)
         : Colors.white;
 
     final activePillShadow = isSelected
@@ -227,7 +229,11 @@ class _CapsuleItem extends StatelessWidget {
                       Icon(
                         isSelected ? destination.selectedIcon : destination.icon,
                         size: 22,
-                        color: isSelected ? activeTextColor : inactiveIconColor,
+                        // D-052: the selected destination's icon
+                        // carries the one green accent.
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : inactiveIconColor,
                       ),
                       if (isSelected) ...[
                         const SizedBox(width: 8),

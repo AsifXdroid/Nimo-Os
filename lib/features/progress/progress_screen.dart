@@ -175,9 +175,13 @@ class _ProgressScreenState extends State<ProgressScreen> {
                 Space.page, Gap.md, Space.page, 110.0),
             children: [
               const NeoPageTitle(
-                eyebrow: 'The long view',
-                heading: 'Look how far you’ve come.',
-                sub: 'A record of showing up, not a measure of your worth.',
+                // D-052: the prototype's Progress header. The
+                // sub states the product law — the two scores
+                // tell different stories and stay separate.
+                eyebrow: 'Your journey',
+                heading: 'Notice how far you’ve come.',
+                sub: 'Activity and personal experience tell '
+                    'different stories.',
                 compact: true,
               ),
               const SizedBox(height: Gap.lg),

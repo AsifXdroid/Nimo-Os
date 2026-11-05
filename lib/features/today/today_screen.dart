@@ -10,7 +10,6 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../core/brand.dart';
-import '../../core/glass_ui.dart';
 import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
 import '../../core/spatial_ui.dart';
@@ -497,8 +496,9 @@ class _TodayScreenState extends State<TodayScreen> {
                   on(TodayStore.headerHeading) ||
                   on(TodayStore.headerTagline));
           final showWeek = on(TodayStore.sectionWeekStrip);
-          return GlassAtmosphere(
-            child: ListView(
+          // D-052: solid canvas — the prototype's clean black
+          // (the glass atmosphere's glows are retired here).
+          return ListView(
               padding: const EdgeInsets.fromLTRB(
                   Space.page, Gap.md, Space.page, 110.0),
               children: [
@@ -539,8 +539,7 @@ class _TodayScreenState extends State<TodayScreen> {
                 ),
               ),
             ],
-          ),
-        );
+          );
         },
       ),
     );
@@ -590,7 +589,8 @@ class _TodayScreenState extends State<TodayScreen> {
     if (on(TodayStore.headerTagline)) {
       add(
         Text(
-          'Make room for what matters. One small step at a time.',
+          // D-052: the prototype's tagline under the greeting.
+          'A little better, at your pace.',
           style: theme.textTheme.bodyMedium
               ?.copyWith(color: scheme.onSurfaceVariant),
         ),
@@ -821,8 +821,8 @@ class _TodayScreenState extends State<TodayScreen> {
         const SizedBox(height: Space.s2),
         Container(
           decoration: BoxDecoration(
-            color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
-            borderRadius: BorderRadius.circular(12),
+            color: scheme.surfaceContainer,
+            borderRadius: BorderRadius.circular(RadiusToken.card),
             border: Border.all(color: scheme.outlineVariant),
           ),
           padding: const EdgeInsets.symmetric(
@@ -992,17 +992,18 @@ class _TodayScreenState extends State<TodayScreen> {
   /// close behind it.
   Widget _dayCloseSection(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final ed = EditorialColors.of(context);
     final review = data.todayReview;
     final closed = review != null && review.isClosed;
+    // D-052: the Day Close invitation is the prototype's
+    // closing card — the deep-green feature panel, one bright
+    // action. (Was the D-039 ruled band.)
     return Container(
       decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: scheme.outline),
-          bottom: BorderSide(color: scheme.outline),
-        ),
+        color: ed.deep,
+        borderRadius: BorderRadius.circular(RadiusToken.card),
       ),
-      padding: const EdgeInsets.symmetric(vertical: Space.s5),
+      padding: const EdgeInsets.all(Space.s5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1014,10 +1015,10 @@ class _TodayScreenState extends State<TodayScreen> {
                 height: 35,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: scheme.outline),
+                  border: Border.all(color: ed.deepLine),
                 ),
                 child: Icon(Icons.nightlight_outlined,
-                    size: 17, color: scheme.primary),
+                    size: 17, color: ed.deepAccent),
               ),
               const SizedBox(width: Space.s4),
               Expanded(
@@ -1027,8 +1028,9 @@ class _TodayScreenState extends State<TodayScreen> {
                     Text(
                       closed
                           ? 'A day, gently closed.'
-                          : 'Leave the day a little lighter.',
-                      style: theme.textTheme.titleLarge,
+                          : 'Close your day',
+                      style: theme.textTheme.titleLarge
+                          ?.copyWith(color: ed.onDeep),
                     ),
                     const SizedBox(height: Space.s1),
                     Text(
@@ -1038,8 +1040,8 @@ class _TodayScreenState extends State<TodayScreen> {
                           : closed
                               ? 'Your reflection is here when you need it.'
                               : 'A two-minute check-in. Just for you.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant),
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: ed.deepMuted),
                     ),
                   ],
                 ),
@@ -1054,6 +1056,10 @@ class _TodayScreenState extends State<TodayScreen> {
             children: [
               FilledButton(
                 onPressed: () => _openDayClose(data),
+                style: FilledButton.styleFrom(
+                  backgroundColor: ed.deepAccent,
+                  foregroundColor: ed.onDeepAccent,
+                ),
                 child: Text(
                   data.closeTarget.isLate
                       ? 'Close yesterday'
@@ -1339,24 +1345,35 @@ class _TodayScreenState extends State<TodayScreen> {
   Widget _planGroup(BuildContext context, _HubData data, String label,
       List<DayPlanItem> group) {
     final scheme = Theme.of(context).colorScheme;
+    // D-052: the plan group is a PANEL (the prototype's task
+    // card) — rows on the panel surface, hairline-divided.
+    // The D-039 timeline rail is retired; the data model still
+    // carries no clock times, so nothing about times changes.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _groupHead(context, label),
-        Stack(
-          children: [
-            Positioned(
-              left: 5,
-              top: 10,
-              bottom: 10,
-              child: Container(width: 1, color: scheme.outlineVariant),
-            ),
-            Column(
-              children: [
-                for (final item in group) _planRow(context, data, item),
+        const SizedBox(height: Space.s2),
+        Container(
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainer,
+            borderRadius: BorderRadius.circular(RadiusToken.card),
+            border: Border.all(color: scheme.outlineVariant),
+          ),
+          child: Column(
+            children: [
+              for (var i = 0; i < group.length; i++) ...[
+                if (i > 0)
+                  Divider(
+                    height: 1,
+                    indent: Space.s4,
+                    endIndent: Space.s4,
+                    color: scheme.outlineVariant,
+                  ),
+                _planRow(context, data, group[i]),
               ],
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -1390,22 +1407,15 @@ class _TodayScreenState extends State<TodayScreen> {
           duration: const Duration(milliseconds: 200),
           opacity: item.done ? 0.62 : 1.0,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: Space.s3),
+            // D-052: the prototype's row — the circular check
+            // leads, title + quiet classification under it, the
+            // ⋯ options at the right.
+            padding: const EdgeInsets.symmetric(
+                horizontal: Space.s4, vertical: Space.s3),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 9,
-                  height: 9,
-                  margin: const EdgeInsets.only(top: 5),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: item.done ? scheme.primary : scheme.surface,
-                    border: Border.all(
-                      color: item.done ? scheme.primary : scheme.outline,
-                    ),
-                  ),
-                ),
+                NeoCheck(done: item.done, size: 26),
                 const SizedBox(width: Space.s3),
                 Expanded(
                   child: Column(
@@ -1444,8 +1454,6 @@ class _TodayScreenState extends State<TodayScreen> {
                   onPressed: () =>
                       _showPlanItemSheet(context, data, item),
                 ),
-                const SizedBox(width: Space.s2),
-                NeoCheck(done: item.done),
               ],
             ),
           ),

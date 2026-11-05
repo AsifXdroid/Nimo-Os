@@ -92,8 +92,9 @@ Future<void> showQuickAddSheet(
       }
 
       return SpatialActionSheet(
-        title: 'Quick add',
-        subtitle: 'Capture thought, task, or resource instantly',
+        // D-052: the prototype's capture header + promise.
+        title: 'Catch it now. Sort it later.',
+        subtitle: 'A safe landing place for your ideas.',
         children: [
           row(Icons.add_task_outlined, 'Task', 'Add to today’s plan',
               () => quickAddTaskFlow(context, service: service)),

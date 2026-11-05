@@ -126,8 +126,7 @@ void main() {
           findsOneWidget);
       expect(find.textContaining('Good '), findsOneWidget);
       expect(
-          find.text('Make room for what matters. One small step '
-              'at a time.'),
+          find.text('A little better, at your pace.'),
           findsOneWidget);
       // Streak chip in the brand header, settings beside it.
       expect(inAppBar(find.byIcon(Icons.local_fire_department_outlined)),
@@ -158,8 +157,7 @@ void main() {
           findsNothing);
       expect(find.textContaining('Good '), findsNothing);
       expect(
-          find.text('Make room for what matters. One small step '
-              'at a time.'),
+          find.text('A little better, at your pace.'),
           findsNothing);
       // Brand, chip and settings survive.
       expect(inAppBar(find.text('Nimo')), findsOneWidget);
@@ -182,8 +180,7 @@ void main() {
           findsOneWidget);
       expect(find.textContaining('Good '), findsOneWidget);
       expect(
-          find.text('Make room for what matters. One small step '
-              'at a time.'),
+          find.text('A little better, at your pace.'),
           findsOneWidget);
     });
   });
@@ -198,8 +195,7 @@ void main() {
       expect(find.text('A LITTLE INTENTION GOES A LONG WAY'),
           findsNothing);
       expect(
-          find.text('Make room for what matters. One small step '
-              'at a time.'),
+          find.text('A little better, at your pace.'),
           findsNothing);
       expect(find.text(expectedDate()), findsOneWidget);
       expect(find.textContaining('Good '), findsOneWidget);
@@ -216,8 +212,7 @@ void main() {
       expect(find.text('A LITTLE INTENTION GOES A LONG WAY'),
           findsOneWidget);
       expect(
-          find.text('Make room for what matters. One small step '
-              'at a time.'),
+          find.text('A little better, at your pace.'),
           findsOneWidget);
     });
   });

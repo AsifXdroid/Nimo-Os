@@ -11,7 +11,6 @@ library;
 
 import 'package:flutter/material.dart';
 
-import '../../core/glass_ui.dart';
 import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
 import '../../core/spatial_ui.dart';
@@ -256,8 +255,8 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
               );
             }
             final data = snapshot.data!;
-            return GlassAtmosphere(
-              child: ListView(
+            // D-052: solid canvas (glass atmosphere retired).
+            return ListView(
                 padding: const EdgeInsets.fromLTRB(
                     Space.page, Gap.md, Space.page, 110.0),
                 children: [
@@ -269,15 +268,25 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Spaces',
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontFamily: fontSerif,
-                              fontFamilyFallback: fontSerifFallback,
+                            // D-052: the prototype's eyebrow for
+                            // this destination.
+                            'YOUR PRIVATE SPACE',
+                            style: AppType.eyebrow.copyWith(
+                              color: scheme.onSurfaceVariant,
                             ),
+                          ),
+                          const SizedBox(height: Space.s2),
+                          Text(
+                            // D-052: the prototype's name for this
+                            // destination + its line. (The theme's
+                            // headline is sans now — no serif
+                            // override.)
+                            'Organise',
+                            style: theme.textTheme.headlineSmall,
                           ),
                           const SizedBox(height: Gap.sm),
                           Text(
-                            'Your workspaces, projects and pages.',
+                            'Everything has a place.',
                             style: theme.textTheme.bodyMedium
                                 ?.copyWith(color: scheme.onSurfaceVariant),
                           ),
@@ -338,8 +347,7 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
                   ),
                 ],
               ],
-            ),
-          );
+            );
           },
         ),
       ),
@@ -381,8 +389,9 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
                 child: Text(
                   ws.name.isEmpty ? '?' : ws.name[0].toUpperCase(),
                   style: TextStyle(
-                    fontFamily: fontSerif,
-                    fontFamilyFallback: fontSerifFallback,
+                    // D-052: sans initial (serif retired).
+                    fontFamily: fontSans,
+                    fontFamilyFallback: fontSansFallback,
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                     color: scheme.primary,

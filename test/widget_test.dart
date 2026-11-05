@@ -129,9 +129,9 @@ void main() {
 
       // Switch to the Spaces tab: the simple landing
       // (compact header, workspace list, visit recents).
-      await tester.tap(find.text('Spaces'));
+      await tester.tap(find.text('Organise'));
       expect(
-          await pollFor(find.text('Your workspaces, projects and pages.')),
+          await pollFor(find.text('Everything has a place.')),
           isTrue);
       expect(await pollFor(find.textContaining('No workspaces yet')),
           isTrue);

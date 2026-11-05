@@ -59,7 +59,7 @@ void main() {
       await h.store.createProject(ws.id, 'Journal');
 
       await tester.pumpWidget(app(h.store));
-      await pumpUntil(tester, find.text('Spaces'));
+      await pumpUntil(tester, find.text('Organise'));
 
       // Inbox card is prominent and visible
       expect(find.byKey(const ValueKey('spaces_inbox_card')), findsOneWidget);
@@ -153,7 +153,7 @@ void main() {
 
       // Verify UI displays "4 items" without "unread" label
       await tester.pumpWidget(app(h.store));
-      await pumpUntil(tester, find.text('Spaces'));
+      await pumpUntil(tester, find.text('Organise'));
       expect(find.text('4 items'), findsOneWidget);
       expect(find.textContaining('unread'), findsNothing);
 

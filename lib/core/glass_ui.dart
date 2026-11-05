@@ -1,5 +1,11 @@
 /// LIVING GLASS — Nimo's modern glass and layered interface system.
 ///
+/// D-052 NOTE: this kit is RETAINED for the screens that still
+/// build on it, but its palette is re-tinted to Green & Black
+/// (near-black fills, white hairlines, the one signal-green
+/// glow) so unconverted surfaces stay coherent with the new
+/// foundation. New work uses the theme + neo_ui kit, not glass.
+///
 /// Material levels:
 ///   1. Atmosphere: ambient deep background with organic radial illumination.
 ///   2. Primary Glass: important panels, cards, and floating navigation.
@@ -28,38 +34,38 @@ abstract final class GlassTokens {
   static const double blurStandard = 14.0;
   static const double blurDense = 22.0;
 
-  // Dark palette glass fills
-  static const Color darkAtmosphere = Color(0xFF0D120E);
-  static const Color darkGlassPrimary = Color(0xBD18221B);
-  static const Color darkGlassSecondary = Color(0x94151E17);
-  static const Color darkGlassFloating = Color(0xD61E2B22);
-  static const Color darkGlassRecessed = Color(0x8A0A0E0B);
+  // Dark palette glass fills (D-052: the #101010 family)
+  static const Color darkAtmosphere = Color(0xFF0A0A0A);
+  static const Color darkGlassPrimary = Color(0xBD191919);
+  static const Color darkGlassSecondary = Color(0x94141414);
+  static const Color darkGlassFloating = Color(0xD61E1E1E);
+  static const Color darkGlassRecessed = Color(0x8A050505);
 
-  // Light palette glass fills
-  static const Color lightAtmosphere = Color(0xFFEDE8DC);
-  static const Color lightGlassPrimary = Color(0xD6FAF7F0);
-  static const Color lightGlassSecondary = Color(0xACF2EFE6);
+  // Light palette glass fills (D-052: the soft green-paper set)
+  static const Color lightAtmosphere = Color(0xFFE9EFEB);
+  static const Color lightGlassPrimary = Color(0xD6FFFFFF);
+  static const Color lightGlassSecondary = Color(0xACF4F7F4);
   static const Color lightGlassFloating = Color(0xF0FFFFFF);
-  static const Color lightGlassRecessed = Color(0x94DFD9CA);
+  static const Color lightGlassRecessed = Color(0x94DCE5DE);
 
   // Rim highlights (light refraction along top edge)
-  static const Color darkRimHighlight = Color(0x38A9D5C6);
+  static const Color darkRimHighlight = Color(0x2EFFFFFF);
   static const Color lightRimHighlight = Color(0x6EFFFFFF);
 
   // Border outlines
-  static const Color darkBorder = Color(0x24A9D5C6);
+  static const Color darkBorder = Color(0x24FFFFFF);
   static const Color darkBorderSubtle = Color(0x14FFFFFF);
-  static const Color lightBorder = Color(0x382F6B57);
+  static const Color lightBorder = Color(0x38276C57);
   static const Color lightBorderSubtle = Color(0x24000000);
 
-  // Atmospheric glow colors
-  static const Color darkGlowMint = Color(0x1FA9D5C6);
-  static const Color darkGlowForest = Color(0x3314281C);
-  static const Color darkGlowPlum = Color(0x14C5A9D4);
+  // Atmospheric glow colors (D-052: the one green, no plum)
+  static const Color darkGlowMint = Color(0x1F1DB954);
+  static const Color darkGlowForest = Color(0x3314301D);
+  static const Color darkGlowPlum = Color(0x141DB954);
 
-  static const Color lightGlowTeal = Color(0x1A2F6B57);
+  static const Color lightGlowTeal = Color(0x1A276C57);
   static const Color lightGlowSun = Color(0x28FFF8E7);
-  static const Color lightGlowPlum = Color(0x0F7A5C8F);
+  static const Color lightGlowPlum = Color(0x0F276C57);
 }
 
 /// Ambient atmospheric background providing depth beneath translucent layers.

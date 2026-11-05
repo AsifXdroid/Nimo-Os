@@ -275,7 +275,7 @@ void main() {
             ),
           ));
 
-          expect(await pollFor(tester, find.text('Learn')), isTrue);
+          expect(await pollFor(tester, find.text('Follow your curiosity.')), isTrue);
           expect(find.text('New topic'), findsOneWidget);
           expect(find.text('Import a pack'), findsOneWidget);
 
@@ -318,7 +318,7 @@ void main() {
             ),
           ));
 
-          expect(await pollFor(tester, find.text('Learn')), isTrue);
+          expect(await pollFor(tester, find.text('Follow your curiosity.')), isTrue);
           expect(find.text('Your topics'), findsOneWidget);
           // Landing caps at 5 topics on landing view
           expect(find.textContaining('Topic #30'), findsOneWidget);
@@ -355,7 +355,7 @@ void main() {
             ),
           ));
 
-          expect(await pollFor(tester, find.text('Learn')), isTrue);
+          expect(await pollFor(tester, find.text('Follow your curiosity.')), isTrue);
           expect(find.text('Begin a short session →'), findsNothing);
 
           // State 2: Add due question -> session bar MUST appear

@@ -250,8 +250,8 @@ class SpatialCard extends StatelessWidget {
     final dark = theme.brightness == Brightness.dark;
 
     final defaultBg = dark
-        ? const Color(0xFF161B18)
-        : (enableGlass ? Colors.white.withValues(alpha: 0.90) : const Color(0xFFFAF9F5));
+        ? const Color(0xFF191919)
+        : (enableGlass ? Colors.white.withValues(alpha: 0.90) : const Color(0xFFF4F7F4));
 
     final effectiveBg = backgroundColor ?? defaultBg;
     final r = BorderRadius.circular(borderRadius);
@@ -344,8 +344,8 @@ class _SpatialTactileTileState extends State<SpatialTactileTile> {
     final dark = theme.brightness == Brightness.dark;
 
     final elevation = _pressed ? SpatialDepth.base : SpatialDepth.elevated;
-    final activeColor = widget.color ?? (dark ? const Color(0xFFCBEAD7) : const Color(0xFF285C4D));
-    final surfaceColor = dark ? const Color(0xFF191F1B) : Colors.white;
+    final activeColor = widget.color ?? (dark ? const Color(0xFF97D6B6) : const Color(0xFF276C57));
+    final surfaceColor = dark ? const Color(0xFF191919) : Colors.white;
 
     return Semantics(
       button: true,
@@ -385,7 +385,7 @@ class _SpatialTactileTileState extends State<SpatialTactileTile> {
                 style: theme.textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                   fontSize: 12,
-                  color: dark ? const Color(0xFFEDEDE6) : const Color(0xFF1B201C),
+                  color: dark ? const Color(0xFFF2F3F1) : const Color(0xFF213D35),
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -418,8 +418,8 @@ class SpatialActionSheet extends StatelessWidget {
     final dark = theme.brightness == Brightness.dark;
 
     final bgColor = dark
-        ? const Color(0xFA151B17)
-        : const Color(0xFAF4F7F5);
+        ? const Color(0xFA101010)
+        : const Color(0xFAF4F7F4);
 
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
@@ -504,7 +504,7 @@ class SpatialMetricRing extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final dark = theme.brightness == Brightness.dark;
-    final ringColor = color ?? (dark ? const Color(0xFF2DD4BF) : const Color(0xFF285C4D));
+    final ringColor = color ?? (dark ? const Color(0xFF1DB954) : const Color(0xFF276C57));
     final trackColor = dark ? Colors.white10 : Colors.black.withValues(alpha: 0.06);
 
     final clamped = value.clamp(0.0, 1.0);

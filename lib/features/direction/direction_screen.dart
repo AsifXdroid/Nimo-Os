@@ -18,7 +18,6 @@ library;
 
 import 'package:flutter/material.dart';
 
-import '../../core/glass_ui.dart';
 import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../goals/goals_screen.dart';
@@ -60,8 +59,8 @@ class _DirectionScreenState extends State<DirectionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: PageTop(
-        child: GlassAtmosphere(
-          child: Column(
+        // D-052: solid canvas (glass atmosphere retired).
+        child: Column(
             children: [
               _tabStrip(context),
               Expanded(
@@ -77,7 +76,6 @@ class _DirectionScreenState extends State<DirectionScreen> {
               ),
             ],
           ),
-        ),
       ),
     );
   }

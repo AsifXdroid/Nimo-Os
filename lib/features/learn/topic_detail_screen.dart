@@ -532,7 +532,8 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
                     child: Text(
                       _topic.title,
                       style: theme.textTheme.headlineSmall?.copyWith(
-                        fontFamily: fontSerif,
+                        // D-052: sans (serif retired).
+                        fontFamily: fontSans,
                         fontWeight: FontWeight.bold,
                       ),
                     ),

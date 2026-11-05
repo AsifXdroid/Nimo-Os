@@ -432,10 +432,15 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   // D-045: four destinations — Goals and Progress live inside
   // Direction as internal tabs (supersedes the D-021 five).
+  // D-052 (Green & Black prototype): the ORDER and the Spaces
+  // label follow the prototype — Today · Organise · Learn ·
+  // Progress. Ids are unchanged ('spaces', 'direction'), so
+  // routing, the Direction tab request and stored state are
+  // untouched; only labels and order move.
   static const List<_Destination> _destinations = [
     _Destination('today', 'Today', Icons.today_outlined, Icons.today),
+    _Destination('spaces', 'Organise', Icons.folder_outlined, Icons.folder),
     _Destination('learn', 'Learn', Icons.school_outlined, Icons.school),
-    _Destination('spaces', 'Spaces', Icons.folder_outlined, Icons.folder),
     _Destination(
         'direction', 'Progress', Icons.insights_outlined, Icons.insights),
   ];

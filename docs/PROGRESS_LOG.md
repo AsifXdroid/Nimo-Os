@@ -1,3 +1,20 @@
+## 2026-11-05 — D-052: Green & Black renovation (local-test)
+- The owner's `Nimo_Green_Black_Clean.html` prototype rebuilt in
+  code on this branch: new theme foundation (black #101010 /
+  signal green #1DB954 dark; soft green-paper light), sans type
+  (serif retired), radii 10/12/16/28, shell order + labels
+  (Today · Organise · Learn · Progress), prototype tagline.
+- Screens: Today (panel plan groups, check-leading rows, deep
+  Day Close panel), Organise + Learn (prototype headers, solid
+  canvas), Progress (prototype header), capture sheet
+  (prototype header copy). Glass/spatial kits re-tinted, not
+  removed; GlassAtmosphere now unused.
+- Presentation only — no data/scoring/streak/sync changes.
+  Theme guards re-pinned in neo_theme_test; parity pairs pass.
+- Gates: analyze clean; full suite **647/647 — All tests
+  passed!** (explicit verdict line captured). No CI on this
+  branch (no APK).
+
 ## 2026-11-01 — D-048: Spaces & Notebook (3 commits, test branch)
 - **Spaces (a0320b9d + delete 72ddc37b):** landing rewritten
   as a simple click-to-open list; visit-based Recent

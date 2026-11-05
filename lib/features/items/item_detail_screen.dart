@@ -408,10 +408,9 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
                   children: [
                     TextField(
                       controller: _titleController,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontFamily: fontSerif,
-                        fontFamilyFallback: fontSerifFallback,
-                      ),
+                      // D-052: the document title is sans now
+                      // (was Playfair under D-048/D-039).
+                      style: theme.textTheme.headlineSmall,
                       decoration: const InputDecoration(
                         hintText: 'Untitled note',
                         border: InputBorder.none,

@@ -19,6 +19,25 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+/// Where captures land: the owner's local Antigravity brain
+/// dir, so his visual audit picks them up. On a machine where
+/// that absolute path cannot be created (a CI runner has no
+/// /home/Asif), fall back to a temp dir — the captures still
+/// exercise every screen, they just aren't filed for audit.
+/// (Run #52 failed on exactly this: PathAccessException
+/// creating '/home/Asif' on the runner.)
+Future<String> _captureOutDir() async {
+  const brain =
+      '/home/Asif/.gemini/antigravity/brain/7d964ff8-773f-4b2c-aa3f-9c615e8976c6';
+  try {
+    await Directory(brain).create(recursive: true);
+    return brain;
+  } on FileSystemException {
+    final tmp = await Directory.systemTemp.createTemp('nimo_captures');
+    return tmp.path;
+  }
+}
+
 Future<void> loadRealFonts() async {
   final iconFile = File(
       '/home/Asif/development/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf');
@@ -173,7 +192,7 @@ void main() {
         tester.view.reset();
       });
 
-      final outDir = '/home/Asif/.gemini/antigravity/brain/7d964ff8-773f-4b2c-aa3f-9c615e8976c6';
+      final outDir = await _captureOutDir();
 
       // 1. Home Dark
       await captureScreen(tester, themeChoice: AppThemeChoice.dark, outputPath: '$outDir/screen_home_dark.png', tabIndex: 0);

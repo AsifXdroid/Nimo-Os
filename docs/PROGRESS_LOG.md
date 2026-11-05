@@ -1,4 +1,17 @@
-## 2026-11-05 — D-053 Premium Charcoal hero (local-test, UNCOMMITTED)
+## 2026-11-05 — D-053 refinement: fixed backdrop, cosine hug, optional quick actions (local-test, UNCOMMITTED)
+
+Per the owner's refinement brief: the hero photograph is now
+a FIXED backdrop behind the scroll view (hero content still
+scrolls away over it); the hug contour is a single shallow
+cosine bowl (dip 10–14, was two cubics at 18); the four
+quick-action tiles can be hidden from Customize Home
+("Show quick actions on Today", default ON, app_settings —
+no schema change). Also: hero floor 328 → 336 (two-line
+if–then overflow, capture-reproduced) and a mounted guard in
+`_customize`. Analyze clean, **655/655 tests**. Nothing
+committed or pushed. See DECISIONS.md (D-053 refinement).
+
+## 2026-11-05 — D-053 Premium Charcoal hero (local-test; pushed same day: `8ed69956` + `3e794129`, CI #55 green)
 
 Today-only redesign per the owner's brief: photographic hero
 (owner-supplied image as `assets/images/hero_default.png`) with

@@ -119,10 +119,12 @@ Future<void> _pump(WidgetTester tester, _Harness h, {ThemeData? theme}) async {
 }
 
 // D-053: the brand row no longer lives in an AppBar — it
-// sits inside the hero (the ClipPath'd first section), so
-// the header assertions scope to the hero instead.
-Finder inAppBar(Finder inner) =>
-    find.descendant(of: find.byType(ClipPath), matching: inner);
+// sits in the hero. Since the 2026-11-05 refinement the
+// photograph is a fixed backdrop layer and the brand row
+// lives in the scrolling hero CONTENT above it; either way
+// each brand element exists exactly once on the page, so
+// the header assertions run unscoped.
+Finder inAppBar(Finder inner) => inner;
 
 void main() {
   setUpAll(() {

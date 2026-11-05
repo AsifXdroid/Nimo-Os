@@ -8,6 +8,7 @@
 library;
 
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
@@ -404,6 +405,7 @@ class _TodayScreenState extends State<TodayScreen> {
 
   Future<void> _customize(_HubData data) async {
     const labels = {
+      TodayStore.sectionQuickActions: 'Show quick actions on Today',
       TodayStore.sectionWeekStrip: 'Week strip',
       TodayStore.sectionDayClose: 'Day Close banner',
       TodayStore.sectionPinned: 'Pinned spaces',
@@ -500,6 +502,12 @@ class _TodayScreenState extends State<TodayScreen> {
                     for (final key in TodayStore.homeSections)
                       SwitchListTile(
                         title: Text(labels[key]!),
+                        subtitle: key == TodayStore.sectionQuickActions
+                            ? const Text(
+                                'Show or hide the Task, Goal, Note and '
+                                'Checklist shortcuts on your Today screen.',
+                              )
+                            : null,
                         value: values[key] ?? true,
                         onChanged: (v) => setDialogState(() => values[key] = v),
                       ),
@@ -525,6 +533,7 @@ class _TodayScreenState extends State<TodayScreen> {
     for (final e in result.entries) {
       await widget.todayStore.setHomeSectionVisible(e.key, e.value);
     }
+    if (!mounted) return;
     setState(_reload);
   }
 
@@ -622,48 +631,81 @@ class _TodayScreenState extends State<TodayScreen> {
                   on(TodayStore.headerHeading) ||
                   on(TodayStore.headerTagline));
           final showWeek = on(TodayStore.sectionWeekStrip);
+          final showQuick = on(TodayStore.sectionQuickActions);
           // The hero spans the full width; everything below it
           // keeps the page margin.
           Widget pad(Widget w) => Padding(
             padding: const EdgeInsets.symmetric(horizontal: Space.page),
             child: w,
           );
-          return ListView(
-            padding: const EdgeInsets.only(bottom: 110.0),
+          // Visual refinement (2026-11-05): the screen is two
+          // layers — the photograph is a FIXED backdrop behind
+          // the scroll view (it never moves), while the hero
+          // CONTENT (brand row, greeting, if–then) stays in
+          // the ListView and scrolls away over it. Both layers
+          // share one hero height so the content sits exactly
+          // on the photograph at rest.
+          final heroHeight = _heroHeight(MediaQuery.of(context).size);
+          return Stack(
             children: [
-              _hero(context, now, data, showIntro: showIntro),
-              const SizedBox(height: Gap.md),
-              if (data.weekSummary != null) ...[
-                pad(_sundaySummaryCard(context, data.weekSummary!)),
-                const SizedBox(height: Gap.lg),
-              ],
-              if (showWeek) ...[
-                pad(_dailyProgress(context, data)),
-                const SizedBox(height: Gap.md),
-              ],
-              pad(_quickAddRow(context)),
-              const SizedBox(height: Gap.lg),
-              if (_showWeek)
-                pad(_weekCard(context, data))
-              else
-                pad(_planCard(context, data)),
-              if (data.dueCount + data.newCount > 0) ...[
-                const SizedBox(height: Gap.lg),
-                pad(_learnSection(context, data)),
-              ],
-              const SizedBox(height: Gap.lg),
-              pad(_scoresSection(context, data)),
-              if (data.sections[TodayStore.sectionDayClose] ?? true) ...[
-                const SizedBox(height: Gap.lg),
-                pad(_dayCloseSection(context, data)),
-              ],
-              const SizedBox(height: Gap.sm),
-              Center(
-                child: TextButton.icon(
-                  onPressed: () => _customize(data),
-                  icon: const Icon(Icons.tune_outlined),
-                  label: const Text('Customize Home'),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: heroHeight,
+                child: IgnorePointer(
+                  child: RepaintBoundary(child: _heroBackdrop(context, data)),
                 ),
+              ),
+              ListView(
+                padding: const EdgeInsets.only(bottom: 110.0),
+                children: [
+                  _heroContent(
+                    context,
+                    now,
+                    data,
+                    showIntro: showIntro,
+                    height: heroHeight,
+                  ),
+                  const SizedBox(height: Gap.md),
+                  if (data.weekSummary != null) ...[
+                    pad(_sundaySummaryCard(context, data.weekSummary!)),
+                    const SizedBox(height: Gap.lg),
+                  ],
+                  if (showWeek) ...[
+                    pad(_dailyProgress(context, data)),
+                    const SizedBox(height: Gap.md),
+                  ],
+                  // Quick actions are optional (Customize Home):
+                  // hidden means the row AND its spacing vanish,
+                  // so the plan moves up into the space.
+                  if (showQuick) ...[
+                    pad(_quickAddRow(context)),
+                    const SizedBox(height: Gap.lg),
+                  ],
+                  if (_showWeek)
+                    pad(_weekCard(context, data))
+                  else
+                    pad(_planCard(context, data)),
+                  if (data.dueCount + data.newCount > 0) ...[
+                    const SizedBox(height: Gap.lg),
+                    pad(_learnSection(context, data)),
+                  ],
+                  const SizedBox(height: Gap.lg),
+                  pad(_scoresSection(context, data)),
+                  if (data.sections[TodayStore.sectionDayClose] ?? true) ...[
+                    const SizedBox(height: Gap.lg),
+                    pad(_dayCloseSection(context, data)),
+                  ],
+                  const SizedBox(height: Gap.sm),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () => _customize(data),
+                      icon: const Icon(Icons.tune_outlined),
+                      label: const Text('Customize Home'),
+                    ),
+                  ),
+                ],
               ),
             ],
           );
@@ -706,113 +748,137 @@ class _TodayScreenState extends State<TodayScreen> {
     );
   }
 
-  /// D-053 hero: the Today screen's environment — the
-  /// background photograph (the owner-approved default, or
-  /// the owner's own image) carrying the brand row, the
-  /// greeting and the if–then control, and ending in the
-  /// hug-shaped contour (see [_HugClipper]). It is the first
-  /// item of the page's ListView, so it scrolls away with
-  /// the page — nothing here is pinned.
-  Widget _hero(
-    BuildContext context,
-    DateTime now,
-    _HubData data, {
-    required bool showIntro,
-  }) {
+  /// The hero's height: ~40% of the viewport is the TARGET.
+  /// The floor is the measured worst case for the content —
+  /// brand row + full greeting + if–then — and grows on
+  /// narrow screens, where the same text wraps taller; the
+  /// content's Spacer absorbs any slack on taller heroes.
+  /// Shared by the fixed backdrop and the scrolling hero
+  /// content so the two layers align exactly.
+  double _heroHeight(Size viewport) {
+    // The standard floor rose 328 → 336 in the refinement:
+    // the shallower hug dip shrank the content's bottom
+    // padding, and a two-line if–then then overflowed the
+    // hero column by ~3px at 360dp wide (capture-verified).
+    final floor = viewport.width < 340 ? 356.0 : 336.0;
+    return (viewport.height * 0.40).clamp(floor, 440.0);
+  }
+
+  /// How far the hug contour's centre dips below its sides —
+  /// a shallow, restrained sag scaled gently off the hero
+  /// height (see [_HugClipper]).
+  static double _hugDip(double heroHeight) =>
+      (heroHeight * 0.035).clamp(10.0, 14.0);
+
+  /// The FIXED hero backdrop (D-053, refined 2026-11-05):
+  /// the background photograph (the owner-approved default,
+  /// or the owner's own image) plus its readability scrim,
+  /// ending in the hug-shaped contour (see [_HugClipper]).
+  /// It lives OUTSIDE the ListView, behind it, so it stays
+  /// stationary while the page scrolls over it.
+  Widget _heroBackdrop(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
     final media = MediaQuery.of(context);
-    // ~40% of the viewport is the TARGET height. The floor
-    // is the measured worst case for the content — brand
-    // row + full greeting + if–then — and grows on narrow
-    // screens, where the same text wraps taller; the Spacer
-    // absorbs any slack on taller heroes.
-    final floor = media.size.width < 340 ? 356.0 : 328.0;
-    final target = (media.size.height * 0.40).clamp(floor, 440.0);
-    const dip = 18.0;
     final ImageProvider image = data.heroImagePath != null
         ? FileImage(File(data.heroImagePath!))
         : const AssetImage('assets/images/hero_default.png');
     return ClipPath(
-      clipper: const _HugClipper(dip),
-      child: SizedBox(
-        height: target,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image(
-              // Decode near the displayed size, never the
-              // full-resolution photograph.
-              image: ResizeImage(
-                image,
-                width: (media.size.width * media.devicePixelRatio).round(),
-              ),
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
+      clipper: const _HugClipper(),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image(
+            // Decode near the displayed size, never the
+            // full-resolution photograph.
+            image: ResizeImage(
+              image,
+              width: (media.size.width * media.devicePixelRatio).round(),
             ),
-            // Readability scrim: shade at the top (brand row)
-            // and toward the bottom (greeting + if–then),
-            // easing into the page colour at the very edge so
-            // the hug contour shows no seam.
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.42),
-                    Colors.black.withValues(alpha: 0.05),
-                    Colors.black.withValues(alpha: 0.38),
-                    theme.scaffoldBackgroundColor.withValues(alpha: 0.92),
-                  ],
-                  stops: const [0.0, 0.38, 0.72, 1.0],
-                ),
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                Space.page,
-                media.padding.top + Space.s2,
-                Space.page,
-                dip + Space.s2,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const NimoMark(size: 30),
-                      const SizedBox(width: Space.s3),
-                      Text(
-                        'Nimo',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.3,
-                          color: GlassTokens.darkOnCharcoal,
-                        ),
-                      ),
-                      const Spacer(),
-                      _streakChip(context, data.streak, onPhoto: true),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.settings_outlined,
-                          color: GlassTokens.darkOnCharcoal,
-                        ),
-                        tooltip: widget.onOpenSettings == null
-                            ? 'Coming soon'
-                            : 'Settings',
-                        onPressed: widget.onOpenSettings,
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  if (showIntro) ...[
-                    _heroIntro(context, now, data),
-                    const SizedBox(height: Space.s3),
-                  ],
-                  _ifThenControl(context, data),
+            fit: BoxFit.cover,
+            alignment: Alignment.topCenter,
+          ),
+          // Readability scrim: shade at the top (brand row)
+          // and toward the bottom (greeting + if–then),
+          // easing into the page colour at the very edge so
+          // the hug contour shows no seam.
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.42),
+                  Colors.black.withValues(alpha: 0.05),
+                  Colors.black.withValues(alpha: 0.38),
+                  theme.scaffoldBackgroundColor.withValues(alpha: 0.92),
                 ],
+                stops: const [0.0, 0.38, 0.72, 1.0],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The hero CONTENT (D-053, refined 2026-11-05): the brand
+  /// row, the greeting and the if–then control, rendered
+  /// transparently at the top of the ListView so they sit on
+  /// the fixed photograph at rest and scroll away over it —
+  /// nothing here is pinned.
+  Widget _heroContent(
+    BuildContext context,
+    DateTime now,
+    _HubData data, {
+    required bool showIntro,
+    required double height,
+  }) {
+    final theme = Theme.of(context);
+    final media = MediaQuery.of(context);
+    return SizedBox(
+      height: height,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          Space.page,
+          media.padding.top + Space.s2,
+          Space.page,
+          _hugDip(height) + Space.s2,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const NimoMark(size: 30),
+                const SizedBox(width: Space.s3),
+                Text(
+                  'Nimo',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                    color: GlassTokens.darkOnCharcoal,
+                  ),
+                ),
+                const Spacer(),
+                _streakChip(context, data.streak, onPhoto: true),
+                IconButton(
+                  icon: const Icon(
+                    Icons.settings_outlined,
+                    color: GlassTokens.darkOnCharcoal,
+                  ),
+                  tooltip: widget.onOpenSettings == null
+                      ? 'Coming soon'
+                      : 'Settings',
+                  onPressed: widget.onOpenSettings,
+                ),
+              ],
+            ),
+            const Spacer(),
+            if (showIntro) ...[
+              _heroIntro(context, now, data),
+              const SizedBox(height: Space.s3),
+            ],
+            _ifThenControl(context, data),
           ],
         ),
       ),
@@ -2312,25 +2378,41 @@ class _TodayScreenState extends State<TodayScreen> {
 /// rectangle: the dip is only [dip] deep across the full
 /// width. Two mirrored cubic segments keep the tangent
 /// smooth through the centre point.
+/// The hero's hug-shaped bottom contour (refined
+/// 2026-11-05): a single broad, shallow cosine bowl — the
+/// sides sit [_TodayScreenState._hugDip] higher than the
+/// centre, the slope is zero at both edges and at the
+/// centre, and there are no joins, inflections sharp enough
+/// to read as a wave, or pointed corners. The profile is a
+/// function of the actual size only, so it stays
+/// proportional on any screen; 48 samples keep it smooth
+/// at any width for a negligible one-off path cost (the
+/// backdrop is outside the scroll view and never repaints
+/// while scrolling).
 class _HugClipper extends CustomClipper<Path> {
-  const _HugClipper(this.dip);
-
-  /// How much higher the sides sit than the centre.
-  final double dip;
+  const _HugClipper();
 
   @override
   Path getClip(Size size) {
     final w = size.width;
     final h = size.height;
-    return Path()
+    final dip = _TodayScreenState._hugDip(h);
+    final path = Path()
       ..moveTo(0, 0)
       ..lineTo(w, 0)
-      ..lineTo(w, h - dip)
-      ..cubicTo(w * 0.74, h - dip * 0.45, w * 0.62, h, w * 0.5, h)
-      ..cubicTo(w * 0.38, h, w * 0.26, h - dip * 0.45, 0, h - dip)
-      ..close();
+      ..lineTo(w, h - dip);
+    const steps = 48;
+    for (var i = 1; i <= steps; i++) {
+      final x = w - w * i / steps;
+      final t = x / w;
+      // Cosine bowl: h - dip at both edges, h at the centre,
+      // easing through the whole width — never a local scoop.
+      final y = h - dip + dip * (0.5 - 0.5 * math.cos(2 * math.pi * t));
+      path.lineTo(x, y);
+    }
+    return path..close();
   }
 
   @override
-  bool shouldReclip(_HugClipper oldClipper) => oldClipper.dip != dip;
+  bool shouldReclip(_HugClipper oldClipper) => false;
 }

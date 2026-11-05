@@ -1212,6 +1212,50 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
   NOT build-verified (no APK route without a push) and NOT
   device-verified. Renders captured via the widget-test
   harness (captures-d53/, outside the repo tree).
+- **Pushed later the same day** on the owner's word: text as
+  `8ed69956`, the binary photograph via web upload as
+  `3e794129`; CI run #55 SUCCEEDED (~9m31s) — APK artifact
+  `daily-life-app-release-apk`, 42.5 MB (debug-signed,
+  fresh-install preview only).
+
+## 2026-11-05 — D-053 refinement: fixed hero backdrop, cosine hug, optional quick actions — LOCAL, UNCOMMITTED
+
+- **Source:** the owner's visual-refinement brief
+  (2026-11-05, after D-053 shipped). Working tree only —
+  per the brief, nothing committed or pushed.
+- **Fixed backdrop:** the photograph + scrim moved OUT of
+  the ListView into a `Positioned` layer behind it (Stack +
+  RepaintBoundary + IgnorePointer) at the shared hero
+  height. The hero CONTENT (brand row, greeting, if–then)
+  stays the ListView's first item and scrolls away over the
+  image; the bottom navigation is untouched. Verified by
+  widget test (backdrop rect pixel-identical after a 260px
+  scroll while content shifted exactly 260px; composition
+  restored at offset 0) and by pixel-identical margin
+  strips in engine captures.
+- **Hug contour:** the two-cubic path is replaced by a
+  single cosine bowl — dip = heroHeight × 0.035 clamped to
+  10–14 (was a fixed 18), slope zero at both edges and the
+  centre, no joins; geometry unit-tested through
+  `Path.contains` sampling.
+- **Quick actions optional:** `TodayStore.sectionQuickActions`
+  rides the existing app_settings mechanism (no schema
+  change), default ON. Customize Home → Sections gains
+  "Show quick actions on Today" with the brief's
+  description; OFF removes the tile row AND its spacing.
+  The actions themselves are untouched (global Add flows).
+- **Hero floor 328 → 336:** the shallower dip shrank the
+  hero content's bottom padding and a two-line if–then
+  overflowed the column by ~3px at 360dp wide
+  (capture-reproduced before the fix, clean after).
+- **`_customize` mounted guard:** the new toggle test
+  exposed setState-after-dispose after the dialog's awaited
+  writes (same class as `f566d19`); guarded.
+- **Gates:** analyze clean; suite **655/655** ("All tests
+  passed!") incl. 4 new scroll/geometry/quick-action tests.
+  NOT build-verified and NOT device-verified (no
+  emulator/device in the build environment; engine scroll
+  tests + captures stand in, captures-vr/ outside the tree).
 
 ## 2026-11-05 — D-052: Green & Black renovation (the owner's HTML prototype, rebuilt in code)
 

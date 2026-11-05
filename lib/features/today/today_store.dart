@@ -593,7 +593,14 @@ class TodayStore {
   /// per PLAN S6). Default visible, like every section.
   static const sectionDayClose = 'day_close';
 
+  /// The four quick-action tiles (Task / Goal / Note /
+  /// Checklist) under the hero (visual refinement, 2026-11-05).
+  /// Default visible; hiding them removes only the shortcuts —
+  /// the actions stay reachable through the global Add flow.
+  static const sectionQuickActions = 'quick_actions';
+
   static const List<String> homeSections = [
+    sectionQuickActions,
     sectionWeekStrip,
     sectionDayClose,
     sectionPinned,

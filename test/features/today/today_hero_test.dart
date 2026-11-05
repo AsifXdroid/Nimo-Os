@@ -1,7 +1,8 @@
 // D-053 hero: the Today hero carries the background
-// photograph (shipped default or the owner's own image),
-// the if–then control lives INSIDE the hero, and Customize
-// Home offers change / reset for the image.
+// photograph (shipped default or the owner's own image) as
+// a FIXED backdrop (2026-11-05 refinement), the if–then
+// control lives in the scrolling hero content over it, and
+// Customize Home offers change / reset for the image.
 //
 // Harness mirrors today_header_test.dart (unique temp DB
 // per test; FFI futures need runAsync polling).
@@ -68,6 +69,10 @@ Future<void> _pump(WidgetTester tester, Widget screen) async {
   fail('hub data never landed');
 }
 
+// Since the 2026-11-05 refinement the ClipPath holds ONLY
+// the fixed backdrop (photograph + scrim); the hero content
+// (brand row, greeting, if–then) is a separate layer in
+// the scroll view above it.
 Finder _inHero(Finder inner) =>
     find.descendant(of: find.byType(ClipPath), matching: inner);
 
@@ -111,12 +116,15 @@ void main() {
         (provider as AssetImage).assetName,
         'assets/images/hero_default.png',
       );
-      // The if–then control lives inside the hero clip, and
-      // the plan card no longer carries it.
-      expect(_inHero(find.byIcon(Icons.bolt_outlined)), findsOneWidget);
-      expect(_inHero(find.byIcon(Icons.edit_outlined)), findsOneWidget);
+      // The if–then control lives in the hero CONTENT layer
+      // (over the photograph at rest, scrolling with the
+      // page) — NOT in the fixed backdrop's clip — and the
+      // plan card no longer carries it.
+      expect(find.byIcon(Icons.bolt_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+      expect(_inHero(find.byIcon(Icons.bolt_outlined)), findsNothing);
       // Tapping it opens the existing editor.
-      await tester.tap(_inHero(find.byIcon(Icons.bolt_outlined)));
+      await tester.tap(find.byIcon(Icons.bolt_outlined));
       await tester.pump();
       for (var i = 0; i < 20; i++) {
         await Future<void>.delayed(const Duration(milliseconds: 50));

@@ -489,6 +489,7 @@ class _AppShellState extends State<AppShell> {
         learnStore: widget.learn.store,
         linkCards: LinkCardService(
             widget.store, widget.learn.store, widget.thumbnails),
+        library: widget.learn.library,
       );
 
   void _openQuickAdd() => showQuickAddSheet(

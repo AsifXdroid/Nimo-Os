@@ -35,6 +35,7 @@ import '../quick_add/quick_add_sheet.dart';
 import '../review/day_close_screen.dart';
 import '../review/review_store.dart';
 import '../shared_ui.dart';
+import '../items/audio/audio_item.dart';
 import '../store.dart';
 import 'routine_screen.dart';
 import 'today_store.dart';
@@ -323,6 +324,7 @@ class _TodayScreenState extends State<TodayScreen> {
       widget.learn.store,
       widget.thumbnails,
     ),
+    library: widget.learn.library,
   );
 
   Future<void> _quickAddTask() async {
@@ -1965,44 +1967,61 @@ class _TodayScreenState extends State<TodayScreen> {
     _HubData data,
     DayPlanItem item,
   ) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final linked = item.itemId == null ? null : data.linkedItems[item.itemId];
     if (item.url == null && linked == null) {
       return const SizedBox.shrink();
     }
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: InkWell(
-        onTap: () async {
-          await openPlanResource(
-            context,
-            url: item.url,
-            item: linked,
-            store: widget.store,
-            learn: widget.learn,
-            thumbnails: widget.thumbnails,
-          );
-          if (mounted) setState(_reload);
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: Space.s2),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                resourceActionIcon(url: item.url, item: linked),
-                size: 14,
-                color: scheme.primary,
+    // D-054: the action is a real button now — a filled pill
+    // the owner can SEE and hit — not the 10px eyebrow text
+    // D-042 shipped, which was effectively invisible.
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.s2),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Material(
+          color: scheme.primary.withValues(alpha: 0.12),
+          shape: StadiumBorder(
+            side: BorderSide(color: scheme.primary.withValues(alpha: 0.45)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () async {
+              await openPlanResource(
+                context,
+                url: item.url,
+                item: linked,
+                store: widget.store,
+                learn: widget.learn,
+                thumbnails: widget.thumbnails,
+              );
+              if (mounted) setState(_reload);
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.s3,
+                vertical: 6,
               ),
-              const SizedBox(width: Space.s2),
-              Text(
-                resourceActionLabel(url: item.url, item: linked),
-                style: AppType.eyebrow.copyWith(
-                  fontSize: 10,
-                  color: scheme.primary,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    resourceActionIcon(url: item.url, item: linked),
+                    size: 16,
+                    color: scheme.primary,
+                  ),
+                  const SizedBox(width: Space.s2),
+                  Text(
+                    resourceActionLabel(url: item.url, item: linked),
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: scheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -2085,7 +2104,9 @@ class _TodayScreenState extends State<TodayScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.link),
-              title: Text(item.hasResource ? 'Change link' : 'Attach a link'),
+              title: Text(
+                item.hasResource ? 'Change resource' : 'Attach a resource',
+              ),
               onTap: () async {
                 Navigator.pop(sheetContext);
                 await _attachLink(context, item);
@@ -2094,7 +2115,7 @@ class _TodayScreenState extends State<TodayScreen> {
             if (item.hasResource)
               ListTile(
                 leading: const Icon(Icons.link_off),
-                title: const Text('Remove link'),
+                title: const Text('Remove resource'),
                 onTap: () async {
                   Navigator.pop(sheetContext);
                   await widget.todayStore.setPlanItemLink(item.id);
@@ -2167,14 +2188,45 @@ class _TodayScreenState extends State<TodayScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.folder_open_outlined),
-              title: const Text('Choose a note, link or quiz from Spaces'),
+              title: const Text(
+                'Choose a note, link, quiz or audio from Spaces',
+              ),
               onTap: () => Navigator.pop(c, 'item'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.headphones_outlined),
+              title: const Text('Pick an audio file'),
+              subtitle: const Text('For a listening task'),
+              onTap: () => Navigator.pop(c, 'audio'),
             ),
           ],
         ),
       ),
     );
     if (!context.mounted || choice == null) return;
+    if (choice == 'audio') {
+      final picked = await openFile(acceptedTypeGroups: const [audioFileGroup]);
+      if (picked == null || !context.mounted) return;
+      try {
+        final inbox = await widget.learn.store.ensureInboxProject();
+        final audio = await importAudioItem(
+          store: widget.store,
+          library: widget.learn.library,
+          projectId: inbox.id,
+          sourcePath: picked.path,
+          sourceName: picked.name,
+        );
+        await widget.todayStore.setPlanItemLink(item.id, itemId: audio.id);
+      } catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not import that audio file: $e')),
+        );
+        return;
+      }
+      if (mounted) setState(_reload);
+      return;
+    }
     if (choice == 'url') {
       final controller = TextEditingController(text: item.url ?? '');
       final saved = await showDialog<bool>(

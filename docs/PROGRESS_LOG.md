@@ -1,3 +1,18 @@
+## 2026-11-06 — D-054: audio items + visible attach (local-test == main content, UNCOMMITTED)
+
+Owner-reported gap closed: a resource can now be attached
+when a task is CREATED (the shared add-task flow offers a
+link, a Spaces item, or an audio file right after the
+title); the task row's action is a visible pill (Go → /
+Open note → / Play → / Listen →) instead of 10px text; and
+a new AUDIO item type (Library `audio/` subdir, in-place
+player via just_audio 0.10.6, foreground only) makes
+listening tasks real. Audio is linkable; templates inherit
+it via the existing picker. Management-sheet copy updated
+("Attach a resource"). No schema change. Analyze clean,
+**660/660 tests**. Playback itself is device-verifiable
+only. Nothing committed or pushed. See DECISIONS.md D-054.
+
 ## 2026-11-05 — D-053 refinement: fixed backdrop, cosine hug, optional quick actions (local-test, UNCOMMITTED)
 
 Per the owner's refinement brief: the hero photograph is now

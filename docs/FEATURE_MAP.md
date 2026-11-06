@@ -20,6 +20,7 @@ date + decision ID when a later change alters it).
 | TODAY | Today dashboard & daily plan | Home screen ("Hub Home", D-009); routine template + one-off tasks; per-day ticks; weekly pending view; week strip, quick add, pinned spaces, recent items, customize; habit fields on templates (starter/anchor/track/core) and the if–then line (S3) | `lib/features/today/` | `plan_templates`, `day_plans`, `day_plan_items`, `app_settings` | `test/features/today/` | done (S2 + S3 habit fields/if–then, host-verified) |
 | REVIEW | Day Close, dual scores, streak shields | Night review (recap, major point, self score — ≤2 min, all steps skippable); Done Score (auto, formula-versioned) + Self Score, never merged; Streak Shields engine (two counting signals only; shields from streak 7, ≤2 held, ≤2 per ISO week); major point can link a topic since S4 | `lib/features/review/` | `day_reviews`, `streak_state`, `shield_events`, `sync_meta`, `sync_ops` | `test/features/review/` | done (S3 + S4 topic wiring, host-verified) |
 | LEARN | Topics, sources, questions, sessions | Reels/links as topic triggers; sources (PDF/TXT/link) in a Library folder; quiz packs (versioned `nimo.quizpack`, strict importer, image-point verify); scroll-feed sessions (finite 12–20, interleaved, 7 question types, 5 R4B formats incl. capped branching role-play + boss level); end-of-session enjoyment rating (≥5 cards, before stats); simplified SM-2 + immutable review log; marked points mint cloze questions | `lib/features/learn/` | `topics`, `sources`, `marked_points` (S4); `questions`, `review_log`, `learn_sessions`, `packs` (S5) | `test/features/learn/` | done (S5, host-verified): S4 data layer + S5 engine — pack importer, scheduler, composer/engine, Learn tab (4th destination, D-021), Today 1-tap session launch, Done Score learning block live (streak untouched, red-team #1) |
+| AUDIO | Audio items & player | Import an audio file into the Library (`audio/`) and play it in place; the resource behind listening tasks (D-054) | `lib/features/items/audio/` | (uses `items`; Library-relative `file_rel_path` in payload) | `test/features/items/audio_item_test.dart` | done (D-054, host-verified; playback on-device unverified) |
 | LINK | Link cards (reels) | Save links by paste/share intent; square-preview grid; thumbnail fetch + fallback + manual image; open link. Per D-010 the card becomes a topic trigger in S4 (see LEARN) | `lib/features/items/link_card/` | (uses `items`; thumbnail name + provenance in payload) | `test/features/items/` | done (S4, host-verified) |
 | QUIZ | HTML quizzes | Import `.html` files into the Library (`html_quizzes/`); play in a hardened WebView on Android (legacy route — quizzes can't feed the scheduler, §R4.4); play-only per D-004 | `lib/features/items/html_quiz/` | (uses `items`; Library-relative `file_rel_path` in payload) | `test/features/items/` | done (S5, host-verified): item type + import + navigation-policy unit tests + non-Android fallback screen; on-device WebView play unverified (owner) |
 | GOAL | Goals | Short-term goals on Home; progress steppers | `lib/features/goals/` | `goals` | `test/features/goals/` | basic done (S2, host-verified) |
@@ -35,6 +36,7 @@ date + decision ID when a later change alters it).
 | `checklist` | ITEM-list | ITEM-list | S1 |
 | `link_card` | LINK | LINK | S4 |
 | `html_quiz` | QUIZ | QUIZ | S5 |
+| `audio` | AUDIO | AUDIO | D-054 |
 
 Adding a row here + a folder + one registry line is the *whole* cost of
 a new item type. If an edit seems to require more than that, stop — the
@@ -110,3 +112,12 @@ architecture rule is being broken; log a decision instead.
   `test/design_preview_test.dart` renders every body in every plate
   (suite now 10/10). TODAY and LINK rows stay `planned` — the
   prototypes are not their stage implementations.
+- 2026-11-06 (D-054): AUDIO joined the item-type registry
+  (Library `audio/` folder, in-place player, foreground
+  playback only); plan tasks can link audio — derived row
+  action "Listen →" — and routine templates inherit it via
+  the existing picker. Attaching is now visible: the
+  add-task flow offers link / Spaces item / audio file at
+  creation, and the row action is a filled pill instead of
+  10px text. Suite 660/660, host-verified; actual playback
+  is device-verification, still open.

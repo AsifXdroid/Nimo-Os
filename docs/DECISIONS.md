@@ -1305,3 +1305,62 @@ new entry that supersedes the old one (EDITING_GUIDE rule 3).
   values; all parity contrast pairs pass. Verification: analyze
   clean; full suite re-run before push (see PROGRESS_LOG). This
   branch has no CI — no APK is produced from it.
+
+## 2026-11-06 — D-054: audio items, attach-at-creation, visible resource actions — LOCAL, UNCOMMITTED
+
+- **Source:** the owner's report (2026-11-06) on the promoted
+  build: the D-042 link/go flow was "not visible to the
+  frontend" — attaching an HTML file or a note to a daily
+  task could not be found where he looked, and audio
+  ("dedicate a task to hear any audio") did not exist at all.
+  Scope repeat-back confirmed by the owner ("Proceed").
+- **Audio item type (new):** `audio` joins the registry (one
+  folder + one line, per the FEATURE_MAP rule). Import copies
+  the file into the Library's new `audio/` subdir; the item
+  payload carries `file_rel_path` (same shape as HTML).
+  `AudioItemBody` in the item detail plays it in place
+  (just_audio 0.10.6): play/pause, seek slider,
+  position/duration. The player is created lazily, only after
+  the file is confirmed present; a missing file, a missing
+  Library or an unplayable file render plain error states.
+  Foreground playback only — background/notification
+  controls are out of scope for v1.
+- **Dependency audit** (flutter_android_build_risk_audit,
+  run before the code): just_audio resolved to 0.10.6;
+  just_audio_android declares compileSdk 35 ≤ the app's 36,
+  declares a Java target (Kotlin jvmTarget coherent), no
+  removed DSL, no NDK/CMake — no hard findings in the whole
+  resolved set. The set is NOT build-verified until a CI
+  build runs it; that happens on push, not before.
+- **Linking:** audio is linkable (`linkableItemTypes`); the
+  derived row action is "Listen →". Routine templates
+  inherit it through the existing picker (Routine editor
+  unchanged).
+- **Attach is visible now:** (1) the add-task flow (Quick
+  Add sheet + Today's task tile — one shared flow) offers an
+  attach step right after the title: Just the task / a web
+  or video link / a note, quiz or audio from Spaces / an
+  audio file (imported into the Inbox and linked in the
+  same flow). (2) The management sheet says "Attach a
+  resource" (was "Attach a link"), and its attach sheet
+  gains "Pick an audio file". (3) The row action is a
+  filled pill button (icon + label, accent tint + outline),
+  replacing D-042's 10px eyebrow text link. Opening a
+  resource still never completes the task (D-042 invariant,
+  re-pinned by the new tests).
+- **No schema change** (still v8); no data, scoring, streak
+  or sync changes — audio payloads ride the existing item
+  sync, audio files ride the Library (Stage A folder sync,
+  like HTML files).
+- **Gates:** analyze clean; full suite **660/660** (655 + 5
+  new: audio registry/labels, Library import round-trip,
+  player error states, the Listen pill, attach-at-creation
+  linking). One existing pin updated (plan_sheet_test:
+  "Attach a link" → "Attach a resource"). Harness note: the
+  first player-body test draft stalled a run — real-IO
+  awaits inside fake async; fixed by wrapping in runAsync
+  (house pattern) and re-running, never read off a tail.
+- **Open:** actual audio PLAYBACK is device-verifiable
+  only — the host harness has no platform channel, so the
+  captures show the player's missing-file state, labelled
+  as such. Nothing committed or pushed.

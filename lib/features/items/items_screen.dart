@@ -20,6 +20,7 @@ import '../learn/learn_store.dart';
 import '../learn/topic_detail_screen.dart';
 import '../shared_ui.dart';
 import '../store.dart';
+import 'audio/audio_item.dart';
 import 'item_detail_screen.dart';
 import 'item_registry.dart';
 import 'link_card/link_card_service.dart';
@@ -114,12 +115,19 @@ class _ItemsScreenState extends State<ItemsScreen> {
       await _addHtmlQuiz();
       return;
     }
+    if (def.key == ItemType.audio) {
+      await _addAudio();
+      return;
+    }
     if (def.key == ItemType.note) {
       await _createInstantNote();
       return;
     }
-    final title = await promptText(context,
-        title: 'New ${def.label.toLowerCase()}', label: 'Title');
+    final title = await promptText(
+      context,
+      title: 'New ${def.label.toLowerCase()}',
+      label: 'Title',
+    );
     if (title == null || title.isEmpty) return;
     final item = await widget.store.createItem(
       widget.project.id,
@@ -143,12 +151,17 @@ class _ItemsScreenState extends State<ItemsScreen> {
   }
 
   Future<void> _addLinkCard() async {
-    final url = await promptText(context,
-        title: 'New link card', label: 'URL (e.g. a reel link)');
+    final url = await promptText(
+      context,
+      title: 'New link card',
+      label: 'URL (e.g. a reel link)',
+    );
     if (url == null || url.isEmpty || !mounted) return;
-    final title = await promptText(context,
-        title: 'Title (optional)',
-        label: 'Title — blank uses the site name');
+    final title = await promptText(
+      context,
+      title: 'Title (optional)',
+      label: 'Title — blank uses the site name',
+    );
     if (!mounted) return;
     final service = _linkCards;
     final Item item;
@@ -237,6 +250,51 @@ class _ItemsScreenState extends State<ItemsScreen> {
     setState(_reload);
   }
 
+  /// D-054: import an audio file into the Library and open
+  /// its player — mirrors [_addHtmlQuiz].
+  Future<void> _addAudio() async {
+    final learn = widget.learn;
+    if (learn == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Library is not available.')),
+      );
+      return;
+    }
+    final picked = await openFile(acceptedTypeGroups: const [audioFileGroup]);
+    if (picked == null || !mounted) return;
+    final Item item;
+    try {
+      item = await importAudioItem(
+        store: widget.store,
+        library: learn.library,
+        projectId: widget.project.id,
+        sourcePath: picked.path,
+        sourceName: picked.name,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not import that audio file: $e')),
+      );
+      return;
+    }
+    setState(_reload);
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ItemDetailScreen(
+          store: widget.store,
+          item: item,
+          learn: widget.learn,
+          thumbnails: widget.thumbnails,
+        ),
+      ),
+    );
+    setState(_reload);
+  }
+
   Future<void> _createInstantNote() async {
     final item = await widget.store.createItem(
       widget.project.id,
@@ -262,11 +320,9 @@ class _ItemsScreenState extends State<ItemsScreen> {
   Future<void> _addTopic() async {
     final learn = widget.learn;
     if (learn == null) return;
-    final title =
-        await promptText(context, title: 'New topic', label: 'Title');
+    final title = await promptText(context, title: 'New topic', label: 'Title');
     if (title == null || title.isEmpty) return;
-    await learn.store.createTopic(
-        projectId: widget.project.id, title: title);
+    await learn.store.createTopic(projectId: widget.project.id, title: title);
     _loadTopics();
   }
 
@@ -305,8 +361,12 @@ class _ItemsScreenState extends State<ItemsScreen> {
   Future<void> _renameSelectedItem(List<Item> items) async {
     if (_selectedItemIds.length != 1) return;
     final item = items.firstWhere((it) => it.id == _selectedItemIds.first);
-    final title = await promptText(context,
-        title: 'Rename item', initial: item.title, label: 'Title');
+    final title = await promptText(
+      context,
+      title: 'Rename item',
+      initial: item.title,
+      label: 'Title',
+    );
     if (title == null || title.isEmpty) return;
     await widget.store.updateItem(item.id, title: title);
     _exitSelectionMode();
@@ -314,8 +374,9 @@ class _ItemsScreenState extends State<ItemsScreen> {
   }
 
   Future<void> _togglePinnedSelectedItems(List<Item> items) async {
-    final selected =
-        items.where((it) => _selectedItemIds.contains(it.id)).toList();
+    final selected = items
+        .where((it) => _selectedItemIds.contains(it.id))
+        .toList();
     if (selected.isEmpty) return;
     final allPinned = selected.every((it) => it.isPinned);
     for (final it in selected) {
@@ -397,9 +458,11 @@ class _ItemsScreenState extends State<ItemsScreen> {
                           onPressed: () => _renameSelectedItem(list),
                         ),
                       IconButton(
-                        icon: Icon(singleItem != null && singleItem.isPinned
-                            ? Icons.push_pin_outlined
-                            : Icons.push_pin),
+                        icon: Icon(
+                          singleItem != null && singleItem.isPinned
+                              ? Icons.push_pin_outlined
+                              : Icons.push_pin,
+                        ),
                         tooltip: singleItem != null && singleItem.isPinned
                             ? 'Unpin item'
                             : 'Pin item',
@@ -480,7 +543,11 @@ class _ItemsScreenState extends State<ItemsScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : ListView(
                     padding: const EdgeInsets.fromLTRB(
-                        Space.page, Gap.md, Space.page, Gap.lg),
+                      Space.page,
+                      Gap.md,
+                      Space.page,
+                      Gap.lg,
+                    ),
                     children: [
                       if (widget.learn != null) ...[
                         Row(
@@ -497,8 +564,10 @@ class _ItemsScreenState extends State<ItemsScreen> {
                         ),
                         const SizedBox(height: Space.s3),
                         if (_topics.isEmpty)
-                          Text('No topics in this project yet.',
-                              style: Theme.of(context).textTheme.bodyMedium)
+                          Text(
+                            'No topics in this project yet.',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          )
                         else
                           Column(
                             children: [
@@ -560,16 +629,18 @@ class _ItemsScreenState extends State<ItemsScreen> {
       leading: _isSelectingItems
           ? NeoCheck(done: isSelected)
           : (item.type == ItemType.linkCard
-              ? _linkThumb(item)
-              : NeoGlyph(icon: def.icon)),
+                ? _linkThumb(item)
+                : NeoGlyph(icon: def.icon)),
       title: item.title,
       sub: item.type == ItemType.linkCard
           ? (_payloadString(item, 'url') ?? def.label)
           : def.label,
       trailing: item.isPinned && !_isSelectingItems
-          ? Icon(Icons.push_pin,
+          ? Icon(
+              Icons.push_pin,
               size: AppIconSize.sm,
-              color: Theme.of(context).colorScheme.primary)
+              color: Theme.of(context).colorScheme.primary,
+            )
           : null,
       last: last,
       onTap: () async {

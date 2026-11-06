@@ -37,6 +37,12 @@ const List<ItemTypeDef> itemTypes = [
       key: ItemType.htmlQuiz,
       label: 'HTML',
       icon: Icons.html_outlined),
+  // D-054: an audio file in the Library, played in place —
+  // the resource behind "listen" tasks.
+  ItemTypeDef(
+      key: ItemType.audio,
+      label: 'Audio',
+      icon: Icons.headphones_outlined),
 ];
 
 ItemTypeDef itemTypeDef(String key) => itemTypes.firstWhere(

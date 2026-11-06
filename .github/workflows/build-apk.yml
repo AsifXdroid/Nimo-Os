@@ -32,6 +32,23 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # P1 (2026-11-06): restore the owner's permanent release
+      # key so this build can UPDATE the previous install.
+      # Secrets: ANDROID_KEYSTORE_BASE64 (the .jks, base64),
+      # ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_PASSWORD,
+      # ANDROID_KEY_ALIAS. build.gradle.kts reads the
+      # key.properties written here; android/.gitignore already
+      # excludes both files from any commit.
+      - name: Restore release signing (P1)
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/nimo-release.jks
+          printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=../nimo-release.jks\n' "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" > android/key.properties
+
       - name: Analyze
         run: flutter analyze
 
@@ -40,6 +57,14 @@ jobs:
 
       - name: Build release APK
         run: flutter build apk --release
+
+      # P1: print the signing certificate so the run log proves
+      # WHICH key signed the APK (compare with the keystore's
+      # SHA-256 fingerprint).
+      - name: Verify APK signature (P1)
+        run: |
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs build/app/outputs/flutter-apk/app-release.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

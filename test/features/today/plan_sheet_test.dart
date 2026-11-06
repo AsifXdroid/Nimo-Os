@@ -199,7 +199,7 @@ void main() {
       await tester.ensureVisible(_rowMore('Call the bank'));
       await tester.tap(_rowMore('Call the bank'));
       await _untilTappable(tester, find.text('Delete task'), 'the sheet');
-      expect(find.text('Attach a link'), findsOneWidget);
+      expect(find.text('Attach a resource'), findsOneWidget);
       expect(find.text('Edit title'), findsOneWidget);
 
       await tester.tap(find.text('Delete task'));

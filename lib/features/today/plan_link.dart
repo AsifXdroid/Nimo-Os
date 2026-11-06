@@ -7,6 +7,7 @@
 ///   note item       → "Open note →" (the item itself)
 ///   link_card item  → "Go →" (the item detail opens its URL)
 ///   html_quiz item  → "Play →" (the item detail hosts play)
+///   audio item      → "Listen →" (the item detail hosts the player)
 /// Opening a resource never completes the task.
 library;
 
@@ -20,11 +21,13 @@ import '../store.dart';
 
 /// Item types the picker offers (owner decision: notes, link
 /// cards, HTML quizzes — checklists are task CONTENT, not a
-/// resource a task points at).
+/// resource a task points at). D-054 adds audio: a listening
+/// task points at the audio item it plays.
 const Set<String> linkableItemTypes = {
   ItemType.note,
   ItemType.linkCard,
   ItemType.htmlQuiz,
+  ItemType.audio,
 };
 
 /// A usable web link: absolute http/https with a host.
@@ -45,6 +48,7 @@ String resourceActionLabel({String? url, Item? item}) {
   return switch (item?.type) {
     ItemType.note => 'Open note →',
     ItemType.htmlQuiz => 'Play →',
+    ItemType.audio => 'Listen →',
     _ => 'Go →',
   };
 }
@@ -55,6 +59,7 @@ IconData resourceActionIcon({String? url, Item? item}) {
   return switch (item?.type) {
     ItemType.note => Icons.description_outlined,
     ItemType.htmlQuiz => Icons.play_circle_outline,
+    ItemType.audio => Icons.play_circle_outline,
     _ => Icons.open_in_new,
   };
 }
@@ -106,14 +111,17 @@ Future<Item?> pickLinkItem(BuildContext context, Store store) async {
         children: [
           const Padding(
             padding: EdgeInsets.fromLTRB(20, 16, 20, 4),
-            child: Text('Choose from Spaces',
-                style: TextStyle(fontWeight: FontWeight.w600)),
+            child: Text(
+              'Choose from Spaces',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
           ),
           if (entries.isEmpty)
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 8, 20, 24),
               child: Text(
-                  'No notes, link cards or quizzes in Spaces yet.'),
+                'No notes, link cards, quizzes or audio in Spaces yet.',
+              ),
             )
           else
             Flexible(
@@ -125,6 +133,7 @@ Future<Item?> pickLinkItem(BuildContext context, Store store) async {
                       leading: Icon(switch (e.item.type) {
                         ItemType.note => Icons.description_outlined,
                         ItemType.htmlQuiz => Icons.quiz_outlined,
+                        ItemType.audio => Icons.headphones_outlined,
                         _ => Icons.link,
                       }),
                       title: Text(e.item.title),

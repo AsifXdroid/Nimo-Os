@@ -13,8 +13,10 @@
 /// quick_add_sheet.dart and the calling screens.
 library;
 
+import '../items/audio/audio_item.dart';
 import '../items/link_card/link_card_service.dart';
 import '../learn/learn_store.dart';
+import '../learn/library_store.dart';
 import '../store.dart';
 import '../today/plan_link.dart' show isValidWebUrl;
 import '../today/today_store.dart';
@@ -25,6 +27,7 @@ class QuickAddService {
     required this.todayStore,
     required this.learnStore,
     required this.linkCards,
+    this.library,
   });
 
   final Store store;
@@ -32,9 +35,32 @@ class QuickAddService {
   final LearnStore learnStore;
   final LinkCardService linkCards;
 
-  /// Add a one-off task to today's plan.
-  Future<void> addTask(String title) =>
+  /// D-054: the Library, for importing an audio file as a
+  /// task resource at capture time. Optional: without it the
+  /// audio attach option is simply not offered.
+  final LibraryStore? library;
+
+  /// Add a one-off task to today's plan. Returns the created
+  /// plan item so the capture flow can link a resource to it
+  /// (D-054) in the same breath.
+  Future<DayPlanItem> addTask(String title) =>
       todayStore.addOneOff(DateTime.now(), title.trim());
+
+  /// D-054: import an audio file into the Inbox as an audio
+  /// item, ready to be linked to a task. Null when no
+  /// Library is wired.
+  Future<Item?> importAudioToInbox(String sourcePath, String sourceName) async {
+    final lib = library;
+    if (lib == null) return null;
+    final inbox = await learnStore.ensureInboxProject();
+    return importAudioItem(
+      store: store,
+      library: lib,
+      projectId: inbox.id,
+      sourcePath: sourcePath,
+      sourceName: sourceName,
+    );
+  }
 
   /// File a quick note in the Inbox project. The title is
   /// derived from the first line of the text; the full text is
@@ -54,11 +80,7 @@ class QuickAddService {
   /// immediate writing. If abandoned empty, the editor cleans it up.
   Future<Item> createInstantNote() async {
     final inbox = await learnStore.ensureInboxProject();
-    return store.createItem(
-      inbox.id,
-      type: ItemType.note,
-      title: '',
-    );
+    return store.createItem(inbox.id, type: ItemType.note, title: '');
   }
 
   /// Save a web resource as a link card in the Inbox project.

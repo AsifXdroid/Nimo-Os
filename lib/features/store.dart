@@ -103,6 +103,7 @@ abstract final class ItemType {
   static const String checklist = 'checklist';
   static const String linkCard = 'link_card';
   static const String htmlQuiz = 'html_quiz';
+  static const String audio = 'audio';
 }
 
 class Item {

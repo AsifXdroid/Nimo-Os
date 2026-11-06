@@ -20,6 +20,7 @@ import '../learn/topic_detail_screen.dart';
 import '../quick_add/quick_add_service.dart';
 import '../shared_ui.dart';
 import '../store.dart';
+import 'audio/audio_item.dart';
 import 'html_quiz/html_quiz_player_screen.dart';
 import 'link_card/link_card_service.dart';
 import 'link_card/thumbnail_service.dart';
@@ -93,8 +94,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
     super.initState();
     _bodyController = TextEditingController(text: widget.item.note ?? '');
     _titleController = TextEditingController(text: widget.item.title);
-    _isBrandNewEmpty = widget.item.title.isEmpty &&
-        (widget.item.note ?? '').isEmpty;
+    _isBrandNewEmpty =
+        widget.item.title.isEmpty && (widget.item.note ?? '').isEmpty;
     _setBaseline(widget.item);
     if (_isNote) {
       _bodyController.addListener(_onEdit);
@@ -155,7 +156,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
       return _remoteNewer; // row unreadable — leave state as-is
     }
     if (fresh.updatedHlc == _baseHlc) return _remoteNewer;
-    final contentChanged = fresh.title != _baseTitle ||
+    final contentChanged =
+        fresh.title != _baseTitle ||
         fresh.note != _baseNote ||
         _payloadJson(fresh) != _basePayloadJson;
     if (!contentChanged) {
@@ -226,8 +228,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
     final title = _effectiveTitle;
     final body = _bodyController.text;
     try {
-      await widget.store
-          .updateItem(widget.item.id, title: title, note: body);
+      await widget.store.updateItem(widget.item.id, title: title, note: body);
     } catch (_) {
       // Leave the state unsaved; the next edit or the exit
       // flush retries. Never claim a save that did not land.
@@ -310,9 +311,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
           Text(
             'This note was changed on another device. '
             'Your edits are paused until you choose.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: scheme.onErrorContainer,
-                ),
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(color: scheme.onErrorContainer),
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -327,11 +327,11 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
   }
 
   String get _statusText => switch (_status) {
-        _NoteSaveStatus.saved => 'Saved',
-        _NoteSaveStatus.saving => 'Saving…',
-        _NoteSaveStatus.unsaved => 'Unsaved changes',
-        _NoteSaveStatus.conflict => 'Changed on another device',
-      };
+    _NoteSaveStatus.saved => 'Saved',
+    _NoteSaveStatus.saving => 'Saving…',
+    _NoteSaveStatus.unsaved => 'Unsaved changes',
+    _NoteSaveStatus.conflict => 'Changed on another device',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -356,8 +356,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
             title: Text(
               _statusText,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           body: _noteDocument(item),
@@ -369,12 +369,16 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
       body: switch (item.type) {
         ItemType.checklist => _ChecklistBody(store: widget.store, item: item),
         ItemType.linkCard => _LinkCardBody(
-            store: widget.store,
-            item: item,
-            learn: widget.learn,
-            thumbnails: widget.thumbnails,
-          ),
+          store: widget.store,
+          item: item,
+          learn: widget.learn,
+          thumbnails: widget.thumbnails,
+        ),
         ItemType.htmlQuiz => _HtmlQuizBody(item: item, learn: widget.learn),
+        ItemType.audio => AudioItemBody(
+          item: item,
+          library: widget.learn?.library,
+        ),
         _ => const Center(child: Text('Unknown item type')),
       },
     );
@@ -392,7 +396,11 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
         if (_remoteNewer)
           Padding(
             padding: const EdgeInsets.fromLTRB(
-                Space.page, Gap.sm, Space.page, 0),
+              Space.page,
+              Gap.sm,
+              Space.page,
+              0,
+            ),
             child: _remoteWarning(context),
           ),
         Expanded(
@@ -402,7 +410,11 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
               constraints: const BoxConstraints(maxWidth: 720),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(
-                    Space.page, Gap.sm, Space.page, Gap.md),
+                  Space.page,
+                  Gap.sm,
+                  Space.page,
+                  Gap.md,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -437,8 +449,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
                         expands: true,
                         textAlignVertical: TextAlignVertical.top,
                         keyboardType: TextInputType.multiline,
-                        style: theme.textTheme.bodyLarge
-                            ?.copyWith(height: 1.5),
+                        style: theme.textTheme.bodyLarge?.copyWith(height: 1.5),
                         decoration: const InputDecoration(
                           hintText: 'Start writing your thoughts…',
                           border: InputBorder.none,
@@ -485,9 +496,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
       // Find the start of the current line.
       final base = sel.baseOffset.clamp(0, text.length);
       final lineStart = text.lastIndexOf('\n', base - 1) + 1;
-      newText = text.substring(0, lineStart) +
-          linePrefix +
-          text.substring(lineStart);
+      newText =
+          text.substring(0, lineStart) + linePrefix + text.substring(lineStart);
       final shift = linePrefix.length;
       newSel = TextSelection(
         baseOffset: sel.baseOffset + shift,
@@ -499,17 +509,16 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
       final selected = text.substring(start, end);
       final wrapped = '$prefix${selected.isEmpty ? '' : selected}$prefix';
       newText = text.substring(0, start) + wrapped + text.substring(end);
-      final cursorOffset = start + prefix.length +
+      final cursorOffset =
+          start +
+          prefix.length +
           (selected.isEmpty ? 0 : selected.length + prefix.length);
       newSel = TextSelection.collapsed(offset: cursorOffset);
     } else {
       return;
     }
 
-    ctrl.value = ctrl.value.copyWith(
-      text: newText,
-      selection: newSel,
-    );
+    ctrl.value = ctrl.value.copyWith(text: newText, selection: newSel);
     _bodyFocus.requestFocus();
   }
 }
@@ -563,10 +572,14 @@ class _LinkCardBodyState extends State<_LinkCardBody> {
       _busy = false;
     });
     if (updated.payload?[LinkCardService.thumbKey] == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('No preview image found — the fallback card '
-            'is shown, or attach your own image.'),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No preview image found — the fallback card '
+            'is shown, or attach your own image.',
+          ),
+        ),
+      );
     }
   }
 
@@ -580,8 +593,11 @@ class _LinkCardBodyState extends State<_LinkCardBody> {
     );
     if (picked == null || !mounted) return;
     try {
-      final updated =
-          await service.attachUserImage(_item, picked.path, picked.name);
+      final updated = await service.attachUserImage(
+        _item,
+        picked.path,
+        picked.name,
+      );
       if (!mounted) return;
       setState(() => _item = updated);
     } catch (e) {
@@ -606,7 +622,11 @@ class _LinkCardBodyState extends State<_LinkCardBody> {
     final topicId = (_item.payload?['topic_id'] as num?)?.toInt();
     return ListView(
       padding: const EdgeInsets.fromLTRB(
-          Space.page, Gap.md, Space.page, Gap.lg),
+        Space.page,
+        Gap.md,
+        Space.page,
+        Gap.lg,
+      ),
       children: [
         // Square preview card (D-003): image when we have one,
         // designed fallback otherwise — never a broken glyph.
@@ -618,8 +638,7 @@ class _LinkCardBodyState extends State<_LinkCardBody> {
                 ? Image.file(
                     thumbFile,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) =>
-                        _fallbackPreview(theme),
+                    errorBuilder: (_, _, _) => _fallbackPreview(theme),
                   )
                 : _fallbackPreview(theme),
           ),
@@ -654,8 +673,7 @@ class _LinkCardBodyState extends State<_LinkCardBody> {
             if (topicId != null && widget.learn != null)
               OutlinedButton.icon(
                 onPressed: () async {
-                  final topic =
-                      await widget.learn!.store.topicById(topicId);
+                  final topic = await widget.learn!.store.topicById(topicId);
                   if (!context.mounted) return;
                   await Navigator.push(
                     context,
@@ -729,8 +747,9 @@ class _HtmlQuizBody extends StatelessWidget {
           padding: const EdgeInsets.all(24),
           child: Text(
             'Library is not available.',
-            style: theme.textTheme.bodyMedium
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       );
@@ -741,7 +760,9 @@ class _HtmlQuizBody extends StatelessWidget {
         // Clean compact sub-header showing the file info and external open
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.3,
+          ),
           child: Row(
             children: [
               const Icon(Icons.html_outlined, size: 20),
@@ -832,7 +853,10 @@ class _ChecklistBodyState extends State<_ChecklistBody> {
   Future<void> _deleteSelected() async {
     final count = _selectedEntryIds.length;
     if (count == 0) return;
-    if (!await confirmDelete(context, '$count entr${count > 1 ? 'ies' : 'y'}')) {
+    if (!await confirmDelete(
+      context,
+      '$count entr${count > 1 ? 'ies' : 'y'}',
+    )) {
       return;
     }
     for (final id in _selectedEntryIds) {
@@ -846,8 +870,12 @@ class _ChecklistBodyState extends State<_ChecklistBody> {
   Future<void> _editSelectedEntry(List<ChecklistEntry> list) async {
     if (_selectedEntryIds.length != 1) return;
     final entry = list.firstWhere((e) => e.id == _selectedEntryIds.first);
-    final text = await promptText(context,
-        title: 'Edit entry', initial: entry.text, label: 'Text');
+    final text = await promptText(
+      context,
+      title: 'Edit entry',
+      initial: entry.text,
+      label: 'Text',
+    );
     if (text == null || text.isEmpty) return;
     await widget.store.updateChecklistEntry(entry.id, text: text);
     if (!mounted) return;
@@ -878,8 +906,12 @@ class _ChecklistBodyState extends State<_ChecklistBody> {
           children: [
             if (isSelecting)
               Container(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                padding: const EdgeInsets.symmetric(horizontal: Space.page, vertical: Space.s1),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest
+                    .withValues(alpha: 0.5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Space.page,
+                  vertical: Space.s1,
+                ),
                 child: Row(
                   children: [
                     IconButton(
@@ -931,20 +963,26 @@ class _ChecklistBodyState extends State<_ChecklistBody> {
                   ? const Center(child: Text('No entries yet.'))
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: Space.page, vertical: Gap.sm),
+                        horizontal: Space.page,
+                        vertical: Gap.sm,
+                      ),
                       itemCount: list.length,
                       itemBuilder: (context, i) {
                         final e = list[i];
                         final theme = Theme.of(context);
-                        final isEntrySelected = _selectedEntryIds.contains(e.id);
+                        final isEntrySelected = _selectedEntryIds.contains(
+                          e.id,
+                        );
 
                         return InkWell(
                           onTap: () async {
                             if (isSelecting) {
                               _toggleSelection(e.id);
                             } else {
-                              await widget.store
-                                  .setChecklistEntryDone(e.id, !e.isDone);
+                              await widget.store.setChecklistEntryDone(
+                                e.id,
+                                !e.isDone,
+                              );
                               if (!mounted) return;
                               setState(_reload);
                             }
@@ -953,8 +991,9 @@ class _ChecklistBodyState extends State<_ChecklistBody> {
                             _toggleSelection(e.id);
                           },
                           child: Padding(
-                            padding:
-                                const EdgeInsets.symmetric(vertical: Space.s3),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: Space.s3,
+                            ),
                             child: Row(
                               children: [
                                 if (isSelecting) ...[
@@ -1031,7 +1070,9 @@ class _FormatBar extends StatelessWidget {
     return Container(
       height: 44,
       decoration: BoxDecoration(
-        color: dark ? GlassTokens.darkGlassFloating : GlassTokens.lightGlassFloating,
+        color: dark
+            ? GlassTokens.darkGlassFloating
+            : GlassTokens.lightGlassFloating,
         borderRadius: BorderRadius.circular(RadiusToken.card),
         border: Border.all(
           color: dark ? GlassTokens.darkRimHighlight : scheme.outlineVariant,
@@ -1088,9 +1129,9 @@ class _FormatBar extends StatelessWidget {
   }
 
   Widget _divider(ColorScheme scheme) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-        child: Container(width: 1, color: scheme.outlineVariant),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+    child: Container(width: 1, color: scheme.outlineVariant),
+  );
 }
 
 /// Single icon button used inside [_FormatBar].

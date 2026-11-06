@@ -44,6 +44,7 @@ class LibraryStore {
     'media',
     'packs',
     'html_quizzes',
+    'audio',
     'sync',
     'backups',
     '.nimo',

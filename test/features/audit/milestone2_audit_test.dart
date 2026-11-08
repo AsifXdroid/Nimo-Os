@@ -131,8 +131,18 @@ void main() {
           expect(await pollFor(tester, find.text("Today's plan")), isTrue);
           expect(find.text('15 of 30 done'), findsOneWidget);
 
-          // Verify scrolling down to Task #30 without overflow
-          final lastTask = find.text('Task #30');
+          // Mission 03 Phase 2: Today shows a compact preview
+          // of incomplete tasks only. Task #30 is completed
+          // (even index), so it never renders on Today; the
+          // last INCOMPLETE task is #29. Expand the preview
+          // first ('See all'), then scroll to it.
+          expect(find.text('Task #30'), findsNothing);
+          await tester.ensureVisible(find.text('See all'));
+          await tester.pump(const Duration(milliseconds: 300));
+          await tester.tap(find.text('See all'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          final lastTask = find.text('Task #29');
           for (var scroll = 0; scroll < 30; scroll++) {
             if (lastTask.evaluate().isNotEmpty) break;
             await tester.drag(

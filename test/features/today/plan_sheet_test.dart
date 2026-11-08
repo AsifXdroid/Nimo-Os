@@ -1,8 +1,10 @@
-// TODAY (D-042) — plan sections, the management sheet and
-// resource actions, as widgets.
+// TODAY (D-042, Mission 03 Phase 2) — the plan preview, the
+// management sheet and resource actions, as widgets.
 //
 // Proves the UI contract from the brief:
-//  - Daily To-do and Today render as sections in one plan;
+//  - the plan renders as ONE flat preview list in plan order
+//    (Mission 03 Phase 2: the D-042 kind sections return with
+//    the Daily To-do screen in Phase 4);
 //  - there is NO permanent ×/delete button on any row;
 //  - deletion lives in the sheet AND behind a confirmation
 //    (the row survives until the confirm tap);
@@ -138,29 +140,30 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
-  // A tall surface: the whole plan (header + both sections)
-  // must be on-screen for taps — at the default 600dp the
-  // lower rows sit below the fold.
+  // A tall surface: the whole plan (header + all rows) must
+  // be on-screen for taps — at the default 600dp the lower
+  // rows sit below the fold.
   void tallSurface(WidgetTester tester) {
     tester.view.devicePixelRatio = 1.0;
     tester.view.physicalSize = const Size(800, 1700);
     addTearDown(tester.view.reset);
   }
 
-  testWidgets('sections render and no row carries a delete button',
-      (tester) async {
+  testWidgets('preview rows render flat and no row carries a '
+      'delete button', (tester) async {
     tallSurface(tester);
     await tester.runAsync(() async {
       final h = await _makeHarness();
       await _seed(h);
       await _pump(tester, h);
 
-      expect(find.text('DAILY TO-DO'), findsOneWidget);
-      expect(find.text('TODAY'), findsOneWidget);
+      // Mission 03 Phase 2: no group heads in the preview.
+      expect(find.text('DAILY TO-DO'), findsNothing);
+      expect(find.text('TODAY'), findsNothing);
       final routineY = tester.getTopLeft(find.text('Morning pages')).dy;
       final oneOffY = tester.getTopLeft(find.text('Call the bank')).dy;
       expect(routineY, lessThan(oneOffY),
-          reason: 'Daily To-do section sits above Today');
+          reason: 'plan order preserved: routine above one-off');
       expect(find.byIcon(Icons.close), findsNothing,
           reason: 'the permanent × is gone');
       expect(find.byIcon(Icons.more_horiz), findsNWidgets(3));
@@ -216,8 +219,8 @@ void main() {
     });
   });
 
-  testWidgets('removing a completed core routine warns about the streak',
-      (tester) async {
+  testWidgets('completing a core routine keeps its plan row '
+      'and template (Phase 2 preview)', (tester) async {
     tallSurface(tester);
     await tester.runAsync(() async {
       final h = await _makeHarness();
@@ -232,26 +235,19 @@ void main() {
       expect(
           rows.singleWhere((e) => e.title == 'Morning pages').done, isTrue);
 
-      await tester.tap(_rowMore('Morning pages'));
-      await _untilTappable(
-          tester, find.text('Remove from today only'), 'the sheet');
-      expect(find.text('Edit in Routine'), findsOneWidget);
-
-      await tester.tap(find.text('Remove from today only'));
-      await _untilTappable(tester, find.text('Remove a completed core task?'),
-          'the streak warning');
-      expect(find.textContaining('streak'), findsWidgets);
-      rows = await h.todayStore.planItems(DateTime.now());
+      // Mission 03 Phase 2: a completed item leaves the
+      // preview, so the row (and its ⋯ button) is gone from
+      // Today. Managing completed items from here returns
+      // with the Daily To-do screen in Phase 4. What must
+      // still hold: completion never deletes the plan row or
+      // the template, and the item stays in the store ready
+      // for Phase 4's view.
+      expect(find.text('Morning pages'), findsNothing);
       expect(rows.any((e) => e.title == 'Morning pages'), isTrue,
-          reason: 'the warning comes BEFORE any deletion');
-
-      await tester.tap(find.widgetWithText(FilledButton, 'Remove for today'));
-      await _settle(tester);
-      rows = await h.todayStore.planItems(DateTime.now());
-      expect(rows.any((e) => e.title == 'Morning pages'), isFalse);
+          reason: 'completion never deletes the plan row');
       final templates = await h.todayStore.templates();
       expect(templates.any((t) => t.title == 'Morning pages'), isTrue,
-          reason: 'remove-for-today never touches the template');
+          reason: 'completion never touches the template');
     });
   });
 }

@@ -1,8 +1,10 @@
 // TODAY (D-044) — the routine-visibility fix as a widget:
 // routines created AFTER today's plan was generated no longer
-// vanish silently. The Daily To-do section renders with the
-// explanation and the explicit Add to today's plan action;
-// tapping it inserts the routines into the existing plan.
+// vanish silently. The explanation note and the explicit Add
+// to today's plan action render beneath the plan preview
+// (Mission 03 Phase 2: the note keeps its own place now that
+// the plan is one flat preview list); tapping inserts the
+// routines into the existing plan.
 // Harness mirrors plan_sheet_test.dart.
 import 'dart:io';
 
@@ -74,9 +76,8 @@ void main() {
         ),
       ));
 
-      // The section renders WITH the explanation (previously it
+      // The note renders WITH the explanation (previously it
       // vanished entirely).
-      await waitFor(tester, find.text('DAILY TO-DO'));
       await waitFor(
           tester, find.textContaining('start tomorrow'));
       await waitFor(tester, find.text("Add to today's plan"));

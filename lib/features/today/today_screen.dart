@@ -78,7 +78,6 @@ String _greeting(DateTime now) {
 class _HubData {
   _HubData({
     required this.items,
-    required this.weekPending,
     required this.weekCounts,
     required this.pinned,
     required this.recent,
@@ -98,7 +97,6 @@ class _HubData {
   });
 
   final List<DayPlanItem> items;
-  final List<DayPending> weekPending;
   final List<int> weekCounts;
   final List<({Workspace workspace, int itemCount})> pinned;
   final List<RecentItem> recent;
@@ -209,7 +207,14 @@ class TodayScreen extends StatefulWidget {
 
 class _TodayScreenState extends State<TodayScreen> {
   late Future<_HubData> _data;
-  bool _showWeek = false;
+
+  /// Mission 03 Phase 2: whether the compact preview is
+  /// expanded in place ("See all"). Reset ONLY by a plan
+  /// reload ([_reloadPlan]): completing, adding, removing or
+  /// editing a plan item collapses the preview back to four.
+  /// Unrelated screen refreshes ([_refresh]) preserve it —
+  /// Phase 2 final correction, owner-approved.
+  bool _previewExpanded = false;
 
   /// Goal-completion tracking (D-038 Stage 6, Tier 3): the
   /// previous fraction per goal, and the goals that crossed
@@ -220,10 +225,22 @@ class _TodayScreenState extends State<TodayScreen> {
   @override
   void initState() {
     super.initState();
-    _reload();
+    _reloadPlan();
   }
 
-  void _reload() {
+  /// Reload after today's PLAN changed (complete/uncomplete,
+  /// add, remove, delete, rename, attach). The preview
+  /// collapses: its contents just changed, and the approved
+  /// behaviour is to present the fresh plan at four rows.
+  void _reloadPlan() {
+    _previewExpanded = false;
+    _data = _load();
+  }
+
+  /// Reload for anything else (customize, hero image, goals,
+  /// notes, returning from another screen). Fresh data, same
+  /// preview state: expansion survives.
+  void _refresh() {
     _data = _load();
   }
 
@@ -237,7 +254,6 @@ class _TodayScreenState extends State<TodayScreen> {
     final todayReview = await widget.reviewStore.reviewFor(now);
     final ifThen = await widget.todayStore.ifThenLine();
     final items = await widget.todayStore.planItems(now);
-    final weekPending = await widget.todayStore.weekPending(now);
     final weekCounts = await widget.todayStore.weekPendingCounts(now);
     final pinnedWs = await widget.store.pinnedWorkspaces();
     final pinned = <({Workspace workspace, int itemCount})>[];
@@ -291,7 +307,6 @@ class _TodayScreenState extends State<TodayScreen> {
         : null;
     return _HubData(
       items: items,
-      weekPending: weekPending,
       weekCounts: weekCounts,
       pinned: pinned,
       recent: recent,
@@ -330,7 +345,7 @@ class _TodayScreenState extends State<TodayScreen> {
   Future<void> _quickAddTask() async {
     if (await quickAddTaskFlow(context, service: _quickAdd)) {
       await _afterPlanEdit();
-      setState(_reload);
+      setState(_reloadPlan);
     }
   }
 
@@ -353,7 +368,7 @@ class _TodayScreenState extends State<TodayScreen> {
             ),
           ),
         );
-        if (mounted) setState(_reload);
+        if (mounted) setState(_refresh);
       },
     );
   }
@@ -362,7 +377,7 @@ class _TodayScreenState extends State<TodayScreen> {
     final input = await promptGoal(context);
     if (input == null) return;
     await widget.goalsStore.addGoal(input.title, input.target, input.unit);
-    setState(_reload);
+    setState(_refresh);
   }
 
   Future<void> _quickAddItem(String type) async {
@@ -402,7 +417,7 @@ class _TodayScreenState extends State<TodayScreen> {
         ),
       ),
     );
-    setState(_reload);
+    setState(_refresh);
   }
 
   Future<void> _customize(_HubData data) async {
@@ -536,7 +551,7 @@ class _TodayScreenState extends State<TodayScreen> {
       await widget.todayStore.setHomeSectionVisible(e.key, e.value);
     }
     if (!mounted) return;
-    setState(_reload);
+    setState(_refresh);
   }
 
   /// D-053: pick a replacement hero photograph. The picked
@@ -569,7 +584,7 @@ class _TodayScreenState extends State<TodayScreen> {
       }
       await widget.todayStore.setHeroImagePath(dest.path);
       if (!mounted) return true;
-      setState(_reload);
+      setState(_refresh);
       return true;
     } catch (e) {
       if (!mounted) return false;
@@ -590,7 +605,7 @@ class _TodayScreenState extends State<TodayScreen> {
     }
     await widget.todayStore.setHeroImagePath(null);
     if (!mounted) return true;
-    setState(_reload);
+    setState(_refresh);
     return true;
   }
 
@@ -678,6 +693,13 @@ class _TodayScreenState extends State<TodayScreen> {
                     pad(_dailyProgress(context, data)),
                     const SizedBox(height: Gap.md),
                   ],
+                  // Mission 03 Phase 2/3: the Focus Now slot.
+                  // Phase 2 reserves the POSITION only (hero →
+                  // Focus → Quick Capture → preview): this zero-
+                  // height anchor keeps the order explicit in the
+                  // layout. It renders nothing and holds no
+                  // state; Phase 3 replaces it with the panel.
+                  const SizedBox.shrink(),
                   // Quick actions are optional (Customize Home):
                   // hidden means the row AND its spacing vanish,
                   // so the plan moves up into the space.
@@ -685,10 +707,9 @@ class _TodayScreenState extends State<TodayScreen> {
                     pad(_quickAddRow(context)),
                     const SizedBox(height: Gap.lg),
                   ],
-                  if (_showWeek)
-                    pad(_weekCard(context, data))
-                  else
-                    pad(_planCard(context, data)),
+                  // Mission 03 Phase 1: the plan card always
+                  // renders — the This Week swap is removed.
+                  pad(_planCard(context, data)),
                   if (data.dueCount + data.newCount > 0) ...[
                     const SizedBox(height: Gap.lg),
                     pad(_learnSection(context, data)),
@@ -758,12 +779,23 @@ class _TodayScreenState extends State<TodayScreen> {
   /// Shared by the fixed backdrop and the scrolling hero
   /// content so the two layers align exactly.
   double _heroHeight(Size viewport) {
-    // The standard floor rose 328 → 336 in the refinement:
-    // the shallower hug dip shrank the content's bottom
-    // padding, and a two-line if–then then overflowed the
-    // hero column by ~3px at 360dp wide (capture-verified).
-    final floor = viewport.width < 340 ? 356.0 : 336.0;
-    return (viewport.height * 0.40).clamp(floor, 440.0);
+    // Mission 03 Phase 2: the hero is ~25% shorter than the
+    // D-053 original (was 40% of viewport height, floor 336 /
+    // 356 under 340dp wide, cap 440) so the plan enters the
+    // first viewport. The floor is set by content, not by the
+    // percentage: brand row + greeting + if–then + streak
+    // chip must fit without clipping at 360dp wide, where a
+    // two-line if–then is the tallest case (the D-053 note
+    // recorded a ~3px overflow there at the old proportions).
+    // The floor is an ENVELOPE, not a constant: the hero
+    // column insets its content by the status-bar height
+    // (media.padding.top), so the floor grows with that
+    // inset — on a device with a tall status bar the old
+    // fixed floor would squeeze the column and overflow
+    // (page_top_test: 47dp inset, 6px overflow, measured).
+    final inset = MediaQuery.paddingOf(context).top;
+    final floor = (viewport.width < 340 ? 268.0 : 252.0) + inset;
+    return (viewport.height * 0.30 + inset).clamp(floor, 330.0 + inset);
   }
 
   /// How far the hug contour's centre dips below its sides —
@@ -918,6 +950,14 @@ class _TodayScreenState extends State<TodayScreen> {
       add(
         Text(
           'A LITTLE INTENTION GOES A LONG WAY',
+          // Mission 03 Phase 2: at most one line in the
+          // shorter hero — the wide-tracked eyebrow wrapped
+          // to two lines at 320dp wide (measured: it plus
+          // the two-line greeting and tagline overflowed the
+          // 252dp hero by 57px). One line with an ellipsis;
+          // at normal widths it fits whole, unchanged.
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: AppType.eyebrow.copyWith(
             letterSpacing: 1.2,
             color: GlassTokens.darkOnCharcoalSecondary,
@@ -930,16 +970,28 @@ class _TodayScreenState extends State<TodayScreen> {
       add(
         Text(
           _greeting(now),
+          // Mission 03 Phase 2: one line in the shorter hero
+          // (see the eyebrow note in this method).
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: AppType.display(theme.textTheme)
               ?.copyWith(color: GlassTokens.darkOnCharcoal),
         ),
-        Space.s3,
+        // Mission 03 Phase 2: tightened s3 → s2 as part of
+        // the ~25% hero reduction (the full greeting stack no
+        // longer fits the shorter hero at narrow widths
+        // otherwise — 61px overflow at 320dp, test-proven).
+        Space.s2,
       );
     }
     if (on(TodayStore.headerTagline)) {
       add(
         Text(
           'A little better, at your pace.',
+          // Mission 03 Phase 2: one line in the shorter hero
+          // (see the eyebrow note in this method).
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: GlassTokens.darkOnCharcoalSecondary,
           ),
@@ -974,7 +1026,12 @@ class _TodayScreenState extends State<TodayScreen> {
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: Space.s4,
-            vertical: Space.s3,
+            // Mission 03 Phase 2: vertical padding s3 → s2
+            // as part of the ~25% hero reduction (see
+            // _heroIntro); at 390dp wide this also absorbs
+            // the last 2.8px of hero-column overflow the
+            // shorter hero left at that width.
+            vertical: Space.s2,
           ),
           child: Row(
             children: [
@@ -1144,42 +1201,41 @@ class _TodayScreenState extends State<TodayScreen> {
       final day = DateTime(monday.year, monday.month, monday.day + i);
       final isToday = day == today;
       return Expanded(
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () => setState(() => _showWeek = true),
-          child: Column(
-            children: [
-              Text(letters[i], style: theme.textTheme.labelSmall),
-              const SizedBox(height: 4),
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isToday ? theme.colorScheme.primary : null,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  '${day.day}',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: isToday ? theme.colorScheme.onPrimary : null,
-                    fontWeight: isToday ? FontWeight.bold : null,
-                  ),
+        // Mission 03 Phase 1: display-only. The tap that
+        // switched Today into the week view is removed with
+        // the week view; the strip and its pending dots stay.
+        child: Column(
+          children: [
+            Text(letters[i], style: theme.textTheme.labelSmall),
+            const SizedBox(height: 4),
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isToday ? theme.colorScheme.primary : null,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '${day.day}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: isToday ? theme.colorScheme.onPrimary : null,
+                  fontWeight: isToday ? FontWeight.bold : null,
                 ),
               ),
-              const SizedBox(height: 4),
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: data.weekCounts[i] > 0
-                      ? theme.colorScheme.secondary
-                      : Colors.transparent,
-                ),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: data.weekCounts[i] > 0
+                    ? theme.colorScheme.secondary
+                    : Colors.transparent,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     }
@@ -1297,7 +1353,7 @@ class _TodayScreenState extends State<TodayScreen> {
         ),
       ),
     );
-    setState(_reload);
+    setState(_refresh);
   }
 
   /// After any edit to today's plan from Hub Home, keep a closed
@@ -1315,7 +1371,7 @@ class _TodayScreenState extends State<TodayScreen> {
     );
     if (text == null) return;
     await widget.todayStore.setIfThenLine(text);
-    setState(_reload);
+    setState(_refresh);
   }
 
   /// Compact contextual learn section: shown only when questions are due or new.
@@ -1389,7 +1445,7 @@ class _TodayScreenState extends State<TodayScreen> {
         ),
       ),
     );
-    setState(_reload);
+    setState(_refresh);
   }
 
   /// "Quiet progress" (D-037): today's two scores in their inset
@@ -1499,7 +1555,7 @@ class _TodayScreenState extends State<TodayScreen> {
                 tooltip: 'Got it',
                 onPressed: () async {
                   await widget.reviewStore.markShieldsIntroShown();
-                  setState(_reload);
+                  setState(_refresh);
                 },
               ),
             ],
@@ -1614,8 +1670,9 @@ class _TodayScreenState extends State<TodayScreen> {
   Widget _planCard(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
     final items = data.items;
-    final routines = items.where((e) => e.isRoutine).toList();
-    final oneoffs = items.where((e) => !e.isRoutine).toList();
+    // Mission 03 Phase 2: the card no longer splits items by
+    // kind — the preview is one flat list in plan order (see
+    // the Builder below). Kind counts are not needed here.
     final done = items.where((e) => e.done).length;
     // D-044: routines that exist but are NOT in today's plan —
     // the explanation the old UI never gave. `missing` were
@@ -1658,18 +1715,6 @@ class _TodayScreenState extends State<TodayScreen> {
           ],
         ),
         const SizedBox(height: Space.s4),
-        SizedBox(
-          width: double.infinity,
-          child: SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(value: false, label: Text('Today')),
-              ButtonSegment(value: true, label: Text('This week')),
-            ],
-            selected: {_showWeek},
-            onSelectionChanged: (s) => setState(() => _showWeek = s.first),
-          ),
-        ),
-        const SizedBox(height: Space.s2),
         if (items.isEmpty && missing.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: Space.s4),
@@ -1680,32 +1725,61 @@ class _TodayScreenState extends State<TodayScreen> {
             ),
           )
         else ...[
-          // D-042: the plan is SECTIONED by kind — Daily To-do
-          // (routine templates) above, Today (one-offs) below —
-          // one scrolling list, no second mode switch. The
-          // Today/This week control above stays the only one.
-          // D-044: the Daily To-do head now renders even with no
-          // routine rows, carrying the explanation + the
-          // add-to-today action instead of vanishing silently.
-          if (routines.isNotEmpty)
-            _planGroup(context, data, 'Daily To-do', routines)
-          else ...[
-            _groupHead(context, 'Daily To-do'),
+          // Mission 03 Phase 2 (decision A): the card is now a
+          // compact PREVIEW. One flat list of INCOMPLETE items
+          // in plain plan order — carried-over and fresh items
+          // interleaved exactly as stored (position, id) — with
+          // no kind group heads. At most 4 rows show; "See all"
+          // expands the rest in place (Phase 4 replaces this
+          // with navigation to Daily To-do). Completed items
+          // leave the list; the done-track above still counts
+          // the whole day. The grouped full-plan rendering
+          // returns with the Daily To-do screen in Phase 4.
+          Builder(
+            builder: (context) {
+              final open = items.where((e) => !e.done).toList();
+              if (open.isEmpty) {
+                return Padding(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: Space.s4),
+                  child: Text(
+                    items.isEmpty
+                        ? 'Nothing planned yet. Use the + button to '
+                            'add a task, or build your routine '
+                            'template.'
+                        : 'Everything is done for today.',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                );
+              }
+              final shown =
+                  _previewExpanded ? open : open.take(4).toList();
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _planGroup(context, data, null, shown),
+                  if (open.length > 4)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: () => setState(
+                            () => _previewExpanded = !_previewExpanded),
+                        child: Text(
+                            _previewExpanded ? 'Show less' : 'See all'),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+          if (missing.isNotEmpty || notToday.isNotEmpty) ...[
+            const SizedBox(height: Space.s3),
             _routineNote(
               context,
               missing,
               notToday,
               noRoutinesAtAll: active.isEmpty,
             ),
-          ],
-          if (oneoffs.isNotEmpty) ...[
-            const SizedBox(height: Space.s4),
-            _planGroup(context, data, 'Today', oneoffs),
-          ],
-          if (routines.isNotEmpty &&
-              (missing.isNotEmpty || notToday.isNotEmpty)) ...[
-            const SizedBox(height: Space.s3),
-            _routineNote(context, missing, notToday, noRoutinesAtAll: false),
           ],
         ],
       ],
@@ -1722,7 +1796,7 @@ class _TodayScreenState extends State<TodayScreen> {
             RoutineScreen(todayStore: widget.todayStore, store: widget.store),
       ),
     );
-    setState(_reload);
+    setState(_reloadPlan);
   }
 
   static String _weekdayName(DateTime d) => const [
@@ -1756,7 +1830,7 @@ class _TodayScreenState extends State<TodayScreen> {
       );
     }
     await _afterPlanEdit();
-    setState(_reload);
+    setState(_reloadPlan);
   }
 
   /// D-044: why the Daily To-do section is short or empty —
@@ -1836,10 +1910,14 @@ class _TodayScreenState extends State<TodayScreen> {
     );
   }
 
+  /// One plan section (D-042): an optional group label with
+  /// a hairline, then the group's rows in a surface panel.
+  /// Mission 03 Phase 2: [label] is null for the compact
+  /// preview's single flat list (no head rendered).
   Widget _planGroup(
     BuildContext context,
     _HubData data,
-    String label,
+    String? label,
     List<DayPlanItem> group,
   ) {
     final scheme = Theme.of(context).colorScheme;
@@ -1850,8 +1928,10 @@ class _TodayScreenState extends State<TodayScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _groupHead(context, label),
-        const SizedBox(height: Space.s2),
+        if (label != null) ...[
+          _groupHead(context, label),
+          const SizedBox(height: Space.s2),
+        ],
         Container(
           decoration: _surfaceDeco(context),
           child: Column(
@@ -1892,7 +1972,7 @@ class _TodayScreenState extends State<TodayScreen> {
         onTap: () async {
           await widget.todayStore.toggleItem(item);
           await _afterPlanEdit();
-          setState(_reload);
+          setState(_reloadPlan);
         },
         // D-042: management lives in the sheet (long-press is
         // the accelerator; the ⋯ button is the visible path).
@@ -1996,7 +2076,7 @@ class _TodayScreenState extends State<TodayScreen> {
                 learn: widget.learn,
                 thumbnails: widget.thumbnails,
               );
-              if (mounted) setState(_reload);
+              if (mounted) setState(_refresh);
             },
             child: Padding(
               padding: const EdgeInsets.symmetric(
@@ -2081,7 +2161,7 @@ class _TodayScreenState extends State<TodayScreen> {
                     learn: widget.learn,
                     thumbnails: widget.thumbnails,
                   );
-                  if (mounted) setState(_reload);
+                  if (mounted) setState(_refresh);
                 },
               ),
             ListTile(
@@ -2099,7 +2179,7 @@ class _TodayScreenState extends State<TodayScreen> {
                   return;
                 }
                 await widget.todayStore.renamePlanItem(item.id, title);
-                if (mounted) setState(_reload);
+                if (mounted) setState(_reloadPlan);
               },
             ),
             ListTile(
@@ -2119,7 +2199,7 @@ class _TodayScreenState extends State<TodayScreen> {
                 onTap: () async {
                   Navigator.pop(sheetContext);
                   await widget.todayStore.setPlanItemLink(item.id);
-                  if (mounted) setState(_reload);
+                  if (mounted) setState(_reloadPlan);
                 },
               ),
             const Divider(),
@@ -2139,7 +2219,7 @@ class _TodayScreenState extends State<TodayScreen> {
                       ),
                     ),
                   );
-                  if (mounted) setState(_reload);
+                  if (mounted) setState(_refresh);
                 },
               ),
               ListTile(
@@ -2224,7 +2304,7 @@ class _TodayScreenState extends State<TodayScreen> {
         );
         return;
       }
-      if (mounted) setState(_reload);
+      if (mounted) setState(_reloadPlan);
       return;
     }
     if (choice == 'url') {
@@ -2271,7 +2351,7 @@ class _TodayScreenState extends State<TodayScreen> {
       if (picked == null) return;
       await widget.todayStore.setPlanItemLink(item.id, itemId: picked.id);
     }
-    if (mounted) setState(_reload);
+    if (mounted) setState(_reloadPlan);
   }
 
   Future<bool> _confirmAction(
@@ -2312,7 +2392,7 @@ class _TodayScreenState extends State<TodayScreen> {
     if (!ok) return;
     await widget.todayStore.deletePlanItem(item.id);
     await _afterPlanEdit();
-    if (mounted) setState(_reload);
+    if (mounted) setState(_reloadPlan);
   }
 
   Future<void> _removeFromToday(BuildContext context, DayPlanItem item) async {
@@ -2347,80 +2427,7 @@ class _TodayScreenState extends State<TodayScreen> {
     if (!ok) return;
     await widget.todayStore.deletePlanItem(item.id);
     await _afterPlanEdit();
-    if (mounted) setState(_reload);
-  }
-
-  Widget _weekCard(BuildContext context, _HubData data) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        NeoSectionHead(
-          title: "This week's plan",
-          actionLabel: 'Edit routine →',
-          onAction: _openRoutineScreen,
-        ),
-        const SizedBox(height: Space.s3),
-        SizedBox(
-          width: double.infinity,
-          child: SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(value: false, label: Text('Today')),
-              ButtonSegment(value: true, label: Text('This week')),
-            ],
-            selected: {_showWeek},
-            onSelectionChanged: (s) => setState(() => _showWeek = s.first),
-          ),
-        ),
-        const SizedBox(height: Gap.md),
-        if (data.weekPending.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: Space.s4),
-            child: Text(
-              'Nothing pending this week.',
-              style: theme.textTheme.bodyMedium,
-            ),
-          )
-        else
-          for (final day in data.weekPending) ...[
-            Padding(
-              padding: const EdgeInsets.only(top: Space.s3, bottom: Space.s1),
-              child: Text(
-                '${_formatDate(day.date)} · ${day.items.length} pending',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            for (final item in day.items)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: Space.s1),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      margin: const EdgeInsets.only(left: 4, right: Space.s3),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: scheme.outline,
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        item.title,
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ),
-                    if (item.carried) const NeoTag('CARRIED', tint: true),
-                  ],
-                ),
-              ),
-          ],
-      ],
-    );
+    if (mounted) setState(_reloadPlan);
   }
 }
 

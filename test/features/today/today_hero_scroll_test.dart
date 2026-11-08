@@ -89,20 +89,28 @@ void main() {
       final boltBefore = tester.getTopLeft(find.byIcon(Icons.bolt_outlined));
       final tileBefore = tester.getTopLeft(find.text('Goal'));
       expect(backdropBefore.top, 0);
-      expect(backdropBefore.height, greaterThan(300));
+      // Mission 03 Phase 2: the hero is ~25% shorter. At the
+      // default 800dp height it now measures 252dp (30% of
+      // height, floor 252) instead of the D-053 320dp.
+      expect(backdropBefore.height, greaterThan(240));
 
       // Scroll the page down 260 logical pixels.
-      _scrollPosition(tester).jumpTo(260);
+      // Mission 03 Phase 2: the hero is now 252dp tall, so a
+      // 260dp scroll would push the if–then chip fully above
+      // the viewport and cull it from the tree. 200dp keeps
+      // the chip (and the first section) partially visible
+      // while exercising the same fixed-backdrop geometry.
+      _scrollPosition(tester).jumpTo(200);
       await tester.pump();
 
       // The photograph did not move a single pixel.
       expect(tester.getRect(_backdropImage()), backdropBefore);
       // The hero content scrolled away by the same amount.
       final boltAfter = tester.getTopLeft(find.byIcon(Icons.bolt_outlined));
-      expect((boltBefore.dy - boltAfter.dy), closeTo(260, 1.5));
+      expect((boltBefore.dy - boltAfter.dy), closeTo(200, 1.5));
       // Foreground sections scroll too.
       final tileAfter = tester.getTopLeft(find.text('Goal'));
-      expect((tileBefore.dy - tileAfter.dy), closeTo(260, 1.5));
+      expect((tileBefore.dy - tileAfter.dy), closeTo(200, 1.5));
 
       // Back to the top: the original composition is restored.
       _scrollPosition(tester).jumpTo(0);

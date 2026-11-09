@@ -181,6 +181,19 @@ class OpenOneOff {
   final DateTime date;
 }
 
+/// Stored facts about one day's plan, read from day_plans and
+/// its rows (Phase 6 Agenda markers). A plan may exist with
+/// zero items; [allDone] is only true when it has at least
+/// one item and every item is done.
+class PlanDaySummary {
+  PlanDaySummary({required this.total, required this.done});
+
+  final int total;
+  final int done;
+
+  bool get allDone => total > 0 && done == total;
+}
+
 /// Outcome of an explicit add-to-today request (D-044).
 enum AddRoutineResult {
   added,
@@ -461,6 +474,27 @@ class TodayStore {
           ),
         )
         .toList();
+  }
+
+  /// Stored plan facts for every date that HAS a day_plans row,
+  /// keyed by dateKey (Phase 6 Agenda markers, read-only). A
+  /// date absent from the map has no plan; a date present with
+  /// total 0 has a plan but no items. Never generates, carries
+  /// or cleans anything.
+  Future<Map<String, PlanDaySummary>> planDaySummaries() async {
+    final rows = await _db.rawQuery(
+      'SELECT p.date AS plan_date, COUNT(i.id) AS total, '
+      'COALESCE(SUM(CASE WHEN i.done = 1 THEN 1 ELSE 0 END), 0) AS done '
+      'FROM day_plans p LEFT JOIN day_plan_items i '
+      'ON i.day_plan_id = p.id GROUP BY p.date',
+    );
+    return {
+      for (final r in rows)
+        r['plan_date'] as String: PlanDaySummary(
+          total: r['total'] as int,
+          done: r['done'] as int,
+        ),
+    };
   }
 
   Future<void> toggleItem(DayPlanItem item) async {

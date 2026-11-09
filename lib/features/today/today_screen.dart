@@ -38,6 +38,7 @@ import '../shared_ui.dart';
 
 import '../store.dart';
 import 'daily_todo_screen.dart';
+import 'agenda_screen.dart';
 import 'tasks_screen.dart';
 import 'plan_list.dart';
 import 'routine_screen.dart';
@@ -1986,6 +1987,11 @@ class _TodayScreenState extends State<TodayScreen> {
                         onPressed: _openTasks,
                         child: const Text('Tasks'),
                       ),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: _openAgenda,
+                        child: const Text('Agenda'),
+                      ),
                     ],
                   ),
                 ],
@@ -2034,6 +2040,22 @@ class _TodayScreenState extends State<TodayScreen> {
   /// keeps its four destinations. One-offs may have been
   /// completed, renamed or deleted there, so returning
   /// reloads the plan.
+  Future<void> _openAgenda() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AgendaScreen(
+          todayStore: widget.todayStore,
+          store: widget.store,
+          learn: widget.learn,
+          thumbnails: widget.thumbnails,
+          reviewStore: widget.reviewStore,
+        ),
+      ),
+    );
+    setState(_reloadPlan);
+  }
+
   Future<void> _openTasks() async {
     await Navigator.push(
       context,

@@ -337,4 +337,49 @@ void main() {
       open.map((o) => o.item.id).toList(),
     );
   });
+
+  test('Phase 6: planDaySummaries reports stored plan facts '
+      'read-only', () async {
+    final d1 = DateTime(2026, 11, 7);
+    final d2 = DateTime(2026, 11, 8);
+    final d3 = DateTime(2026, 11, 9);
+    final noPlan = DateTime(2026, 11, 10);
+    // d1: two items, one done.
+    await today.ensurePlanFor(d1);
+    final a = await today.addOneOff(d1, 'First task');
+    await today.addOneOff(d1, 'Second task');
+    await today.toggleItem(a);
+    // d2: an EMPTY plan row (exists, no items).
+    await db.insert('day_plans', {
+      'date': TodayStore.dateKey(d2),
+      'created_at': 0,
+    });
+    // d3: one item, done.
+    await today.ensurePlanFor(d3);
+    final c = await today.addOneOff(d3, 'Only task');
+    await today.toggleItem(c);
+
+    final plansBefore = await db.query('day_plans');
+    final summaries = await today.planDaySummaries();
+    expect(summaries.keys.toSet(), {
+      TodayStore.dateKey(d1),
+      TodayStore.dateKey(d2),
+      TodayStore.dateKey(d3),
+    });
+    expect(summaries.containsKey(TodayStore.dateKey(noPlan)), isFalse);
+    final s1 = summaries[TodayStore.dateKey(d1)]!;
+    expect(s1.total, 2);
+    expect(s1.done, 1);
+    expect(s1.allDone, isFalse);
+    final s2 = summaries[TodayStore.dateKey(d2)]!;
+    expect(s2.total, 0);
+    expect(s2.allDone, isFalse);
+    final s3 = summaries[TodayStore.dateKey(d3)]!;
+    expect(s3.total, 1);
+    expect(s3.allDone, isTrue);
+    // Read-only: no plan rows created, none removed.
+    expect((await db.query('day_plans')).length, plansBefore.length);
+    final again = await today.planDaySummaries();
+    expect(again.keys.toSet(), summaries.keys.toSet());
+  });
 }

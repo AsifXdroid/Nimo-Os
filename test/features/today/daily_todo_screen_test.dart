@@ -361,4 +361,106 @@ void main() {
       await h.tmp.delete(recursive: true);
     });
   });
+
+  // ------------------------------------------------ Phase 6: date
+
+  testWidgets('Phase 6: a past date shows ITS plan, its header, '
+      'and never touches today', (tester) async {
+    tallSurface(tester);
+    await tester.runAsync(() async {
+      final tmp = await Directory.systemTemp.createTemp('nimo-phase6-');
+      final db = await AppDatabase.openFile('${tmp.path}/test.db');
+      final store = Store(db);
+      final todayStore = TodayStore(db);
+      final reviewStore = ReviewStore(db, todayStore);
+      final library = LibraryStore(Directory('${tmp.path}/Library'));
+      await library.ensureLayout();
+      final thumbs = ThumbnailService(Directory('${tmp.path}/thumbs'));
+      final learn = LearnServices(LearnStore(db), library, db: db);
+      final past = DateTime(2026, 11, 5); // a Thursday
+      await todayStore.ensurePlanFor(past);
+      final done = await todayStore.addOneOff(past, 'Posted the parcel');
+      await todayStore.addOneOff(past, 'Watered the balcony');
+      await todayStore.toggleItem(done);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.neoDark(),
+          home: DailyTodoScreen(
+            todayStore: todayStore,
+            store: store,
+            learn: learn,
+            thumbnails: thumbs,
+            reviewStore: reviewStore,
+            date: past,
+          ),
+        ),
+      );
+      await until(tester, row('TODAY'), 'past-date screen loaded');
+      expect(find.text('Thursday · 2026-11-05'), findsOneWidget);
+      expect(find.text('1 of 2 done'), findsOneWidget);
+      expect(find.text('COMPLETED'), findsOneWidget);
+      expect(row('Posted the parcel'), findsOneWidget);
+      expect(row('Watered the balcony'), findsOneWidget);
+      // The past-date screen never created today's plan.
+      final plans = await db.query('day_plans');
+      expect(plans.map((r) => r['date']), ['2026-11-05']);
+
+      // Toggling a row edits the PAST date's record only.
+      await tapRow(tester, 'Watered the balcony');
+      await until(tester, find.text('2 of 2 done'), 'past date updated');
+      final pastItems = await todayStore.existingPlanItems(past);
+      expect(pastItems.every((e) => e.done), isTrue);
+
+      await tmp.delete(recursive: true);
+    });
+  });
+
+  testWidgets('Phase 6: Add a task on a past date writes to that '
+      'date only', (tester) async {
+    tallSurface(tester);
+    await tester.runAsync(() async {
+      final tmp = await Directory.systemTemp.createTemp('nimo-phase6b-');
+      final db = await AppDatabase.openFile('${tmp.path}/test.db');
+      final store = Store(db);
+      final todayStore = TodayStore(db);
+      final reviewStore = ReviewStore(db, todayStore);
+      final library = LibraryStore(Directory('${tmp.path}/Library'));
+      await library.ensureLayout();
+      final thumbs = ThumbnailService(Directory('${tmp.path}/thumbs'));
+      final learn = LearnServices(LearnStore(db), library, db: db);
+      final past = DateTime(2026, 11, 4);
+      await todayStore.addOneOff(past, 'Existing entry');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.neoDark(),
+          home: DailyTodoScreen(
+            todayStore: todayStore,
+            store: store,
+            learn: learn,
+            thumbnails: thumbs,
+            reviewStore: reviewStore,
+            date: past,
+          ),
+        ),
+      );
+      await until(tester, row('Add a task'), 'add button');
+      await tester.tap(row('Add a task'));
+      await untilTappable(tester, find.byType(TextField), 'the prompt');
+      await tester.enterText(find.byType(TextField), 'Late addition');
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await until(tester, row('Late addition'), 'the new row');
+
+      final pastItems = await todayStore.existingPlanItems(past);
+      expect(pastItems.map((e) => e.title), [
+        'Existing entry',
+        'Late addition',
+      ]);
+      final plans = await db.query('day_plans');
+      expect(plans.length, 1, reason: 'no plan created for today');
+
+      await tmp.delete(recursive: true);
+    });
+  });
 }

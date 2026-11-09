@@ -42,7 +42,14 @@ class DailyTodoScreen extends StatefulWidget {
     required this.learn,
     required this.thumbnails,
     required this.reviewStore,
+    this.date,
   });
+
+  /// The day to show. Null means today — the Phase 4
+  /// behaviour, unchanged. Phase 6 (Agenda) passes a stored
+  /// plan's date; the date is resolved once to a day-only
+  /// value and threads through every date-sensitive call.
+  final DateTime? date;
 
   final TodayStore todayStore;
   final Store store;
@@ -73,6 +80,11 @@ class _DailyTodoData {
 class _DailyTodoScreenState extends State<DailyTodoScreen> {
   late Future<_DailyTodoData> _data;
 
+  DateTime get _day => TodayStore.dayOnly(widget.date ?? DateTime.now());
+  bool get _isToday =>
+      TodayStore.dateKey(_day) ==
+      TodayStore.dateKey(TodayStore.dayOnly(DateTime.now()));
+
   @override
   void initState() {
     super.initState();
@@ -80,7 +92,7 @@ class _DailyTodoScreenState extends State<DailyTodoScreen> {
   }
 
   Future<_DailyTodoData> _load() async {
-    final now = DateTime.now();
+    final now = _day;
     final items = await widget.todayStore.planItems(now);
     final linkedItems = <int, Item>{};
     for (final it in items) {
@@ -119,21 +131,21 @@ class _DailyTodoScreenState extends State<DailyTodoScreen> {
   /// Same contract as Today's plan edits: keep a closed
   /// day's stored Done Score in step, then reload.
   Future<void> _afterPlanEdit() async {
-    await widget.reviewStore.refreshDoneScoreIfClosed(DateTime.now());
+    await widget.reviewStore.refreshDoneScoreIfClosed(_day);
     if (mounted) _reload();
   }
 
   Future<void> _addTask() async {
     final title = await promptText(context, title: 'Add a task', label: 'Task');
     if (title == null || title.trim().isEmpty || !mounted) return;
-    await widget.todayStore.addOneOff(DateTime.now(), title.trim());
+    await widget.todayStore.addOneOff(_day, title.trim());
     await _afterPlanEdit();
   }
 
   Future<void> _addMissingToToday(List<PlanTemplate> missing) async {
     var added = 0;
     for (final t in missing) {
-      final r = await widget.todayStore.addRoutineToToday(t.id, DateTime.now());
+      final r = await widget.todayStore.addRoutineToToday(t.id, _day);
       if (r == AddRoutineResult.added) added++;
     }
     if (!mounted) return;
@@ -142,8 +154,10 @@ class _DailyTodoScreenState extends State<DailyTodoScreen> {
         SnackBar(
           content: Text(
             added == 1
-                ? 'Routine added to today\'s plan.'
-                : '$added routines added to today\'s plan.',
+                ? (_isToday
+                      ? 'Routine added to today\'s plan.'
+                      : 'Routine added to this day\'s plan.')
+                : '$added routines added to this day\'s plan.',
           ),
         ),
       );
@@ -180,7 +194,7 @@ class _DailyTodoScreenState extends State<DailyTodoScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final now = DateTime.now();
+    final now = _day;
     return Scaffold(
       appBar: AppBar(title: const Text('Daily To-do')),
       body: FutureBuilder<_DailyTodoData>(
@@ -199,7 +213,9 @@ class _DailyTodoScreenState extends State<DailyTodoScreen> {
             padding: const EdgeInsets.all(Space.s4),
             children: [
               Text(
-                '${weekdayName(now)} · Today',
+                _isToday
+                    ? '${weekdayName(now)} · Today'
+                    : '${weekdayName(now)} · ${TodayStore.dateKey(now)}',
                 style: theme.textTheme.titleMedium,
               ),
               const SizedBox(height: Space.s3),
@@ -246,6 +262,8 @@ class _DailyTodoScreenState extends State<DailyTodoScreen> {
                   noRoutinesAtAll: data.noRoutinesAtAll,
                   onAddMissing: _addMissingToToday,
                   onOpenRoutines: _openRoutineScreen,
+                  day: now,
+                  isToday: _isToday,
                 ),
               const SizedBox(height: Space.s5),
               SizedBox(
@@ -275,6 +293,8 @@ Widget routineNote(
   required bool noRoutinesAtAll,
   required Future<void> Function(List<PlanTemplate>) onAddMissing,
   required VoidCallback onOpenRoutines,
+  DateTime? day,
+  bool isToday = true,
 }) {
   final theme = Theme.of(context);
   final style = theme.textTheme.bodyMedium;
@@ -290,17 +310,22 @@ Widget routineNote(
         else ...[
           if (missing.isNotEmpty)
             Text(
-              '${quoted(missing)} '
-              '${missing.length == 1 ? 'starts' : 'start'} '
-              'tomorrow — routines created after today\'s plan '
-              'was made join from the next day.',
+              isToday
+                  ? '${quoted(missing)} '
+                        '${missing.length == 1 ? 'starts' : 'start'} '
+                        'tomorrow — routines created after today\'s plan '
+                        'was made join from the next day.'
+                  : '${quoted(missing)} '
+                        '${missing.length == 1 ? 'is' : 'are'} '
+                        'scheduled for this day but not in its plan.',
               style: style,
             ),
           if (notToday.isNotEmpty)
             Text(
               '${quoted(notToday)} '
               '${notToday.length == 1 ? "isn't" : "aren't"} '
-              'scheduled for ${weekdayName(DateTime.now())}s.',
+              'scheduled for '
+              '${weekdayName(day ?? DateTime.now())}s.',
               style: style,
             ),
         ],
@@ -309,7 +334,9 @@ Widget routineNote(
           TextButton.icon(
             onPressed: () => onAddMissing(missing),
             icon: const Icon(Icons.today_outlined, size: 18),
-            label: const Text("Add to today's plan"),
+            label: Text(
+              isToday ? "Add to today's plan" : "Add to this day's plan",
+            ),
           ),
         ] else if (noRoutinesAtAll) ...[
           const SizedBox(height: Space.s2),

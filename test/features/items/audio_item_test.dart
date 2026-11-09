@@ -95,6 +95,9 @@ void main() {
       addTearDown(() => dir.delete(recursive: true));
       final library = LibraryStore(Directory('${dir.path}/Library'));
       await library.ensureLayout();
+      final db = await AppDatabase.openFile('${dir.path}/test.db');
+      addTearDown(db.close);
+      final store = Store(db);
       final item = Item(
         id: 1,
         projectId: 1,
@@ -110,25 +113,19 @@ void main() {
         MaterialApp(
           theme: AppTheme.neoDark(),
           home: Scaffold(
-            body: AudioItemBody(item: item, library: library),
+            body: AudioItemBody(item: item, library: library, store: store),
           ),
         ),
       );
       for (var i = 0; i < 30; i++) {
         await Future<void>.delayed(const Duration(milliseconds: 80));
         await tester.pump(const Duration(milliseconds: 80));
-        if (find
-            .text('The audio file is missing from the Library.')
-            .evaluate()
-            .isNotEmpty) {
+        if (find.textContaining('not in this device').evaluate().isNotEmpty) {
           break;
         }
       }
       expect(find.text('gone.mp3'), findsOneWidget);
-      expect(
-        find.text('The audio file is missing from the Library.'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('not in this device'), findsOneWidget);
     });
   });
 }

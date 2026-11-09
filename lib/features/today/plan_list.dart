@@ -506,12 +506,28 @@ class PlanList extends StatelessWidget {
   /// existing Spaces item. Setting one clears the other —
   /// one resource per task.
   Future<void> _attach(BuildContext context, DayPlanItem item) async {
+    // Phase 8 (D-4 parity): when a resource is already
+    // linked, the chooser NAMES it — for every source, not
+    // only the Dua picker. One slot, said out loud.
+    final currentLabel = item.url ??
+        (item.itemId == null ? null : linkedItems[item.itemId]?.title);
     final choice = await showModalBottomSheet<String>(
       context: context,
       builder: (c) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (currentLabel != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Currently linked: $currentLabel — choosing '
+                    'another replaces it.',
+                  ),
+                ),
+              ),
             ListTile(
               leading: const Icon(Icons.link),
               title: const Text('Paste a web or video link'),

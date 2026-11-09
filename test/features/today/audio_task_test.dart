@@ -161,7 +161,7 @@ void main() {
       await _until(tester, find.byType(ItemDetailScreen), 'audio detail');
       await _until(
         tester,
-        find.text('The audio file is missing from the Library.'),
+        find.textContaining('not in this device'),
         'the player body',
       );
 

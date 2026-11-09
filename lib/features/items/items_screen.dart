@@ -17,6 +17,7 @@ import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../learn/learn_services.dart';
 import '../learn/learn_store.dart';
+import 'shared_item_delete.dart';
 import '../learn/topic_detail_screen.dart';
 import '../shared_ui.dart';
 import '../store.dart';
@@ -351,8 +352,18 @@ class _ItemsScreenState extends State<ItemsScreen> {
     if (!await confirmDelete(context, '$count item${count > 1 ? 's' : ''}')) {
       return;
     }
+    final byId = {for (final it in items) it.id: it};
     for (final id in _selectedItemIds) {
-      await widget.store.deleteItem(id);
+      final it = byId[id];
+      if (it == null) {
+        await widget.store.deleteItem(id);
+      } else {
+        await deleteItemWithFileCleanup(
+          store: widget.store,
+          library: widget.learn?.library,
+          item: it,
+        );
+      }
     }
     _selectedItemIds.clear();
     setState(_reload);

@@ -21,6 +21,7 @@ import '../quick_add/quick_add_service.dart';
 import '../shared_ui.dart';
 import '../store.dart';
 import 'audio/audio_item.dart';
+import 'shared_item_delete.dart';
 import 'dua_detail_screen.dart';
 import 'html_quiz/html_quiz_player_screen.dart';
 import 'link_card/link_card_service.dart';
@@ -243,6 +244,19 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
     _setStatus(_NoteSaveStatus.saved);
   }
 
+  /// Remove THIS item from its detail screen (Phase 8:
+  /// the audio missing-file state's Remove action). Confirms,
+  /// deletes with the guarded file cleanup, and pops.
+  Future<void> _removeThisItem() async {
+    if (!await confirmDelete(context, 'this item')) return;
+    await deleteItemWithFileCleanup(
+      store: widget.store,
+      library: widget.learn?.library,
+      item: widget.item,
+    );
+    if (mounted) Navigator.pop(context);
+  }
+
   /// Flush on exit / backgrounding. A remote version is
   /// never overwritten from here: if the check finds one,
   /// the write is withheld (the warning was the user's
@@ -380,6 +394,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
         ItemType.audio => AudioItemBody(
           item: item,
           library: widget.learn?.library,
+          store: widget.store,
+          onRemoveItem: _removeThisItem,
         ),
         _ => const Center(child: Text('Unknown item type')),
       },

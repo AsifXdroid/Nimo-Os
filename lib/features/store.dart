@@ -604,6 +604,42 @@ class Store {
     );
   }
 
+  /// Merge ONE key into an item's JSON payload, preserving
+  /// every other key (Phase 8: audio position_ms writes must
+  /// never clobber file_rel_path or unrelated fields).
+  Future<void> updateItemPayloadField(int id, String key, Object? value) async {
+    final it = await itemById(id);
+    final payload = Map<String, Object?>.from(it.payload ?? {});
+    payload[key] = value;
+    await updateItemPayload(id, payload);
+  }
+
+  /// How many records still reference the audio file at
+  /// [relPath]: every item whose payload mentions it, plus
+  /// sync conflict records that kept the path as text
+  /// (Phase 8 safe-delete guard — the count must be GLOBAL,
+  /// never scoped to one project or list).
+  Future<int> audioFileReferenceCount(String relPath) async {
+    final like = '%"$relPath"%';
+    final items = await _db.rawQuery(
+      'SELECT COUNT(*) AS c FROM items WHERE payload LIKE ?',
+      [like],
+    );
+    var count = items.single['c'] as int;
+    try {
+      final conflicts = await _db.rawQuery(
+        'SELECT COUNT(*) AS c FROM sync_conflicts '
+        'WHERE kept_text LIKE ? OR lost_text LIKE ?',
+        [like, like],
+      );
+      count += conflicts.single['c'] as int;
+    } catch (_) {
+      // A store opened without the sync tables (older test
+      // fixtures): item references alone decide.
+    }
+    return count;
+  }
+
   Future<Item> itemById(int id) async {
     final rows = await _db.query(
       'items',

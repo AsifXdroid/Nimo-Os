@@ -429,12 +429,20 @@ void main() {
 
       // Scroll to the plan card's Tasks entry point and invoke
       // it (synthetic taps in the Today ListView are
-      // unreliable — the Phase 3/4 lesson).
+      // unreliable — the Phase 3/4 lesson). The drag is guarded:
+      // during the first load there is no Scrollable yet, and
+      // an unguarded drag throws instead of waiting (the
+      // batch-only failure of this test).
       for (var i = 0; i < 30; i++) {
         await Future<void>.delayed(const Duration(milliseconds: 80));
         await tester.pump(const Duration(milliseconds: 80));
         if (find.text('Tasks').evaluate().isNotEmpty) break;
-        await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
+        if (find.byType(Scrollable).evaluate().isNotEmpty) {
+          await tester.drag(
+            find.byType(Scrollable).first,
+            const Offset(0, -300),
+          );
+        }
       }
       await until(tester, find.text('Tasks'), 'Tasks entry point');
       tester

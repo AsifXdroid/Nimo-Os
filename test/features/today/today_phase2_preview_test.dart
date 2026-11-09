@@ -333,11 +333,21 @@ void main() {
 
   Future<void> backToToday(WidgetTester tester) async {
     tester.state<NavigatorState>(find.byType(Navigator)).pop();
-    expect(
-      await pollFor(tester, row('Arabic revision')),
-      isTrue,
-      reason: 'back on Today',
-    );
+    // Core C2: the page grew by the Dua tile, so on return
+    // the plan section can sit outside the lazy-build window
+    // while the list keeps its deep scroll offset — scroll
+    // back up while polling for the preview row.
+    var back = false;
+    for (var i = 0; i < 40 && !back; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await tester.pump();
+      back = row('Arabic revision').evaluate().isNotEmpty;
+      if (!back && i % 4 == 3) {
+        await tester.drag(find.byType(ListView), const Offset(0, 500));
+        await tester.pump(const Duration(milliseconds: 150));
+      }
+    }
+    expect(back, isTrue, reason: 'back on Today');
   }
 
   /// Scrolls the page until [finder] exists in the tree.
@@ -396,6 +406,19 @@ void main() {
       // The customization really applied: the strip's day
       // numbers vanish (Nov 10 only exists in the strip).
       expect(find.text('10'), findsNothing);
+      // Core C2: the page grew by the Dua tile, so while the
+      // list is still scrolled at the bottom the plan section
+      // can sit outside the lazy-build window — scroll back
+      // up until the preview row is built again.
+      for (
+        var i = 0;
+        i < 20 && row('Arabic revision').evaluate().isEmpty;
+        i++
+      ) {
+        await tester.drag(find.byType(ListView), const Offset(0, 400));
+        await tester.pump();
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+      }
       // The preview is untouched by the unrelated refresh:
       // still exactly the first 4, no expansion state at all.
       expect(row('Arabic revision'), findsOneWidget);

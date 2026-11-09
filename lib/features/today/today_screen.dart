@@ -742,6 +742,8 @@ class _TodayScreenState extends State<TodayScreen> {
                     pad(_learnSection(context, data)),
                   ],
                   const SizedBox(height: Gap.lg),
+                  pad(_duaTile(context)),
+                  const SizedBox(height: Gap.lg),
                   pad(_scoresSection(context, data)),
                   if (data.sections[TodayStore.sectionDayClose] ?? true) ...[
                     const SizedBox(height: Gap.lg),
@@ -1650,6 +1652,70 @@ class _TodayScreenState extends State<TodayScreen> {
     setState(_refresh);
   }
 
+  /// Core C2: "Your Spiritual Space" — a dedicated square tile
+  /// for the Dua Library, as wide as one score well. It opens
+  /// the library directly (no intermediate screen) and renders
+  /// in every plan state, so the library stays reachable when
+  /// the plan is empty or all done. It takes its space below
+  /// the plan card; the scores keep their own section (C3).
+  Widget _duaTile(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = (constraints.maxWidth - Space.s4) / 2;
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: SizedBox(
+            width: width,
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: SpatialCard(
+                key: const ValueKey('dua_library_tile'),
+                elevation: SpatialDepth.elevated,
+                borderRadius: 14,
+                padding: const EdgeInsets.all(Space.s4),
+                enablePerspective: true,
+                backgroundColor: Theme.of(context).brightness == Brightness.dark
+                    ? GlassTokens.darkCharcoalSolid
+                    : null,
+                onTap: _openDuaLibrary,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.menu_book_outlined, color: scheme.primary),
+                    const Spacer(),
+                    Text(
+                      'Your Spiritual Space',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: Space.s2),
+                    Text(
+                      'Dua Library',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: Space.s2),
+                    Text(
+                      'Your saved duas',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   /// "Quiet progress" (D-037): today's two scores in their inset
   /// wells — always side by side, never merged. Before Day Close
   /// both read as a quiet dash, exactly like the prototype.
@@ -1977,10 +2043,12 @@ class _TodayScreenState extends State<TodayScreen> {
                       if (mounted) setState(_refresh);
                     },
                   ),
-                  // Wrap, not Row (Phase 7 safeguard): four
+                  // Wrap, not Row (Phase 7 safeguard): the
                   // actions must never crowd a 360px card —
                   // they flow to a second line instead of
                   // shrinking below their tap targets.
+                  // Core C2: Dua Library is no longer a button
+                  // here — it has its own square tile below.
                   Wrap(
                     alignment: WrapAlignment.spaceBetween,
                     children: [
@@ -1996,10 +2064,6 @@ class _TodayScreenState extends State<TodayScreen> {
                       TextButton(
                         onPressed: _openAgenda,
                         child: const Text('Agenda'),
-                      ),
-                      TextButton(
-                        onPressed: _openDuaLibrary,
-                        child: const Text('Dua Library'),
                       ),
                     ],
                   ),
@@ -2065,9 +2129,9 @@ class _TodayScreenState extends State<TodayScreen> {
     setState(_reloadPlan);
   }
 
-  /// Mission 03 Phase 7: the Dua Library opens from the
-  /// same plan-card row (ChatGPT-reviewed entry point; the
-  /// shell keeps its four destinations).
+  /// Mission 03 Phase 7: the Dua Library entry point.
+  /// Core C2: it opens from the dedicated square tile below
+  /// the plan card (the shell keeps its four destinations).
   Future<void> _openDuaLibrary() async {
     await Navigator.push(
       context,

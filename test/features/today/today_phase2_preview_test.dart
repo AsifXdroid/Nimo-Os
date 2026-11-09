@@ -204,7 +204,14 @@ void main() {
         isTrue,
         reason: 'See all opened the Daily To-do screen',
       );
-      expect(find.text('DAILY TO-DO'), findsOneWidget);
+      // The screen type lands before its async group load;
+      // poll for the group head too (in-batch load timing
+      // made a bare expect flaky — Phase 5 hardening).
+      expect(
+        await pollFor(tester, find.text('DAILY TO-DO')),
+        isTrue,
+        reason: 'Daily To-do groups loaded',
+      );
       await dailyScrollTo(tester, 'Evening walk');
       expect(find.text('Reply to the landlord'), findsOneWidget);
       expect(find.text('Evening walk'), findsOneWidget);

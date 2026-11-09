@@ -170,6 +170,17 @@ class DayPending {
   final List<DayPlanItem> items;
 }
 
+/// An unticked one-off together with the date of the day plan it
+/// belongs to (Phase 5 Tasks collection). A one-off has no
+/// existence outside its day's plan, so the collection entry IS
+/// the plan row plus its date.
+class OpenOneOff {
+  OpenOneOff({required this.item, required this.date});
+
+  final DayPlanItem item;
+  final DateTime date;
+}
+
 /// Outcome of an explicit add-to-today request (D-044).
 enum AddRoutineResult {
   added,
@@ -393,18 +404,20 @@ class TodayStore {
       whereArgs: [planId],
       orderBy: 'position ASC, id ASC',
     );
-    return Future.wait(rows.map((r) async {
-      // Identity completeness: rows generated before any
-      // identity pass (same session) can carry a NULL sync_id;
-      // converge them here so every returned item HAS one
-      // (Focus validation and sync both rely on it).
-      if ((r['sync_id'] as String?)?.isNotEmpty ?? false) {
-        return DayPlanItem.fromRow(r);
-      }
-      final copy = Map<String, Object?>.of(r);
-      copy['sync_id'] = await _rowSyncId('day_plan_items', r);
-      return DayPlanItem.fromRow(copy);
-    }));
+    return Future.wait(
+      rows.map((r) async {
+        // Identity completeness: rows generated before any
+        // identity pass (same session) can carry a NULL sync_id;
+        // converge them here so every returned item HAS one
+        // (Focus validation and sync both rely on it).
+        if ((r['sync_id'] as String?)?.isNotEmpty ?? false) {
+          return DayPlanItem.fromRow(r);
+        }
+        final copy = Map<String, Object?>.of(r);
+        copy['sync_id'] = await _rowSyncId('day_plan_items', r);
+        return DayPlanItem.fromRow(copy);
+      }),
+    );
   }
 
   /// Items of an existing plan only; empty when no plan exists.
@@ -415,14 +428,39 @@ class TodayStore {
       'WHERE p.date = ? ORDER BY i.position ASC, i.id ASC',
       [dateKey(date)],
     );
-    return Future.wait(rows.map((r) async {
-      if ((r['sync_id'] as String?)?.isNotEmpty ?? false) {
-        return DayPlanItem.fromRow(r);
-      }
-      final copy = Map<String, Object?>.of(r);
-      copy['sync_id'] = await _rowSyncId('day_plan_items', r);
-      return DayPlanItem.fromRow(copy);
-    }));
+    return Future.wait(
+      rows.map((r) async {
+        if ((r['sync_id'] as String?)?.isNotEmpty ?? false) {
+          return DayPlanItem.fromRow(r);
+        }
+        final copy = Map<String, Object?>.of(r);
+        copy['sync_id'] = await _rowSyncId('day_plan_items', r);
+        return DayPlanItem.fromRow(copy);
+      }),
+    );
+  }
+
+  /// Every unticked one-off across all day plans, newest day
+  /// first (Phase 5 Tasks collection, read-only). A one-off IS
+  /// its plan row — this returns the rows themselves, never
+  /// copies, and never generates, carries or cleans anything.
+  /// Ordering is deterministic: date DESC, then the day's own
+  /// plan order (position, id).
+  Future<List<OpenOneOff>> openOneOffs() async {
+    final rows = await _db.rawQuery(
+      'SELECT i.*, p.date AS plan_date FROM day_plan_items i '
+      'JOIN day_plans p ON p.id = i.day_plan_id '
+      "WHERE i.kind = 'oneoff' AND i.done = 0 "
+      'ORDER BY p.date DESC, i.position ASC, i.id ASC',
+    );
+    return rows
+        .map(
+          (r) => OpenOneOff(
+            item: DayPlanItem.fromRow(r),
+            date: DateTime.parse(r['plan_date'] as String),
+          ),
+        )
+        .toList();
   }
 
   Future<void> toggleItem(DayPlanItem item) async {
@@ -724,10 +762,7 @@ class TodayStore {
     final value = rows.single['value'] as String;
     final sep = value.indexOf('|');
     if (sep <= 0 || sep == value.length - 1) return null;
-    return (
-      dateKey: value.substring(0, sep),
-      syncId: value.substring(sep + 1),
-    );
+    return (dateKey: value.substring(0, sep), syncId: value.substring(sep + 1));
   }
 
   Future<void> setFocusSelection(DateTime date, String syncId) async {

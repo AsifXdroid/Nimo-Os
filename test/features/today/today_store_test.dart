@@ -75,8 +75,7 @@ void main() {
     today = TodayStore(db);
   });
 
-  test('migration v1→v2 keeps S1 data and creates the S2 tables',
-      () async {
+  test('migration v1→v2 keeps S1 data and creates the S2 tables', () async {
     final dir = await Directory.systemTemp.createTemp('dla_mig');
     final path = '${dir.path}/daily_life.db';
 
@@ -125,22 +124,21 @@ void main() {
     expect(workspaces.single.name, 'Legacy');
     expect(workspaces.single.pinned, isFalse); // new column, default 0
     final projects = await store.projects(wsId);
-    expect((await store.items(projects.single.id)).single.title,
-        'Old note');
+    expect((await store.items(projects.single.id)).single.title, 'Old note');
 
     final tables = (await db.rawQuery(
-            "SELECT name FROM sqlite_master WHERE type = 'table'"))
-        .map((r) => r['name'] as String)
-        .toSet();
+      "SELECT name FROM sqlite_master WHERE type = 'table'",
+    )).map((r) => r['name'] as String).toSet();
     expect(
-        tables,
-        containsAll([
-          'plan_templates',
-          'day_plans',
-          'day_plan_items',
-          'goals',
-          'app_settings',
-        ]));
+      tables,
+      containsAll([
+        'plan_templates',
+        'day_plans',
+        'day_plan_items',
+        'goals',
+        'app_settings',
+      ]),
+    );
 
     // The new stores work on the upgraded database.
     final t = TodayStore(db);
@@ -151,18 +149,19 @@ void main() {
     await dir.delete(recursive: true);
   });
 
-  test('a new day generates the plan from the active template, unticked',
-      () async {
-    await today.addTemplate('Gym');
-    await today.addTemplate('Read');
-    final off = await today.addTemplate('Retired');
-    await today.setTemplateActive(off.id, false);
+  test(
+    'a new day generates the plan from the active template, unticked',
+    () async {
+      await today.addTemplate('Gym');
+      await today.addTemplate('Read');
+      final off = await today.addTemplate('Retired');
+      await today.setTemplateActive(off.id, false);
 
-    final items = await today.planItems(DateTime(2026, 10, 20));
-    expect(items.map((e) => e.title), ['Gym', 'Read']);
-    expect(items.every((e) => e.isRoutine && !e.done && !e.carried),
-        isTrue);
-  });
+      final items = await today.planItems(DateTime(2026, 10, 20));
+      expect(items.map((e) => e.title), ['Gym', 'Read']);
+      expect(items.every((e) => e.isRoutine && !e.done && !e.carried), isTrue);
+    },
+  );
 
   test('template CRUD: rename, active toggle, delete', () async {
     final a = await today.addTemplate('A');
@@ -219,8 +218,7 @@ void main() {
     expect(items.map((e) => e.title), ['Gym']);
   });
 
-  test('weekly pending shows exactly the week\'s unticked items',
-      () async {
+  test('weekly pending shows exactly the week\'s unticked items', () async {
     await today.addTemplate('Gym');
     final monday = DateTime(2026, 10, 26);
     final wednesday = DateTime(2026, 10, 28);
@@ -231,8 +229,7 @@ void main() {
     await today.addOneOff(monday, 'Mon done');
     mon = await today.planItems(monday);
     await today.toggleItem(mon.firstWhere((e) => e.title == 'Gym'));
-    await today
-        .toggleItem(mon.firstWhere((e) => e.title == 'Mon done'));
+    await today.toggleItem(mon.firstWhere((e) => e.title == 'Mon done'));
 
     await today.planItems(wednesday);
     await today.addOneOff(wednesday, 'Wed task');
@@ -242,8 +239,10 @@ void main() {
     await today.addOneOff(nextMonday, 'Next week task');
 
     final pending = await today.weekPending(wednesday);
-    expect(pending.map((d) => TodayStore.dateKey(d.date)),
-        ['2026-10-26', '2026-10-28']);
+    expect(pending.map((d) => TodayStore.dateKey(d.date)), [
+      '2026-10-26',
+      '2026-10-28',
+    ]);
     expect(pending[0].items.map((e) => e.title), ['Mon task']);
     // Wednesday's previous day (Tuesday) has no plan, so nothing is
     // carried into Wednesday: template item + its own one-off only.
@@ -263,8 +262,7 @@ void main() {
   });
 
   test('home section visibility persists in app_settings', () async {
-    expect(await today.homeSectionVisible(TodayStore.sectionRecent),
-        isTrue);
+    expect(await today.homeSectionVisible(TodayStore.sectionRecent), isTrue);
     await today.setHomeSectionVisible(TodayStore.sectionRecent, false);
     final vis = await today.homeSectionVisibility();
     expect(vis[TodayStore.sectionRecent], isFalse);
@@ -291,17 +289,52 @@ void main() {
       'value': 'garbage-without-separator',
     });
     expect(await today.focusSelection(), isNull);
-    await db.insert(
-      'app_settings',
-      {'key': 'focus_selection', 'value': '2026-11-09|'},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('app_settings', {
+      'key': 'focus_selection',
+      'value': '2026-11-09|',
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
     expect(await today.focusSelection(), isNull);
-    await db.insert(
-      'app_settings',
-      {'key': 'focus_selection', 'value': '|sync-abc'},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('app_settings', {
+      'key': 'focus_selection',
+      'value': '|sync-abc',
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
     expect(await today.focusSelection(), isNull);
+  });
+
+  test('Phase 5: openOneOffs returns unticked one-offs with their '
+      'dates, newest first, stable order', () async {
+    final older = DateTime(2026, 11, 7);
+    final newer = DateTime(2026, 11, 8);
+    // Templates generate routine rows on both days; they must
+    // never appear in the one-off collection.
+    await today.addTemplate('Morning pages');
+    await today.ensurePlanFor(older);
+    await today.ensurePlanFor(newer);
+    final oldA = await today.addOneOff(older, 'File the receipts');
+    final oldB = await today.addOneOff(older, 'Water the plants');
+    final doneOne = await today.addOneOff(older, 'Already finished');
+    await today.toggleItem(doneOne);
+    await today.addOneOff(newer, 'Book the train tickets');
+
+    final open = await today.openOneOffs();
+    expect(open.map((o) => o.item.title).toList(), [
+      'Book the train tickets',
+      'File the receipts',
+      'Water the plants',
+    ]);
+    expect(open.map((o) => TodayStore.dateKey(o.date)).toList(), [
+      TodayStore.dateKey(newer),
+      TodayStore.dateKey(older),
+      TodayStore.dateKey(older),
+    ]);
+    // The entries are the plan rows themselves, not copies.
+    expect(open[1].item.id, oldA.id);
+    expect(open[2].item.id, oldB.id);
+    // Read-only: a second call returns the identical result.
+    final again = await today.openOneOffs();
+    expect(
+      again.map((o) => o.item.id).toList(),
+      open.map((o) => o.item.id).toList(),
+    );
   });
 }

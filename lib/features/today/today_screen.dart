@@ -38,6 +38,7 @@ import '../shared_ui.dart';
 
 import '../store.dart';
 import 'daily_todo_screen.dart';
+import 'tasks_screen.dart';
 import 'plan_list.dart';
 import 'routine_screen.dart';
 import 'today_store.dart';
@@ -1974,14 +1975,19 @@ class _TodayScreenState extends State<TodayScreen> {
                       if (mounted) setState(_refresh);
                     },
                   ),
-                  if (open.length > 4)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton(
-                        onPressed: _openDailyTodo,
-                        child: const Text('See all'),
+                  Row(
+                    children: [
+                      if (open.length > 4)
+                        TextButton(
+                          onPressed: _openDailyTodo,
+                          child: const Text('See all'),
+                        ),
+                      TextButton(
+                        onPressed: _openTasks,
+                        child: const Text('Tasks'),
                       ),
-                    ),
+                    ],
+                  ),
                 ],
               );
             },
@@ -2016,6 +2022,25 @@ class _TodayScreenState extends State<TodayScreen> {
           store: widget.store,
           learn: widget.learn,
           thumbnails: widget.thumbnails,
+          reviewStore: widget.reviewStore,
+        ),
+      ),
+    );
+    setState(_reloadPlan);
+  }
+
+  /// Mission 03 Phase 5 (D7, owner-confirmed): the Tasks
+  /// collection opens from Today's plan card — the shell
+  /// keeps its four destinations. One-offs may have been
+  /// completed, renamed or deleted there, so returning
+  /// reloads the plan.
+  Future<void> _openTasks() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TasksScreen(
+          todayStore: widget.todayStore,
+          store: widget.store,
           reviewStore: widget.reviewStore,
         ),
       ),

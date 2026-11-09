@@ -35,11 +35,12 @@ import '../quick_add/quick_add_sheet.dart';
 import '../review/day_close_screen.dart';
 import '../review/review_store.dart';
 import '../shared_ui.dart';
-import '../items/audio/audio_item.dart';
+
 import '../store.dart';
+import 'daily_todo_screen.dart';
+import 'plan_list.dart';
 import 'routine_screen.dart';
 import 'today_store.dart';
-import 'plan_link.dart';
 
 const _weekdayNames = [
   'Monday',
@@ -215,14 +216,6 @@ class TodayScreen extends StatefulWidget {
 class _TodayScreenState extends State<TodayScreen> {
   late Future<_HubData> _data;
 
-  /// Mission 03 Phase 2: whether the compact preview is
-  /// expanded in place ("See all"). Reset ONLY by a plan
-  /// reload ([_reloadPlan]): completing, adding, removing or
-  /// editing a plan item collapses the preview back to four.
-  /// Unrelated screen refreshes ([_refresh]) preserve it —
-  /// Phase 2 final correction, owner-approved.
-  bool _previewExpanded = false;
-
   /// Goal-completion tracking (D-038 Stage 6, Tier 3): the
   /// previous fraction per goal, and the goals that crossed
   /// to complete on the latest load (celebrated once).
@@ -236,17 +229,14 @@ class _TodayScreenState extends State<TodayScreen> {
   }
 
   /// Reload after today's PLAN changed (complete/uncomplete,
-  /// add, remove, delete, rename, attach). The preview
-  /// collapses: its contents just changed, and the approved
-  /// behaviour is to present the fresh plan at four rows.
+  /// add, remove, delete, rename, attach), and on return
+  /// from the Daily To-do screen (Phase 4).
   void _reloadPlan() {
-    _previewExpanded = false;
     _data = _load();
   }
 
   /// Reload for anything else (customize, hero image, goals,
-  /// notes, returning from another screen). Fresh data, same
-  /// preview state: expansion survives.
+  /// notes, returning from another screen).
   void _refresh() {
     _data = _load();
   }
@@ -843,7 +833,18 @@ class _TodayScreenState extends State<TodayScreen> {
                 ],
               ],
             ),
-            if (focus.hasResource) _resourceAction(context, data, focus),
+            if (focus.hasResource)
+              planResourceAction(
+                context,
+                item: focus,
+                linkedItems: data.linkedItems,
+                store: widget.store,
+                learn: widget.learn,
+                thumbnails: widget.thumbnails,
+                onOpened: () {
+                  if (mounted) setState(_refresh);
+                },
+              ),
             if (data.manualFocus != null) ...[
               const SizedBox(height: Space.s2),
               Text(
@@ -865,9 +866,7 @@ class _TodayScreenState extends State<TodayScreen> {
                   },
                   icon: const Icon(Icons.check, size: 18),
                   label: const Text('Done'),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(0, 48),
-                  ),
+                  style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
                 ),
                 const SizedBox(width: Space.s2),
                 OutlinedButton(
@@ -893,10 +892,7 @@ class _TodayScreenState extends State<TodayScreen> {
   /// Dismissing the sheet changes nothing.
   final Object _automaticPick = Object();
 
-  Future<void> _showFocusPicker(
-    BuildContext context,
-    _HubData data,
-  ) async {
+  Future<void> _showFocusPicker(BuildContext context, _HubData data) async {
     final open = data.items.where((e) => !e.done).toList();
     final current = _resolveFocus(data);
     final picked = await showModalBottomSheet<Object?>(
@@ -928,8 +924,7 @@ class _TodayScreenState extends State<TodayScreen> {
                   trailing: data.manualFocus == null
                       ? const Icon(Icons.check, size: 18)
                       : null,
-                  onTap: () =>
-                      Navigator.of(sheetContext).pop(_automaticPick),
+                  onTap: () => Navigator.of(sheetContext).pop(_automaticPick),
                 ),
                 for (final item in open)
                   ListTile(
@@ -939,9 +934,7 @@ class _TodayScreenState extends State<TodayScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    subtitle: Text(
-                      item.isRoutine ? 'Routine' : 'One-off',
-                    ),
+                    subtitle: Text(item.isRoutine ? 'Routine' : 'One-off'),
                     trailing: current?.id == item.id
                         ? const Icon(Icons.check, size: 18)
                         : null,
@@ -975,30 +968,7 @@ class _TodayScreenState extends State<TodayScreen> {
   BoxDecoration _surfaceDeco(
     BuildContext context, {
     double radius = RadiusToken.card,
-  }) {
-    final theme = Theme.of(context);
-    final dark = theme.brightness == Brightness.dark;
-    return BoxDecoration(
-      color: dark
-          ? GlassTokens.darkCharcoal
-          : theme.colorScheme.surfaceContainer,
-      borderRadius: BorderRadius.circular(radius),
-      border: Border.all(
-        color: dark
-            ? GlassTokens.darkCharcoalBorder
-            : theme.colorScheme.outlineVariant,
-      ),
-      boxShadow: dark
-          ? const [
-              BoxShadow(
-                color: Color(0x40000000),
-                blurRadius: 18,
-                offset: Offset(0, 8),
-              ),
-            ]
-          : null,
-    );
-  }
+  }) => planSurfaceDeco(context, radius: radius);
 
   /// The hero's height: ~40% of the viewport is the TARGET.
   /// The floor is the measured worst case for the content —
@@ -1960,8 +1930,8 @@ class _TodayScreenState extends State<TodayScreen> {
           // in plain plan order — carried-over and fresh items
           // interleaved exactly as stored (position, id) — with
           // no kind group heads. At most 4 rows show; "See all"
-          // expands the rest in place (Phase 4 replaces this
-          // with navigation to Daily To-do). Completed items
+          // navigates to the Daily To-do screen (Phase 4).
+          // Completed items
           // leave the list; the done-track above still counts
           // the whole day. The grouped full-plan rendering
           // returns with the Daily To-do screen in Phase 4.
@@ -1970,32 +1940,46 @@ class _TodayScreenState extends State<TodayScreen> {
               final open = items.where((e) => !e.done).toList();
               if (open.isEmpty) {
                 return Padding(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: Space.s4),
+                  padding: const EdgeInsets.symmetric(vertical: Space.s4),
                   child: Text(
                     items.isEmpty
                         ? 'Nothing planned yet. Use the + button to '
-                            'add a task, or build your routine '
-                            'template.'
+                              'add a task, or build your routine '
+                              'template.'
                         : 'Everything is done for today.',
                     style: theme.textTheme.bodyMedium,
                   ),
                 );
               }
-              final shown =
-                  _previewExpanded ? open : open.take(4).toList();
+              final shown = open.take(4).toList();
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _planGroup(context, data, null, shown),
+                  PlanList(
+                    label: null,
+                    items: shown,
+                    linkedItems: data.linkedItems,
+                    todayStore: widget.todayStore,
+                    store: widget.store,
+                    learn: widget.learn,
+                    thumbnails: widget.thumbnails,
+                    onMutated: () async {
+                      await _afterPlanEdit();
+                      if (mounted) setState(_reloadPlan);
+                    },
+                    onReload: () {
+                      if (mounted) setState(_reloadPlan);
+                    },
+                    onRefresh: () {
+                      if (mounted) setState(_refresh);
+                    },
+                  ),
                   if (open.length > 4)
                     Align(
                       alignment: Alignment.centerLeft,
                       child: TextButton(
-                        onPressed: () => setState(
-                            () => _previewExpanded = !_previewExpanded),
-                        child: Text(
-                            _previewExpanded ? 'Show less' : 'See all'),
+                        onPressed: _openDailyTodo,
+                        child: const Text('See all'),
                       ),
                     ),
                 ],
@@ -2004,11 +1988,13 @@ class _TodayScreenState extends State<TodayScreen> {
           ),
           if (missing.isNotEmpty || notToday.isNotEmpty) ...[
             const SizedBox(height: Space.s3),
-            _routineNote(
+            routineNote(
               context,
-              missing,
-              notToday,
+              missing: missing,
+              notToday: notToday,
               noRoutinesAtAll: active.isEmpty,
+              onAddMissing: _addMissingToToday,
+              onOpenRoutines: _openRoutineScreen,
             ),
           ],
         ],
@@ -2018,6 +2004,25 @@ class _TodayScreenState extends State<TodayScreen> {
 
   /// One plan section (D-042): a mono group label with a
   /// hairline, then the group's rows on the timeline rail.
+  /// Mission 03 Phase 4: the preview's "See all" opens the
+  /// full Daily To-do screen; the plan may have changed
+  /// there, so returning reloads it.
+  Future<void> _openDailyTodo() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DailyTodoScreen(
+          todayStore: widget.todayStore,
+          store: widget.store,
+          learn: widget.learn,
+          thumbnails: widget.thumbnails,
+          reviewStore: widget.reviewStore,
+        ),
+      ),
+    );
+    setState(_reloadPlan);
+  }
+
   Future<void> _openRoutineScreen() async {
     await Navigator.push(
       context,
@@ -2028,16 +2033,6 @@ class _TodayScreenState extends State<TodayScreen> {
     );
     setState(_reloadPlan);
   }
-
-  static String _weekdayName(DateTime d) => const [
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
-    'Saturday',
-    'Sunday',
-  ][d.weekday - 1];
 
   /// D-044: add every scheduled-but-missing routine to today's
   /// plan (the explicit exception to tomorrow-by-default).
@@ -2061,603 +2056,6 @@ class _TodayScreenState extends State<TodayScreen> {
     }
     await _afterPlanEdit();
     setState(_reloadPlan);
-  }
-
-  /// D-044: why the Daily To-do section is short or empty —
-  /// always an explanation, never silence. [missing] routines
-  /// start tomorrow by default and can be added explicitly;
-  /// [notToday] routines are scheduled for other weekdays.
-  Widget _routineNote(
-    BuildContext context,
-    List<PlanTemplate> missing,
-    List<PlanTemplate> notToday, {
-    required bool noRoutinesAtAll,
-  }) {
-    final theme = Theme.of(context);
-    final style = theme.textTheme.bodyMedium;
-    String quoted(List<PlanTemplate> ts) =>
-        ts.map((t) => '“${t.title}”').join(', ');
-    return Padding(
-      padding: const EdgeInsets.only(top: Space.s2),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (noRoutinesAtAll)
-            Text('No daily routines yet.', style: style)
-          else ...[
-            if (missing.isNotEmpty)
-              Text(
-                '${quoted(missing)} '
-                '${missing.length == 1 ? 'starts' : 'start'} '
-                'tomorrow — routines created after today\'s plan '
-                'was made join from the next day.',
-                style: style,
-              ),
-            if (notToday.isNotEmpty)
-              Text(
-                '${quoted(notToday)} '
-                '${notToday.length == 1 ? "isn't" : "aren't"} '
-                'scheduled for ${_weekdayName(DateTime.now())}s.',
-                style: style,
-              ),
-          ],
-          if (missing.isNotEmpty) ...[
-            const SizedBox(height: Space.s2),
-            TextButton.icon(
-              onPressed: () => _addMissingToToday(missing),
-              icon: const Icon(Icons.today_outlined, size: 18),
-              label: const Text("Add to today's plan"),
-            ),
-          ] else if (noRoutinesAtAll) ...[
-            const SizedBox(height: Space.s2),
-            TextButton.icon(
-              onPressed: _openRoutineScreen,
-              icon: const Icon(Icons.arrow_forward, size: 18),
-              label: const Text('Set up routines'),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  /// The mono group head (D-042): eyebrow label + hairline.
-  Widget _groupHead(BuildContext context, String label) {
-    final scheme = Theme.of(context).colorScheme;
-    return Row(
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: AppType.eyebrow.copyWith(
-            fontSize: 10,
-            letterSpacing: 1.2,
-            color: scheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(width: Space.s3),
-        Expanded(child: Container(height: 1, color: scheme.outlineVariant)),
-      ],
-    );
-  }
-
-  /// One plan section (D-042): an optional group label with
-  /// a hairline, then the group's rows in a surface panel.
-  /// Mission 03 Phase 2: [label] is null for the compact
-  /// preview's single flat list (no head rendered).
-  Widget _planGroup(
-    BuildContext context,
-    _HubData data,
-    String? label,
-    List<DayPlanItem> group,
-  ) {
-    final scheme = Theme.of(context).colorScheme;
-    // D-052: the plan group is a PANEL (the prototype's task
-    // card) — rows on the panel surface, hairline-divided.
-    // The D-039 timeline rail is retired; the data model still
-    // carries no clock times, so nothing about times changes.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (label != null) ...[
-          _groupHead(context, label),
-          const SizedBox(height: Space.s2),
-        ],
-        Container(
-          decoration: _surfaceDeco(context),
-          child: Column(
-            children: [
-              for (var i = 0; i < group.length; i++) ...[
-                if (i > 0)
-                  Divider(
-                    height: 1,
-                    indent: Space.s4,
-                    endIndent: Space.s4,
-                    color: scheme.outlineVariant,
-                  ),
-                _planRow(context, data, group[i]),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// One plan row on the timeline: a node mark on the rail
-  /// (filled when done), the title with its quiet
-  /// classification line, a CARRIED tag when the item rolled
-  /// over, delete for one-offs, and the circular check at the
-  /// right — the row tap toggles; the check is its affordance.
-  Widget _planRow(BuildContext context, _HubData data, DayPlanItem item) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    // A11y (D-038 Stage 6): the row announces as a checkbox
-    // with its state, not just a tappable text block.
-    return Semantics(
-      container: true,
-      button: true,
-      checked: item.done,
-      label: item.title,
-      child: InkWell(
-        onTap: () async {
-          await widget.todayStore.toggleItem(item);
-          await _afterPlanEdit();
-          setState(_reloadPlan);
-        },
-        // D-042: management lives in the sheet (long-press is
-        // the accelerator; the ⋯ button is the visible path).
-        onLongPress: () => _showPlanItemSheet(context, data, item),
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 200),
-          opacity: item.done ? 0.62 : 1.0,
-          child: Padding(
-            // D-052: the prototype's row — the circular check
-            // leads, title + quiet classification under it, the
-            // ⋯ options at the right.
-            padding: const EdgeInsets.symmetric(
-              horizontal: Space.s4,
-              vertical: Space.s3,
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                NeoCheck(done: item.done, size: 26),
-                const SizedBox(width: Space.s3),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.title,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
-                          decoration: item.done
-                              ? TextDecoration.lineThrough
-                              : null,
-                          color: item.done ? scheme.onSurfaceVariant : null,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        item.isRoutine
-                            ? (item.countsCore ? 'Routine · Core' : 'Routine')
-                            : 'One-off',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                      if (item.hasResource)
-                        _resourceAction(context, data, item),
-                    ],
-                  ),
-                ),
-                if (item.carried) ...[
-                  const SizedBox(width: Space.s2),
-                  const NeoTag('CARRIED', tint: true),
-                ],
-                IconButton(
-                  icon: const Icon(Icons.more_horiz, size: 18),
-                  tooltip: 'Task options',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () => _showPlanItemSheet(context, data, item),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// The row's resource action (D-042): derived from the
-  /// link — never stored, never toggles completion. A link
-  /// whose item has vanished renders nothing.
-  Widget _resourceAction(
-    BuildContext context,
-    _HubData data,
-    DayPlanItem item,
-  ) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final linked = item.itemId == null ? null : data.linkedItems[item.itemId];
-    if (item.url == null && linked == null) {
-      return const SizedBox.shrink();
-    }
-    // D-054: the action is a real button now — a filled pill
-    // the owner can SEE and hit — not the 10px eyebrow text
-    // D-042 shipped, which was effectively invisible.
-    return Padding(
-      padding: const EdgeInsets.only(top: Space.s2),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Material(
-          color: scheme.primary.withValues(alpha: 0.12),
-          shape: StadiumBorder(
-            side: BorderSide(color: scheme.primary.withValues(alpha: 0.45)),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: () async {
-              await openPlanResource(
-                context,
-                url: item.url,
-                item: linked,
-                store: widget.store,
-                learn: widget.learn,
-                thumbnails: widget.thumbnails,
-              );
-              if (mounted) setState(_refresh);
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Space.s3,
-                vertical: 6,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    resourceActionIcon(url: item.url, item: linked),
-                    size: 16,
-                    color: scheme.primary,
-                  ),
-                  const SizedBox(width: Space.s2),
-                  Text(
-                    resourceActionLabel(url: item.url, item: linked),
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: scheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// The task-management sheet (D-042) — the × button's
-  /// replacement. Everything deliberate lives here: open the
-  /// resource, retitle, link, remove. Deletion always
-  /// confirms; removing a completed core routine names its
-  /// streak consequence first (owner decision).
-  Future<void> _showPlanItemSheet(
-    BuildContext context,
-    _HubData data,
-    DayPlanItem item,
-  ) async {
-    final theme = Theme.of(context);
-    final linked = item.itemId == null ? null : data.linkedItems[item.itemId];
-    await showModalBottomSheet<void>(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 2),
-              child: Text(item.title, style: theme.textTheme.titleMedium),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Text(
-                item.isRoutine
-                    ? (item.countsCore ? 'Daily to-do · Core' : 'Daily to-do')
-                    : 'Today',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            if (item.url != null || linked != null)
-              ListTile(
-                leading: Icon(resourceActionIcon(url: item.url, item: linked)),
-                title: Text(
-                  resourceActionLabel(
-                    url: item.url,
-                    item: linked,
-                  ).replaceAll(' →', ''),
-                ),
-                onTap: () async {
-                  Navigator.pop(sheetContext);
-                  await openPlanResource(
-                    context,
-                    url: item.url,
-                    item: linked,
-                    store: widget.store,
-                    learn: widget.learn,
-                    thumbnails: widget.thumbnails,
-                  );
-                  if (mounted) setState(_refresh);
-                },
-              ),
-            ListTile(
-              leading: const Icon(Icons.edit_outlined),
-              title: const Text('Edit title'),
-              onTap: () async {
-                Navigator.pop(sheetContext);
-                final title = await promptText(
-                  context,
-                  title: 'Edit title',
-                  label: 'Title',
-                  initial: item.title,
-                );
-                if (title == null || title.isEmpty || title == item.title) {
-                  return;
-                }
-                await widget.todayStore.renamePlanItem(item.id, title);
-                if (mounted) setState(_reloadPlan);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.link),
-              title: Text(
-                item.hasResource ? 'Change resource' : 'Attach a resource',
-              ),
-              onTap: () async {
-                Navigator.pop(sheetContext);
-                await _attachLink(context, item);
-              },
-            ),
-            if (item.hasResource)
-              ListTile(
-                leading: const Icon(Icons.link_off),
-                title: const Text('Remove resource'),
-                onTap: () async {
-                  Navigator.pop(sheetContext);
-                  await widget.todayStore.setPlanItemLink(item.id);
-                  if (mounted) setState(_reloadPlan);
-                },
-              ),
-            const Divider(),
-            if (item.isRoutine) ...[
-              ListTile(
-                leading: const Icon(Icons.tune_outlined),
-                title: const Text('Edit in Routine'),
-                subtitle: const Text('Changes every day, from tomorrow'),
-                onTap: () async {
-                  Navigator.pop(sheetContext);
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => RoutineScreen(
-                        todayStore: widget.todayStore,
-                        store: widget.store,
-                      ),
-                    ),
-                  );
-                  if (mounted) setState(_refresh);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.visibility_off_outlined),
-                title: const Text('Remove from today only'),
-                onTap: () async {
-                  Navigator.pop(sheetContext);
-                  await _removeFromToday(context, item);
-                },
-              ),
-            ] else
-              ListTile(
-                leading: Icon(
-                  Icons.delete_outline,
-                  color: theme.colorScheme.error,
-                ),
-                title: Text(
-                  'Delete task',
-                  style: TextStyle(color: theme.colorScheme.error),
-                ),
-                onTap: () async {
-                  Navigator.pop(sheetContext);
-                  await _deleteOneOff(context, item);
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// The attach flow (D-042): paste a link, or pick an
-  /// existing Spaces item. Setting one clears the other —
-  /// one resource per task.
-  Future<void> _attachLink(BuildContext context, DayPlanItem item) async {
-    final choice = await showModalBottomSheet<String>(
-      context: context,
-      builder: (c) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.link),
-              title: const Text('Paste a web or video link'),
-              onTap: () => Navigator.pop(c, 'url'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.folder_open_outlined),
-              title: const Text(
-                'Choose a note, link, quiz or audio from Spaces',
-              ),
-              onTap: () => Navigator.pop(c, 'item'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.headphones_outlined),
-              title: const Text('Pick an audio file'),
-              subtitle: const Text('For a listening task'),
-              onTap: () => Navigator.pop(c, 'audio'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (!context.mounted || choice == null) return;
-    if (choice == 'audio') {
-      final picked = await openFile(acceptedTypeGroups: const [audioFileGroup]);
-      if (picked == null || !context.mounted) return;
-      try {
-        final inbox = await widget.learn.store.ensureInboxProject();
-        final audio = await importAudioItem(
-          store: widget.store,
-          library: widget.learn.library,
-          projectId: inbox.id,
-          sourcePath: picked.path,
-          sourceName: picked.name,
-        );
-        await widget.todayStore.setPlanItemLink(item.id, itemId: audio.id);
-      } catch (e) {
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not import that audio file: $e')),
-        );
-        return;
-      }
-      if (mounted) setState(_reloadPlan);
-      return;
-    }
-    if (choice == 'url') {
-      final controller = TextEditingController(text: item.url ?? '');
-      final saved = await showDialog<bool>(
-        context: context,
-        builder: (c) => AlertDialog(
-          title: const Text('Web or video link'),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(
-              labelText: 'URL',
-              hintText: 'https://…',
-            ),
-            keyboardType: TextInputType.url,
-            autofocus: true,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(c, true),
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      );
-      final raw = controller.text.trim();
-      controller.dispose();
-      if (saved != true || !context.mounted) return;
-      if (!isValidWebUrl(raw)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("That doesn't look like a valid web link."),
-          ),
-        );
-        return;
-      }
-      await widget.todayStore.setPlanItemLink(item.id, url: raw);
-    } else {
-      final picked = await pickLinkItem(context, widget.store);
-      if (picked == null) return;
-      await widget.todayStore.setPlanItemLink(item.id, itemId: picked.id);
-    }
-    if (mounted) setState(_reloadPlan);
-  }
-
-  Future<bool> _confirmAction(
-    BuildContext context, {
-    required String title,
-    required String body,
-    required String action,
-  }) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(title),
-        content: Text(body),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(c, true),
-            child: Text(action),
-          ),
-        ],
-      ),
-    );
-    return ok ?? false;
-  }
-
-  Future<void> _deleteOneOff(BuildContext context, DayPlanItem item) async {
-    final ok = await _confirmAction(
-      context,
-      title: 'Delete this task?',
-      body:
-          'It will be removed from today and will not carry '
-          'over to tomorrow.',
-      action: 'Delete',
-    );
-    if (!ok) return;
-    await widget.todayStore.deletePlanItem(item.id);
-    await _afterPlanEdit();
-    if (mounted) setState(_reloadPlan);
-  }
-
-  Future<void> _removeFromToday(BuildContext context, DayPlanItem item) async {
-    // Owner decision (D-042): allowed, never silent — and a
-    // completed CORE row carries the explicit consequence.
-    final (title, body) = switch ((item.done, item.countsCore)) {
-      (true, true) => (
-        'Remove a completed core task?',
-        'This task is done and counts toward today\'s core. '
-            'Removing it recalculates today\'s Done Score from '
-            'the remaining tasks — and today may stop counting '
-            'toward your streak. The task stays in your '
-            'routine and returns tomorrow.',
-      ),
-      (true, false) => (
-        'Remove this task for today?',
-        'It is done, so today\'s Done Score will be '
-            'recalculated from the remaining tasks. The task '
-            'stays in your routine and returns tomorrow.',
-      ),
-      _ => (
-        'Remove this task for today?',
-        'The task stays in your routine and returns tomorrow.',
-      ),
-    };
-    final ok = await _confirmAction(
-      context,
-      title: title,
-      body: body,
-      action: 'Remove for today',
-    );
-    if (!ok) return;
-    await widget.todayStore.deletePlanItem(item.id);
-    await _afterPlanEdit();
-    if (mounted) setState(_reloadPlan);
   }
 }
 

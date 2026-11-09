@@ -94,6 +94,7 @@ class _HubData {
     this.linkedItems = const {},
     this.templates = const [],
     this.heroImagePath,
+    this.manualFocus,
   });
 
   final List<DayPlanItem> items;
@@ -142,6 +143,12 @@ class _HubData {
   /// explain routines that are not in today's plan (created
   /// after generation, or not scheduled for this weekday).
   final List<PlanTemplate> templates;
+
+  /// Mission 03 Phase 3: the VALIDATED manual focus selection
+  /// for today (null = automatic focus). Validation happened in
+  /// _load(): a stored selection that is stale, completed,
+  /// deleted or foreign never reaches this field.
+  final DayPlanItem? manualFocus;
 }
 
 class TodayScreen extends StatefulWidget {
@@ -305,6 +312,27 @@ class _TodayScreenState extends State<TodayScreen> {
         (heroStored != null && await File(heroStored).exists())
         ? heroStored
         : null;
+    // Mission 03 Phase 3: validate the stored manual focus
+    // selection against today's plan. Valid = stored for TODAY
+    // and its sync_id names an INCOMPLETE item in today's plan.
+    // Anything else (another day, completed, deleted, foreign,
+    // malformed) is cleared here — storage heals itself on load —
+    // and focus falls back to the first incomplete item.
+    DayPlanItem? manualFocus;
+    final selection = await widget.todayStore.focusSelection();
+    if (selection != null) {
+      if (selection.dateKey == TodayStore.dateKey(now)) {
+        for (final it in items) {
+          if (!it.done && it.syncId == selection.syncId) {
+            manualFocus = it;
+            break;
+          }
+        }
+      }
+      if (manualFocus == null) {
+        await widget.todayStore.clearFocusSelection();
+      }
+    }
     return _HubData(
       items: items,
       weekCounts: weekCounts,
@@ -323,6 +351,7 @@ class _TodayScreenState extends State<TodayScreen> {
       weekSummary: weekSummary,
       templates: templates,
       heroImagePath: heroImagePath,
+      manualFocus: manualFocus,
     );
   }
 
@@ -649,6 +678,9 @@ class _TodayScreenState extends State<TodayScreen> {
                   on(TodayStore.headerTagline));
           final showWeek = on(TodayStore.sectionWeekStrip);
           final showQuick = on(TodayStore.sectionQuickActions);
+          // Mission 03 Phase 3: a closed day shows no actionable
+          // Focus Now panel (same isClosed signal the scores use).
+          final closedToday = data.todayReview?.isClosed ?? false;
           // The hero spans the full width; everything below it
           // keeps the page margin.
           Widget pad(Widget w) => Padding(
@@ -693,13 +725,15 @@ class _TodayScreenState extends State<TodayScreen> {
                     pad(_dailyProgress(context, data)),
                     const SizedBox(height: Gap.md),
                   ],
-                  // Mission 03 Phase 2/3: the Focus Now slot.
-                  // Phase 2 reserves the POSITION only (hero →
-                  // Focus → Quick Capture → preview): this zero-
-                  // height anchor keeps the order explicit in the
-                  // layout. It renders nothing and holds no
-                  // state; Phase 3 replaces it with the panel.
-                  const SizedBox.shrink(),
+                  // Mission 03 Phase 3: the Focus Now panel
+                  // (Phase 2 reserved this position: hero →
+                  // Focus → Quick Capture → preview). Hidden
+                  // when the day is closed or the plan is
+                  // empty; a slim state when all is done.
+                  if (!closedToday && data.items.isNotEmpty) ...[
+                    pad(_focusPanel(context, data)),
+                    const SizedBox(height: Gap.lg),
+                  ],
                   // Quick actions are optional (Customize Home):
                   // hidden means the row AND its spacing vanish,
                   // so the plan moves up into the space.
@@ -743,6 +777,201 @@ class _TodayScreenState extends State<TodayScreen> {
   /// system is dark-only). Used by the plan groups, the Learn
   /// strip and the Sunday card so the page reads as layered
   /// surfaces over the environment, not stacked opaque cards.
+  /// Mission 03 Phase 3: pure focus resolution. A validated
+  /// manual selection wins; otherwise the first incomplete item
+  /// in plan order. Reads only — never reorders the plan or the
+  /// preview. Null when nothing is incomplete.
+  DayPlanItem? _resolveFocus(_HubData data) {
+    final manual = data.manualFocus;
+    if (manual != null) return manual;
+    for (final it in data.items) {
+      if (!it.done) return it;
+    }
+    return null;
+  }
+
+  /// Mission 03 Phase 3: the Focus Now panel. One task, two
+  /// actions. Done reuses the plan row's exact completion path
+  /// (toggleItem + _afterPlanEdit + _reloadPlan); Change opens
+  /// the picker sheet. All-done is a slim, action-free state.
+  Widget _focusPanel(BuildContext context, _HubData data) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final focus = _resolveFocus(data);
+    return Container(
+      key: const ValueKey('focus_panel'),
+      decoration: _surfaceDeco(context),
+      padding: const EdgeInsets.all(Space.s4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'FOCUS NOW',
+            style: AppType.eyebrow.copyWith(color: scheme.primary),
+          ),
+          const SizedBox(height: Space.s2),
+          if (focus == null)
+            Text(
+              'Everything is done for today.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            )
+          else ...[
+            Text(
+              focus.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                Text(
+                  focus.isRoutine
+                      ? (focus.countsCore ? 'Routine · Core' : 'Routine')
+                      : 'One-off',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                if (focus.carried) ...[
+                  const SizedBox(width: Space.s2),
+                  const NeoTag('CARRIED', tint: true),
+                ],
+              ],
+            ),
+            if (focus.hasResource) _resourceAction(context, data, focus),
+            if (data.manualFocus != null) ...[
+              const SizedBox(height: Space.s2),
+              Text(
+                'Chosen by you',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.primary,
+                ),
+              ),
+            ],
+            const SizedBox(height: Space.s3),
+            Row(
+              children: [
+                FilledButton.icon(
+                  onPressed: () async {
+                    await widget.todayStore.toggleItem(focus);
+                    await _afterPlanEdit();
+                    if (!context.mounted) return;
+                    setState(_reloadPlan);
+                  },
+                  icon: const Icon(Icons.check, size: 18),
+                  label: const Text('Done'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                  ),
+                ),
+                const SizedBox(width: Space.s2),
+                OutlinedButton(
+                  onPressed: () => _showFocusPicker(context, data),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                  ),
+                  child: const Text('Change'),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Mission 03 Phase 3: the Change sheet — every incomplete
+  /// task in plan order, "Automatic (first task)" first.
+  /// Picking a task stores its sync_id for today and refreshes
+  /// WITHOUT touching plan state (the Phase 2 preview keeps its
+  /// expansion and its order); Automatic clears the selection.
+  /// Dismissing the sheet changes nothing.
+  final Object _automaticPick = Object();
+
+  Future<void> _showFocusPicker(
+    BuildContext context,
+    _HubData data,
+  ) async {
+    final open = data.items.where((e) => !e.done).toList();
+    final current = _resolveFocus(data);
+    final picked = await showModalBottomSheet<Object?>(
+      context: context,
+      builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    Space.s4,
+                    Space.s4,
+                    Space.s4,
+                    Space.s2,
+                  ),
+                  child: Text(
+                    'Choose your focus',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
+                ListTile(
+                  key: const ValueKey('focus_pick_automatic'),
+                  leading: const Icon(Icons.auto_awesome, size: 20),
+                  title: const Text('Automatic (first task)'),
+                  trailing: data.manualFocus == null
+                      ? const Icon(Icons.check, size: 18)
+                      : null,
+                  onTap: () =>
+                      Navigator.of(sheetContext).pop(_automaticPick),
+                ),
+                for (final item in open)
+                  ListTile(
+                    key: ValueKey('focus_pick_${item.id}'),
+                    title: Text(
+                      item.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      item.isRoutine ? 'Routine' : 'One-off',
+                    ),
+                    trailing: current?.id == item.id
+                        ? const Icon(Icons.check, size: 18)
+                        : null,
+                    onTap: () => Navigator.of(sheetContext).pop(item),
+                  ),
+                const SizedBox(height: Space.s2),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (!context.mounted) return;
+    if (picked == null) return; // dismissed — no change
+    if (identical(picked, _automaticPick)) {
+      if (data.manualFocus != null) {
+        await widget.todayStore.clearFocusSelection();
+        if (!context.mounted) return;
+        setState(_refresh);
+      }
+      return;
+    }
+    final item = picked as DayPlanItem;
+    final syncId = item.syncId;
+    if (syncId == null) return;
+    await widget.todayStore.setFocusSelection(DateTime.now(), syncId);
+    if (!context.mounted) return;
+    setState(_refresh);
+  }
+
   BoxDecoration _surfaceDeco(
     BuildContext context, {
     double radius = RadiusToken.card,
@@ -1694,6 +1923,7 @@ class _TodayScreenState extends State<TodayScreen> {
     // data model carries no clock times, so the rail shows
     // order and state, never invented times (Stage 0 call).
     return Column(
+      key: const ValueKey('focus_plan_anchor'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         NeoSectionHead(

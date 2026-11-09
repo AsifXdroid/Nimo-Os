@@ -49,6 +49,13 @@ void main() {
 
   /// Boots a TodayScreen over a fresh database with one routine
   /// in today's plan; returns handles for cleanup.
+  /// A plan row's text (Phase 3: the Focus panel also names
+  /// the focused task, so row lookups scope to the plan).
+  Finder planRow(String title) => find.descendant(
+        of: find.byKey(const ValueKey('focus_plan_anchor')),
+        matching: find.text(title),
+      );
+
   Future<({Directory tmp, Database db})> boot(
     WidgetTester tester, {
     void Function(DateTime monday)? onOpenWeeklySummary,
@@ -90,7 +97,24 @@ void main() {
         ),
       ),
     );
-    expect(await pollFor(tester, find.text("Today's plan")), isTrue);
+    // Phase 3: the Focus panel lengthens the page; the plan
+    // section header now lands below the lazy-build cutoff at
+    // this surface, so the plain poll can never see it. The
+    // FOCUS NOW panel proves the loaded page instead (and its
+    // presence pins the approved panel position: above the
+    // plan).
+    expect(await pollFor(tester, find.text('FOCUS NOW')), isTrue,
+        reason: "loaded page (Today's plan header is off-view)");
+    // Phase 3: the Focus Now panel sits between hero and plan,
+    // pushing the plan below the lazy-build cutoff on this
+    // surface — scroll until the plan rows are built before
+    // asserting on them.
+    for (var i = 0; i < 16; i++) {
+      if (planRow('Morning pages').evaluate().isNotEmpty) break;
+      await tester.drag(find.byType(Scrollable).first,
+          const Offset(0, -400));
+      await tester.pump(const Duration(milliseconds: 150));
+    }
     return (tmp: tmp, db: db);
   }
 
@@ -104,19 +128,54 @@ void main() {
       expect(find.text('This week'), findsNothing);
       expect(find.text("This week's plan"), findsNothing);
 
-      // 2. The plan is what renders.
-      expect(find.text("Today's plan"), findsOneWidget);
-      expect(find.text('Morning pages'), findsOneWidget);
+      // 2. The plan is what renders (row lookups scope to the
+      // plan section: the Focus panel names the same task).
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('focus_plan_anchor')),
+          matching: find.text("Today's plan"),
+        ),
+        findsOneWidget,
+      );
+      expect(planRow('Morning pages'), findsOneWidget);
 
       // 3. Tap a week-strip day cell: strip stays, plan stays,
       //    no week view appears.
       final monday = TodayStore.mondayOf(DateTime.now());
       final firstCellDay = '${monday.day}';
+      // Scroll back to the top so the week strip is in range
+      // again for the cell tap.
+      final stripPos = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position;
+      for (var i = 0; i < 16; i++) {
+        stripPos.jumpTo(0);
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        await tester.pump();
+        if (find.text('This week').evaluate().isEmpty &&
+            stripPos.pixels == 0) {
+          break;
+        }
+      }
       await tester.tap(find.text(firstCellDay).first);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text("Today's plan"), findsOneWidget);
-      expect(find.text('Morning pages'), findsOneWidget);
+      // The tap did not navigate: scroll the plan back into
+      // build range and confirm it is still what renders.
+      for (var i = 0; i < 16; i++) {
+        if (planRow('Morning pages').evaluate().isNotEmpty) break;
+        await tester.drag(find.byType(Scrollable).first,
+            const Offset(0, -400));
+        await tester.pump(const Duration(milliseconds: 150));
+      }
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('focus_plan_anchor')),
+          matching: find.text("Today's plan"),
+        ),
+        findsOneWidget,
+      );
+      expect(planRow('Morning pages'), findsOneWidget);
       expect(find.text("This week's plan"), findsNothing);
       expect(find.byType(SegmentedButton<bool>), findsNothing);
 
@@ -148,14 +207,26 @@ void main() {
         expect(openedMonday, isNotNull);
         // ...and routing must not have swapped in a week view.
         expect(find.text("This week's plan"), findsNothing);
-        expect(find.text("Today's plan"), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('focus_plan_anchor')),
+            matching: find.text("Today's plan"),
+          ),
+          findsOneWidget,
+        );
       } else {
         // Not due: the card is correctly absent (Sunday >=18:00
         // only); the plan still renders and no toggle exists.
         // The due-case routing is covered by the Progress weekly
         // summary tests and the branch above when run in-window.
         expect(find.text('Your week, wrapped up'), findsNothing);
-        expect(find.text("Today's plan"), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('focus_plan_anchor')),
+            matching: find.text("Today's plan"),
+          ),
+          findsOneWidget,
+        );
       }
 
       await h.db.close();

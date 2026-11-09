@@ -78,7 +78,10 @@ void main() {
       }
 
       await scrollUntil(find.text('Watch a video'));
-      expect(find.text('Watch a video'), findsOneWidget);
+      // Phase 3: the title also shows in the Focus Now panel
+      // (it is the first task) — presence, not uniqueness, is
+      // the contract here.
+      expect(find.text('Watch a video'), findsWidgets);
 
       // The redundant composer is gone: neither its hint text
       // nor a text field carrying it exists anywhere.

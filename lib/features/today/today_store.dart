@@ -109,6 +109,7 @@ class DayPlanItem {
     this.countsCore = false,
     this.itemId,
     this.url,
+    this.syncId,
   });
 
   final int id;
@@ -137,6 +138,11 @@ class DayPlanItem {
   final int? itemId;
   final String? url;
 
+  /// Cross-device identity (S7). The Phase 3 focus selection is
+  /// stored by this id — never by the local row id — so a stored
+  /// selection can only ever name this exact task.
+  final String? syncId;
+
   bool get isRoutine => kind == PlanItemKind.routine;
   bool get hasResource => url != null || itemId != null;
 
@@ -152,6 +158,7 @@ class DayPlanItem {
     countsCore: ((r['counts_core'] as int?) ?? 0) == 1,
     itemId: r['item_id'] as int?,
     url: r['url'] as String?,
+    syncId: r['sync_id'] as String?,
   );
 }
 
@@ -386,7 +393,18 @@ class TodayStore {
       whereArgs: [planId],
       orderBy: 'position ASC, id ASC',
     );
-    return rows.map(DayPlanItem.fromRow).toList();
+    return Future.wait(rows.map((r) async {
+      // Identity completeness: rows generated before any
+      // identity pass (same session) can carry a NULL sync_id;
+      // converge them here so every returned item HAS one
+      // (Focus validation and sync both rely on it).
+      if ((r['sync_id'] as String?)?.isNotEmpty ?? false) {
+        return DayPlanItem.fromRow(r);
+      }
+      final copy = Map<String, Object?>.of(r);
+      copy['sync_id'] = await _rowSyncId('day_plan_items', r);
+      return DayPlanItem.fromRow(copy);
+    }));
   }
 
   /// Items of an existing plan only; empty when no plan exists.
@@ -397,7 +415,14 @@ class TodayStore {
       'WHERE p.date = ? ORDER BY i.position ASC, i.id ASC',
       [dateKey(date)],
     );
-    return rows.map(DayPlanItem.fromRow).toList();
+    return Future.wait(rows.map((r) async {
+      if ((r['sync_id'] as String?)?.isNotEmpty ?? false) {
+        return DayPlanItem.fromRow(r);
+      }
+      final copy = Map<String, Object?>.of(r);
+      copy['sync_id'] = await _rowSyncId('day_plan_items', r);
+      return DayPlanItem.fromRow(copy);
+    }));
   }
 
   Future<void> toggleItem(DayPlanItem item) async {
@@ -674,6 +699,50 @@ class TodayStore {
       'key': 'if_then_line',
       'value': text.trim(),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  // ------------------------------------------------------------ focus
+
+  /// The owner's manual Focus Now selection (Mission 03 Phase 3),
+  /// stored in `app_settings` as `"<dateKey>|<sync_id>"`. The
+  /// identity is the item's sync_id — never the local row id — so
+  /// a stored value can only ever name the task it was picked
+  /// from, on any device, and date-scoping keeps it same-day
+  /// (D2). app_settings is device-local (never syncs); the sync_id
+  /// makes the value safe even if it somehow travels.
+  static const focusSelectionKey = 'focus_selection';
+
+  /// The parsed stored selection, or null when unset or malformed.
+  Future<({String dateKey, String syncId})?> focusSelection() async {
+    final rows = await _db.query(
+      'app_settings',
+      where: 'key = ?',
+      whereArgs: [focusSelectionKey],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    final value = rows.single['value'] as String;
+    final sep = value.indexOf('|');
+    if (sep <= 0 || sep == value.length - 1) return null;
+    return (
+      dateKey: value.substring(0, sep),
+      syncId: value.substring(sep + 1),
+    );
+  }
+
+  Future<void> setFocusSelection(DateTime date, String syncId) async {
+    await _db.insert('app_settings', {
+      'key': focusSelectionKey,
+      'value': '${dateKey(date)}|$syncId',
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<void> clearFocusSelection() async {
+    await _db.delete(
+      'app_settings',
+      where: 'key = ?',
+      whereArgs: [focusSelectionKey],
+    );
   }
 
   // ------------------------------------------------------- hero image

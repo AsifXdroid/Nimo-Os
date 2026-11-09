@@ -81,10 +81,17 @@ Future<void> _pump(WidgetTester tester, _Harness h) async {
   for (var i = 0; i < 40; i++) {
     await Future<void>.delayed(const Duration(milliseconds: 100));
     await tester.pump();
-    if (find.text('Morning pages').evaluate().isNotEmpty &&
-        find.text('Call the bank').evaluate().isNotEmpty) {
+    if (_rowText('Morning pages').evaluate().isNotEmpty &&
+        _rowText('Call the bank').evaluate().isNotEmpty) {
       await _settle(tester);
       return;
+    }
+    // Phase 3: the Focus panel pushes the plan rows below the
+    // lazy-build cutoff — scroll the rows into build range.
+    if (i % 4 == 3) {
+      await tester.drag(
+          find.byType(Scrollable).first, const Offset(0, -400));
+      await tester.pump(const Duration(milliseconds: 150));
     }
   }
   fail('plan never landed');
@@ -127,9 +134,16 @@ Future<void> _untilTappable(WidgetTester tester, Finder f, String what) async {
   fail('$what never became tappable');
 }
 
+/// The task's text inside the plan section (the Focus panel
+/// above it also names the focused task, Phase 3).
+Finder _rowText(String title) => find.descendant(
+      of: find.byKey(const ValueKey('focus_plan_anchor')),
+      matching: find.text(title),
+    );
+
 Finder _rowMore(String title) => find.descendant(
       of: find
-          .ancestor(of: find.text(title), matching: find.byType(InkWell))
+          .ancestor(of: _rowText(title), matching: find.byType(InkWell))
           .first,
       matching: find.byIcon(Icons.more_horiz),
     );
@@ -160,14 +174,14 @@ void main() {
       // Mission 03 Phase 2: no group heads in the preview.
       expect(find.text('DAILY TO-DO'), findsNothing);
       expect(find.text('TODAY'), findsNothing);
-      final routineY = tester.getTopLeft(find.text('Morning pages')).dy;
-      final oneOffY = tester.getTopLeft(find.text('Call the bank')).dy;
+      final routineY = tester.getTopLeft(_rowText('Morning pages')).dy;
+      final oneOffY = tester.getTopLeft(_rowText('Call the bank')).dy;
       expect(routineY, lessThan(oneOffY),
           reason: 'plan order preserved: routine above one-off');
       expect(find.byIcon(Icons.close), findsNothing,
           reason: 'the permanent × is gone');
       expect(find.byIcon(Icons.more_horiz), findsNWidgets(3));
-      expect(find.text('Open note →'), findsOneWidget);
+      expect(find.text('Open note →'), findsWidgets);
     });
   });
 
@@ -179,8 +193,12 @@ void main() {
       await _seed(h);
       await _pump(tester, h);
 
-      await tester.ensureVisible(find.text('Open note →'));
-      await tester.tap(find.text('Open note →'));
+      final noteAction = find.descendant(
+        of: find.byKey(const ValueKey('focus_plan_anchor')),
+        matching: find.text('Open note →'),
+      );
+      await tester.ensureVisible(noteAction);
+      await tester.tap(noteAction);
       await _until(tester, find.byType(ItemDetailScreen), 'item detail');
       expect(find.byType(ItemDetailScreen), findsOneWidget);
 
@@ -215,7 +233,7 @@ void main() {
       await _settle(tester);
       rows = await h.todayStore.planItems(DateTime.now());
       expect(rows.any((e) => e.title == 'Call the bank'), isFalse);
-      expect(find.text('Call the bank'), findsNothing);
+      expect(_rowText('Call the bank'), findsNothing);
     });
   });
 
@@ -228,8 +246,8 @@ void main() {
       await _pump(tester, h);
 
       // Complete the core routine first.
-      await tester.ensureVisible(find.text('Morning pages'));
-      await tester.tap(find.text('Morning pages'));
+      await tester.ensureVisible(_rowText('Morning pages'));
+      await tester.tap(_rowText('Morning pages'));
       await _settle(tester);
       var rows = await h.todayStore.planItems(DateTime.now());
       expect(
@@ -242,6 +260,9 @@ void main() {
       // still hold: completion never deletes the plan row or
       // the template, and the item stays in the store ready
       // for Phase 4's view.
+      // It leaves the whole screen: the completed task is no
+      // longer the focus either — the panel advances to the
+      // next incomplete task (Phase 3).
       expect(find.text('Morning pages'), findsNothing);
       expect(rows.any((e) => e.title == 'Morning pages'), isTrue,
           reason: 'completion never deletes the plan row');

@@ -142,11 +142,22 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(theme: AppTheme.neoDark(), home: screen),
       );
-      await _until(tester, find.text('Listen →'), 'the Listen pill');
+      await _until(
+        tester,
+        find.descendant(
+          of: find.byKey(const ValueKey('focus_plan_anchor')),
+          matching: find.text('Listen →'),
+        ),
+        'the Listen pill in the plan row',
+      );
       expect(find.byIcon(Icons.play_circle_outline), findsWidgets);
 
-      await tester.ensureVisible(find.text('Listen →'));
-      await tester.tap(find.text('Listen →'));
+      final pill = find.descendant(
+        of: find.byKey(const ValueKey('focus_plan_anchor')),
+        matching: find.text('Listen →'),
+      );
+      await tester.ensureVisible(pill);
+      await tester.tap(pill);
       await _until(tester, find.byType(ItemDetailScreen), 'audio detail');
       await _until(
         tester,

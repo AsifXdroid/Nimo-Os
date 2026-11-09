@@ -58,6 +58,32 @@ void main() {
   /// Arabic revision, Call the bank, Read 10 pages,
   /// Reply to the landlord, Book the train tickets,
   /// Evening walk.
+  /// A preview row's text (Phase 3: the Focus panel also
+  /// names the focused task, so row lookups scope to the plan
+  /// section; absence checks stay global on purpose).
+  Finder row(String title) => find.descendant(
+        of: find.byKey(const ValueKey('focus_plan_anchor')),
+        matching: find.text(title),
+      );
+
+  /// Scrolls until a preview row is built, proving the loaded
+  /// page (the plan header sits below the lazy-build cutoff
+  /// since Phase 3 added the Focus panel above the plan).
+  Future<bool> planLanded(WidgetTester tester) async {
+    for (var i = 0; i < 40; i++) {
+      if (row('Arabic revision').evaluate().isNotEmpty) return true;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await tester.pump();
+      if (i % 4 == 3 &&
+          find.byType(Scrollable).evaluate().isNotEmpty) {
+        await tester.drag(
+            find.byType(Scrollable).first, const Offset(0, -400));
+        await tester.pump(const Duration(milliseconds: 150));
+      }
+    }
+    return false;
+  }
+
   Future<({Directory tmp, Database db, TodayStore todayStore})> boot(
     WidgetTester tester,
   ) async {
@@ -101,7 +127,8 @@ void main() {
         ),
       ),
     );
-    expect(await pollFor(tester, find.text("Today's plan")), isTrue);
+    expect(await planLanded(tester), isTrue,
+        reason: 'plan rows built after load');
     return (tmp: tmp, db: db, todayStore: todayStore);
   }
 
@@ -115,13 +142,13 @@ void main() {
       expect(find.text('Today'), findsNothing);
 
       // First 4 incomplete in plan order.
-      expect(find.text('Morning pages'), findsOneWidget);
-      expect(find.text('Arabic revision'), findsOneWidget);
+      expect(row('Morning pages'), findsOneWidget);
+      expect(row('Arabic revision'), findsOneWidget);
       // The carried item is third (interleaved in plan order)
       // and keeps its tag.
-      expect(find.text('Call the bank about the card'), findsOneWidget);
+      expect(row('Call the bank about the card'), findsOneWidget);
       expect(find.text('CARRIED'), findsOneWidget);
-      expect(find.text('Read 10 pages'), findsOneWidget);
+      expect(row('Read 10 pages'), findsOneWidget);
       // The rest are behind See all.
       expect(find.text('Reply to the landlord'), findsNothing);
       expect(find.text('Book the train tickets'), findsNothing);
@@ -132,10 +159,9 @@ void main() {
       // Interleaving proof: carried row sits BELOW the routines
       // and ABOVE the first fresh one-off on screen.
       final yCarried =
-          tester.getTopLeft(find.text('Call the bank about the card')).dy;
-      final yRoutine =
-          tester.getTopLeft(find.text('Arabic revision')).dy;
-      final yFresh = tester.getTopLeft(find.text('Read 10 pages')).dy;
+          tester.getTopLeft(row('Call the bank about the card')).dy;
+      final yRoutine = tester.getTopLeft(row('Arabic revision')).dy;
+      final yFresh = tester.getTopLeft(row('Read 10 pages')).dy;
       expect(yCarried, greaterThan(yRoutine));
       expect(yCarried, lessThan(yFresh));
 
@@ -145,13 +171,13 @@ void main() {
       await tester.tap(find.text('See all'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text('Reply to the landlord'), findsOneWidget);
-      expect(find.text('Evening walk'), findsOneWidget);
+      expect(row('Reply to the landlord'), findsOneWidget);
+      expect(row('Evening walk'), findsOneWidget);
       await tester.ensureVisible(find.text('Show less'));
       await tester.tap(find.text('Show less'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text('Evening walk'), findsNothing);
+      expect(row('Evening walk'), findsNothing);
 
       // Refill: completing the first preview item (data-level)
       // removes it and pulls the 5th incomplete item up.
@@ -213,15 +239,16 @@ void main() {
           ),
         ),
       );
-      expect(await pollFor(tester, find.text("Today's plan")), isTrue);
+      expect(await planLanded(tester), isTrue,
+          reason: 'plan rows built after load');
 
       // Completed item gone; 5th item (Book the train tickets)
       // refilled into the 4th preview slot.
       expect(find.text('Morning pages'), findsNothing);
-      expect(find.text('Arabic revision'), findsOneWidget);
-      expect(find.text('Read 10 pages'), findsOneWidget);
-      expect(find.text('Reply to the landlord'), findsOneWidget);
-      expect(find.text('Book the train tickets'), findsOneWidget);
+      expect(row('Arabic revision'), findsOneWidget);
+      expect(row('Read 10 pages'), findsOneWidget);
+      expect(row('Reply to the landlord'), findsOneWidget);
+      expect(row('Book the train tickets'), findsOneWidget);
       expect(find.text('1 of 5 done'), findsOneWidget);
 
       await db.close();
@@ -242,7 +269,7 @@ void main() {
     await tester.tap(find.text('See all'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Evening walk'), findsOneWidget,
+    expect(row('Evening walk'), findsOneWidget,
         reason: 'preview expanded');
   }
 
@@ -290,7 +317,7 @@ void main() {
       expect(await pollFor(tester, find.text('10'),
           timeout: const Duration(seconds: 2)), isFalse);
       expect(
-        await pollFor(tester, find.text('Evening walk'),
+        await pollFor(tester, row('Evening walk'),
             timeout: const Duration(seconds: 2)),
         isTrue,
       );
@@ -299,7 +326,7 @@ void main() {
       // numbers vanish (Nov 10 only exists in the strip).
       expect(find.text('10'), findsNothing);
       // …and the preview is STILL expanded.
-      expect(find.text('Evening walk'), findsOneWidget);
+      expect(row('Evening walk'), findsOneWidget);
       expect(find.text('Show less'), findsOneWidget);
 
       await h.db.close();
@@ -364,7 +391,7 @@ void main() {
       // STILL expanded: scroll the plan back into view and the
       // last task + Show less are both there.
       await scrollUntil(tester, find.text('Show less'));
-      expect(find.text('Evening walk'), findsOneWidget);
+      expect(row('Evening walk'), findsOneWidget);
       expect(find.text('Show less'), findsOneWidget);
 
       await h.db.close();
@@ -379,9 +406,9 @@ void main() {
       await expand(tester);
 
       // Complete the first task by tapping its row.
-      await tester.ensureVisible(find.text('Morning pages'));
+      await tester.ensureVisible(row('Morning pages'));
       await tester.pump(const Duration(milliseconds: 300));
-      await tester.tap(find.text('Morning pages'));
+      await tester.tap(row('Morning pages'));
       await tester.pump();
       // The reload is a real async DB round-trip.
       expect(
@@ -394,13 +421,12 @@ void main() {
       // Expansion reset: back to at most 4 incomplete rows and
       // a 'See all' control; the completed task is gone.
       expect(find.text('Morning pages'), findsNothing);
-      expect(find.text('Arabic revision'), findsOneWidget);
-      expect(find.text('Call the bank about the card'),
-          findsOneWidget);
-      expect(find.text('Read 10 pages'), findsOneWidget);
-      expect(find.text('Reply to the landlord'), findsOneWidget);
-      expect(find.text('Book the train tickets'), findsNothing);
-      expect(find.text('Evening walk'), findsNothing);
+      expect(row('Arabic revision'), findsOneWidget);
+      expect(row('Call the bank about the card'), findsOneWidget);
+      expect(row('Read 10 pages'), findsOneWidget);
+      expect(row('Reply to the landlord'), findsOneWidget);
+      expect(row('Book the train tickets'), findsNothing);
+      expect(row('Evening walk'), findsNothing);
       expect(find.text('See all'), findsOneWidget);
 
       await h.db.close();

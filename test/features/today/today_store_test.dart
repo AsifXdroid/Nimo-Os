@@ -56,6 +56,7 @@ const _v1Ddl = [
 
 void main() {
   late TodayStore today;
+  late Database db;
 
   setUpAll(() {
     sqfliteFfiInit();
@@ -66,7 +67,7 @@ void main() {
     // sqflite_common_ffi keeps ONE in-memory database per process,
     // shared by every openInMemory() call — wipe this feature's
     // tables so tests stay isolated.
-    final db = await AppDatabase.openInMemory();
+    db = await AppDatabase.openInMemory();
     await db.delete('day_plan_items');
     await db.delete('day_plans');
     await db.delete('plan_templates');
@@ -268,5 +269,39 @@ void main() {
     final vis = await today.homeSectionVisibility();
     expect(vis[TodayStore.sectionRecent], isFalse);
     expect(vis[TodayStore.sectionGoals], isTrue);
+  });
+
+  // ------------------------------------------------------ focus (P3)
+
+  test('focus selection round-trips date key and sync_id', () async {
+    final day = DateTime(2026, 11, 9);
+    expect(await today.focusSelection(), isNull);
+    await today.setFocusSelection(day, 'sync-abc');
+    final sel = await today.focusSelection();
+    expect(sel, isNotNull);
+    expect(sel!.dateKey, TodayStore.dateKey(day));
+    expect(sel.syncId, 'sync-abc');
+    await today.clearFocusSelection();
+    expect(await today.focusSelection(), isNull);
+  });
+
+  test('malformed focus values read back as no selection', () async {
+    await db.insert('app_settings', {
+      'key': 'focus_selection',
+      'value': 'garbage-without-separator',
+    });
+    expect(await today.focusSelection(), isNull);
+    await db.insert(
+      'app_settings',
+      {'key': 'focus_selection', 'value': '2026-11-09|'},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    expect(await today.focusSelection(), isNull);
+    await db.insert(
+      'app_settings',
+      {'key': 'focus_selection', 'value': '|sync-abc'},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    expect(await today.focusSelection(), isNull);
   });
 }

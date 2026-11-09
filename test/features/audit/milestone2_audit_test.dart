@@ -68,6 +68,32 @@ void main() {
     return false;
   }
 
+  /// A preview row's text (Phase 3: the Focus panel also
+  /// names the focused task, so row lookups scope to the plan
+  /// section).
+  Finder planRow(String title) => find.descendant(
+        of: find.byKey(const ValueKey('focus_plan_anchor')),
+        matching: find.text(title),
+      );
+
+  /// The loaded-page marker since Phase 3: the plan header
+  /// sits below the lazy-build cutoff at the default surface,
+  /// so 'FOCUS NOW' (top of page) proves the load; then drag
+  /// until the wanted row is built.
+  Future<bool> planLanded(WidgetTester tester, String aRow) async {
+    if (!await pollFor(tester, find.text('FOCUS NOW'),
+        timeout: const Duration(seconds: 10))) {
+      return false;
+    }
+    for (var i = 0; i < 30; i++) {
+      if (planRow(aRow).evaluate().isNotEmpty) return true;
+      await tester.drag(
+          find.byType(Scrollable).first, const Offset(0, -400));
+      await tester.pump(const Duration(milliseconds: 150));
+    }
+    return planRow(aRow).evaluate().isNotEmpty;
+  }
+
   group('Milestone 2.0 Audit: Today Screen Density & Scaling', () {
     testWidgets('Today with 0 tasks: clean empty state, no error',
         (tester) async {
@@ -128,8 +154,12 @@ void main() {
             ),
           ));
 
-          expect(await pollFor(tester, find.text("Today's plan")), isTrue);
-          expect(find.text('15 of 30 done'), findsOneWidget);
+          expect(await planLanded(tester, 'Task #1'), isTrue,
+              reason: 'plan rows built after load');
+          expect(
+            await pollFor(tester, find.text('15 of 30 done')),
+            isTrue,
+          );
 
           // Mission 03 Phase 2: Today shows a compact preview
           // of incomplete tasks only. Task #30 is completed
@@ -242,11 +272,16 @@ void main() {
             ),
           ));
 
-          expect(
-              await pollFor(tester, find.text('Sample Accessible Task')), isTrue);
+          expect(await planLanded(tester, 'Sample Accessible Task'),
+              isTrue,
+              reason: 'plan row built after load');
 
-          // The entire row is wrapped in an InkWell for tapping
-          final inkWells = find.byType(InkWell);
+          // The row inside the plan section is wrapped in an
+          // InkWell for tapping.
+          final inkWells = find.descendant(
+            of: find.byKey(const ValueKey('focus_plan_anchor')),
+            matching: find.byType(InkWell),
+          );
           var foundRowTarget = false;
           for (final candidate in inkWells.evaluate()) {
             final renderBox = candidate.renderObject as RenderBox?;

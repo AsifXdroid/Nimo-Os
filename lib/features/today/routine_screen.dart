@@ -9,6 +9,7 @@ import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../shared_ui.dart';
 import '../store.dart';
+import 'dua_library_screen.dart';
 import 'plan_link.dart';
 import 'today_store.dart';
 
@@ -59,8 +60,11 @@ class _RoutineScreenState extends State<RoutineScreen> {
   }
 
   Future<void> _add() async {
-    final title =
-        await promptText(context, title: 'New routine item', label: 'Title');
+    final title = await promptText(
+      context,
+      title: 'New routine item',
+      label: 'Title',
+    );
     if (title == null || title.isEmpty) return;
     final t = await widget.todayStore.addTemplate(title);
     final now = DateTime.now();
@@ -74,8 +78,12 @@ class _RoutineScreenState extends State<RoutineScreen> {
   }
 
   Future<void> _rename(PlanTemplate t) async {
-    final title = await promptText(context,
-        title: 'Rename routine item', label: 'Title', initial: t.title);
+    final title = await promptText(
+      context,
+      title: 'Rename routine item',
+      label: 'Title',
+      initial: t.title,
+    );
     if (title == null || title.isEmpty) return;
     await widget.todayStore.renameTemplate(t.id, title);
     setState(_reload);
@@ -131,8 +139,7 @@ class _RoutineScreenState extends State<RoutineScreen> {
                       ChoiceChip(
                         label: Text(s),
                         selected: track.text == s,
-                        onSelected: (_) =>
-                            setDialogState(() => track.text = s),
+                        onSelected: (_) => setDialogState(() => track.text = s),
                       ),
                   ],
                 ),
@@ -140,11 +147,11 @@ class _RoutineScreenState extends State<RoutineScreen> {
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Counts toward the day\'s core'),
                   subtitle: const Text(
-                      'Core items done (or 80% of the plan) keep '
-                      'the streak alive.'),
+                    'Core items done (or 80% of the plan) keep '
+                    'the streak alive.',
+                  ),
                   value: countsCore,
-                  onChanged: (v) =>
-                      setDialogState(() => countsCore = v),
+                  onChanged: (v) => setDialogState(() => countsCore = v),
                 ),
               ],
             ),
@@ -185,8 +192,7 @@ class _RoutineScreenState extends State<RoutineScreen> {
       if (t.starterTitle != null) 'Tiny: ${t.starterTitle}',
       if (t.track != null) t.track!,
       if (!t.countsCore) 'Not core',
-      if (t.weekdays != null && t.weekdays != 127)
-        _weekdaySummary(t.weekdays!),
+      if (t.weekdays != null && t.weekdays != 127) _weekdaySummary(t.weekdays!),
       if (t.url != null || t.itemId != null) 'Linked',
     ];
     return parts.isEmpty ? null : parts.join(' · ');
@@ -195,9 +201,9 @@ class _RoutineScreenState extends State<RoutineScreen> {
   static const _dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   String _weekdaySummary(int mask) => [
-        for (var i = 0; i < 7; i++)
-          if ((mask >> i) & 1 == 1) _dayNames[i],
-      ].join(' · ');
+    for (var i = 0; i < 7; i++)
+      if ((mask >> i) & 1 == 1) _dayNames[i],
+  ].join(' · ');
 
   /// Schedule (weekday mask) + linked resource for a template
   /// (D-042). Applies to plans not yet generated, like every
@@ -207,8 +213,7 @@ class _RoutineScreenState extends State<RoutineScreen> {
   /// plainly what happened (including when scheduling says no).
   Future<void> _addToToday(PlanTemplate t) async {
     final now = DateTime.now();
-    final result =
-        await widget.todayStore.addRoutineToToday(t.id, now);
+    final result = await widget.todayStore.addRoutineToToday(t.id, now);
     if (!mounted) return;
     final message = switch (result) {
       AddRoutineResult.added => '“${t.title}” added to today\'s plan.',
@@ -249,8 +254,10 @@ class _RoutineScreenState extends State<RoutineScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Runs on',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
+                const Text(
+                  'Runs on',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 6,
@@ -260,7 +267,8 @@ class _RoutineScreenState extends State<RoutineScreen> {
                         label: Text(_dayNames[i]),
                         selected: (mask >> i) & 1 == 1,
                         onSelected: (v) => setDialogState(
-                            () => mask = v ? mask | (1 << i) : mask & ~(1 << i)),
+                          () => mask = v ? mask | (1 << i) : mask & ~(1 << i),
+                        ),
                       ),
                   ],
                 ),
@@ -272,8 +280,10 @@ class _RoutineScreenState extends State<RoutineScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text('Linked resource',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
+                const Text(
+                  'Linked resource',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: url,
@@ -300,14 +310,15 @@ class _RoutineScreenState extends State<RoutineScreen> {
                           itemId == null
                               ? 'No Spaces item linked'
                               : 'Item: ${itemTitle ?? 'Linked item'}',
-                          style:
-                              Theme.of(context).textTheme.bodySmall,
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ),
                       TextButton(
                         onPressed: () async {
                           final picked = await pickLinkItem(
-                              context, widget.store!);
+                            context,
+                            widget.store!,
+                          );
                           if (picked == null) return;
                           setDialogState(() {
                             itemId = picked.id;
@@ -316,6 +327,35 @@ class _RoutineScreenState extends State<RoutineScreen> {
                           });
                         },
                         child: const Text('Choose…'),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          final picked = await pickDuaItem(
+                            context,
+                            widget.store!,
+                            currentResourceLabel:
+                                itemTitle ??
+                                (url.text.trim().isEmpty
+                                    ? null
+                                    : url.text.trim()),
+                            onAddDua: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      DuaLibraryScreen(store: widget.store!),
+                                ),
+                              );
+                            },
+                          );
+                          if (picked == null) return;
+                          setDialogState(() {
+                            itemId = picked.id;
+                            itemTitle = picked.title;
+                            url.text = '';
+                          });
+                        },
+                        child: const Text('Dua…'),
                       ),
                       if (itemId != null)
                         TextButton(
@@ -344,17 +384,17 @@ class _RoutineScreenState extends State<RoutineScreen> {
                 // setState is out of scope here, so pop nothing;
                 // simplest correct route: refuse via snackbar.
                 ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content:
-                            Text('Pick at least one day.')));
+                  const SnackBar(content: Text('Pick at least one day.')),
+                );
                 return;
               }
               final raw = url.text.trim();
               if (raw.isNotEmpty && !isValidWebUrl(raw)) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text(
-                            "That doesn't look like a valid web link.")));
+                  const SnackBar(
+                    content: Text("That doesn't look like a valid web link."),
+                  ),
+                );
                 return;
               }
               Navigator.pop(context, true);
@@ -395,12 +435,17 @@ class _RoutineScreenState extends State<RoutineScreen> {
           final list = data.templates;
           return ListView(
             padding: const EdgeInsets.fromLTRB(
-                Space.page, Gap.md, Space.page, Gap.lg),
+              Space.page,
+              Gap.md,
+              Space.page,
+              Gap.lg,
+            ),
             children: [
               const NeoPageTitle(
                 eyebrow: 'Your daily template',
                 heading: 'Keep the rhythm realistic.',
-                sub: 'A small plan is easier to return to. '
+                sub:
+                    'A small plan is easier to return to. '
                     'Changes apply from tomorrow.',
               ),
               const SizedBox(height: Gap.lg),
@@ -420,40 +465,45 @@ class _RoutineScreenState extends State<RoutineScreen> {
                 ),
               const SizedBox(height: Gap.lg),
               Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('A tiny habit prompt',
-                        style: theme.textTheme.titleMedium),
-                    const SizedBox(height: Gap.sm),
-                    Text(
-                      'Connect something new to something you '
-                      'already do.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'A tiny habit prompt',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: Gap.sm),
+                  Text(
+                    'Connect something new to something you '
+                    'already do.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
-                    const SizedBox(height: Gap.md),
-                    InkWell(
-                      onTap: () => _editIfThen(data.ifThen),
-                      child: Row(
-                        children: [
-                          Icon(Icons.bolt_outlined,
-                              size: 18,
-                              color: theme.colorScheme.primary),
-                          const SizedBox(width: Space.s3),
-                          Expanded(
-                            child: Text(
-                              data.ifThen.isEmpty
-                                  ? 'Set your if–then line: '
+                  ),
+                  const SizedBox(height: Gap.md),
+                  InkWell(
+                    onTap: () => _editIfThen(data.ifThen),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.bolt_outlined,
+                          size: 18,
+                          color: theme.colorScheme.primary,
+                        ),
+                        const SizedBox(width: Space.s3),
+                        Expanded(
+                          child: Text(
+                            data.ifThen.isEmpty
+                                ? 'Set your if–then line: '
                                       '"If …, then I will …"'
-                                  : data.ifThen,
-                              style: theme.textTheme.bodyMedium,
-                            ),
+                                : data.ifThen,
+                            style: theme.textTheme.bodyMedium,
                           ),
-                          const Icon(Icons.edit_outlined, size: 16),
-                        ],
-                      ),
+                        ),
+                        const Icon(Icons.edit_outlined, size: 16),
+                      ],
                     ),
-                  ],
+                  ),
+                ],
               ),
               const SizedBox(height: 72), // FAB clearance
             ],
@@ -463,8 +513,11 @@ class _RoutineScreenState extends State<RoutineScreen> {
     );
   }
 
-  Widget _templateRow(BuildContext context, PlanTemplate t,
-      {bool last = false}) {
+  Widget _templateRow(
+    BuildContext context,
+    PlanTemplate t, {
+    bool last = false,
+  }) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final summary = _habitSummary(t);
@@ -472,9 +525,7 @@ class _RoutineScreenState extends State<RoutineScreen> {
       decoration: last
           ? null
           : BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: scheme.outlineVariant),
-              ),
+              border: Border(bottom: BorderSide(color: scheme.outlineVariant)),
             ),
       padding: const EdgeInsets.symmetric(vertical: Space.s3),
       child: Column(
@@ -485,8 +536,9 @@ class _RoutineScreenState extends State<RoutineScreen> {
               Expanded(
                 child: Text(
                   t.title,
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(fontWeight: FontWeight.w600),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               Switch(
@@ -501,8 +553,9 @@ class _RoutineScreenState extends State<RoutineScreen> {
           if (summary != null)
             Text(
               summary,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: scheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
           Row(
             children: [

@@ -39,6 +39,7 @@ import '../shared_ui.dart';
 import '../store.dart';
 import 'daily_todo_screen.dart';
 import 'agenda_screen.dart';
+import 'dua_library_screen.dart';
 import 'tasks_screen.dart';
 import 'plan_list.dart';
 import 'routine_screen.dart';
@@ -1976,7 +1977,12 @@ class _TodayScreenState extends State<TodayScreen> {
                       if (mounted) setState(_refresh);
                     },
                   ),
-                  Row(
+                  // Wrap, not Row (Phase 7 safeguard): four
+                  // actions must never crowd a 360px card —
+                  // they flow to a second line instead of
+                  // shrinking below their tap targets.
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
                     children: [
                       if (open.length > 4)
                         TextButton(
@@ -1987,10 +1993,13 @@ class _TodayScreenState extends State<TodayScreen> {
                         onPressed: _openTasks,
                         child: const Text('Tasks'),
                       ),
-                      const Spacer(),
                       TextButton(
                         onPressed: _openAgenda,
                         child: const Text('Agenda'),
+                      ),
+                      TextButton(
+                        onPressed: _openDuaLibrary,
+                        child: const Text('Dua Library'),
                       ),
                     ],
                   ),
@@ -2054,6 +2063,22 @@ class _TodayScreenState extends State<TodayScreen> {
       ),
     );
     setState(_reloadPlan);
+  }
+
+  /// Mission 03 Phase 7: the Dua Library opens from the
+  /// same plan-card row (ChatGPT-reviewed entry point; the
+  /// shell keeps its four destinations).
+  Future<void> _openDuaLibrary() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DuaLibraryScreen(
+          store: widget.store,
+          learn: widget.learn,
+          thumbnails: widget.thumbnails,
+        ),
+      ),
+    );
   }
 
   Future<void> _openTasks() async {

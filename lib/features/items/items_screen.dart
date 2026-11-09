@@ -96,7 +96,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const ListTile(title: Text('Add item')),
-            for (final t in itemTypes)
+            for (final t in itemTypes.where((t) => t.offerInAddSheet))
               ListTile(
                 leading: Icon(t.icon),
                 title: Text(t.label),

@@ -14,6 +14,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../items/dua_detail_screen.dart';
 import '../items/item_detail_screen.dart';
 import '../items/link_card/thumbnail_service.dart';
 import '../learn/learn_services.dart';
@@ -49,6 +50,7 @@ String resourceActionLabel({String? url, Item? item}) {
     ItemType.note => 'Open note →',
     ItemType.htmlQuiz => 'Play →',
     ItemType.audio => 'Listen →',
+    ItemType.dua => 'Read Dua →',
     _ => 'Go →',
   };
 }
@@ -60,6 +62,7 @@ IconData resourceActionIcon({String? url, Item? item}) {
     ItemType.note => Icons.description_outlined,
     ItemType.htmlQuiz => Icons.play_circle_outline,
     ItemType.audio => Icons.play_circle_outline,
+    ItemType.dua => Icons.menu_book_outlined,
     _ => Icons.open_in_new,
   };
 }
@@ -161,4 +164,26 @@ Future<List<({Item item, String where})>> _linkableItems(Store store) async {
     }
   }
   return out;
+}
+
+/// Bottom-sheet picker over the Dua Library ONLY (Phase 7).
+/// Duas never appear in the generic Spaces picker and Spaces
+/// items never appear here; the sheet's content lives in
+/// dua_detail_screen.dart (DuaPickerSheet).
+Future<Item?> pickDuaItem(
+  BuildContext context,
+  Store store, {
+  String? currentResourceLabel,
+  VoidCallback? onAddDua,
+}) async {
+  final entries = await store.duaEntries();
+  if (!context.mounted) return null;
+  return showModalBottomSheet<Item>(
+    context: context,
+    builder: (context) => DuaPickerSheet(
+      entries: entries,
+      currentResourceLabel: currentResourceLabel,
+      onAddDua: onAddDua,
+    ),
+  );
 }

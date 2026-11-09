@@ -21,6 +21,7 @@ import '../quick_add/quick_add_service.dart';
 import '../shared_ui.dart';
 import '../store.dart';
 import 'audio/audio_item.dart';
+import 'dua_detail_screen.dart';
 import 'html_quiz/html_quiz_player_screen.dart';
 import 'link_card/link_card_service.dart';
 import 'link_card/thumbnail_service.dart';
@@ -375,6 +376,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
           thumbnails: widget.thumbnails,
         ),
         ItemType.htmlQuiz => _HtmlQuizBody(item: item, learn: widget.learn),
+        ItemType.dua => DuaDetailBody(item: item),
         ItemType.audio => AudioItemBody(
           item: item,
           library: widget.learn?.library,

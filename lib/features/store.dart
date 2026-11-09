@@ -36,13 +36,13 @@ class Workspace {
   final bool pinned;
 
   factory Workspace.fromRow(Map<String, Object?> r) => Workspace(
-        id: r['id'] as int,
-        name: r['name'] as String,
-        sortOrder: r['sort_order'] as int,
-        createdAt: r['created_at'] as int,
-        updatedAt: r['updated_at'] as int,
-        pinned: (r['pinned'] as int? ?? 0) == 1,
-      );
+    id: r['id'] as int,
+    name: r['name'] as String,
+    sortOrder: r['sort_order'] as int,
+    createdAt: r['created_at'] as int,
+    updatedAt: r['updated_at'] as int,
+    pinned: (r['pinned'] as int? ?? 0) == 1,
+  );
 }
 
 /// An item plus the names of its project and workspace (Home's
@@ -85,14 +85,14 @@ class Project {
   final String? syncId;
 
   factory Project.fromRow(Map<String, Object?> r) => Project(
-        id: r['id'] as int,
-        workspaceId: r['workspace_id'] as int,
-        name: r['name'] as String,
-        sortOrder: r['sort_order'] as int,
-        createdAt: r['created_at'] as int,
-        updatedAt: r['updated_at'] as int,
-        syncId: r['sync_id'] as String?,
-      );
+    id: r['id'] as int,
+    workspaceId: r['workspace_id'] as int,
+    name: r['name'] as String,
+    sortOrder: r['sort_order'] as int,
+    createdAt: r['created_at'] as int,
+    updatedAt: r['updated_at'] as int,
+    syncId: r['sync_id'] as String?,
+  );
 }
 
 // ---------------------------------------------------------------- ITEM
@@ -104,6 +104,7 @@ abstract final class ItemType {
   static const String linkCard = 'link_card';
   static const String htmlQuiz = 'html_quiz';
   static const String audio = 'audio';
+  static const String dua = 'dua';
 }
 
 class Item {
@@ -141,20 +142,19 @@ class Item {
   bool get isPinned => (payload?['pinned'] as bool?) ?? false;
 
   factory Item.fromRow(Map<String, Object?> r) => Item(
-        id: r['id'] as int,
-        projectId: r['project_id'] as int,
-        type: r['type'] as String,
-        title: r['title'] as String,
-        note: r['note'] as String?,
-        payload: r['payload'] == null
-            ? null
-            : (jsonDecode(r['payload'] as String) as Map)
-                .cast<String, Object?>(),
-        sortOrder: r['sort_order'] as int,
-        createdAt: r['created_at'] as int,
-        updatedAt: r['updated_at'] as int,
-        updatedHlc: r['updated_hlc'] as String?,
-      );
+    id: r['id'] as int,
+    projectId: r['project_id'] as int,
+    type: r['type'] as String,
+    title: r['title'] as String,
+    note: r['note'] as String?,
+    payload: r['payload'] == null
+        ? null
+        : (jsonDecode(r['payload'] as String) as Map).cast<String, Object?>(),
+    sortOrder: r['sort_order'] as int,
+    createdAt: r['created_at'] as int,
+    updatedAt: r['updated_at'] as int,
+    updatedHlc: r['updated_hlc'] as String?,
+  );
 }
 
 class ChecklistEntry {
@@ -173,12 +173,12 @@ class ChecklistEntry {
   final int sortOrder;
 
   factory ChecklistEntry.fromRow(Map<String, Object?> r) => ChecklistEntry(
-        id: r['id'] as int,
-        itemId: r['item_id'] as int,
-        text: r['text'] as String,
-        isDone: (r['is_done'] as int) == 1,
-        sortOrder: r['sort_order'] as int,
-      );
+    id: r['id'] as int,
+    itemId: r['item_id'] as int,
+    text: r['text'] as String,
+    isDone: (r['is_done'] as int) == 1,
+    sortOrder: r['sort_order'] as int,
+  );
 }
 
 // ---------------------------------------------------------------- Store
@@ -190,8 +190,10 @@ class Store {
 
   // --- workspaces ---
   Future<List<Workspace>> workspaces() async {
-    final rows = await _db.query('workspaces',
-        orderBy: 'sort_order ASC, id ASC');
+    final rows = await _db.query(
+      'workspaces',
+      orderBy: 'sort_order ASC, id ASC',
+    );
     return rows.map(Workspace.fromRow).toList();
   }
 
@@ -203,9 +205,11 @@ class Store {
       'created_at': now,
       'updated_at': now,
     });
-    return (await _db.query('workspaces', where: 'id = ?', whereArgs: [id]))
-        .map(Workspace.fromRow)
-        .single;
+    return (await _db.query(
+      'workspaces',
+      where: 'id = ?',
+      whereArgs: [id],
+    )).map(Workspace.fromRow).single;
   }
 
   Future<void> renameWorkspace(int id, String name) async {
@@ -223,13 +227,20 @@ class Store {
 
   // --- pinned workspaces & Home queries (S2) ---
   Future<void> setWorkspacePinned(int id, bool pinned) async {
-    await _db.update('workspaces', {'pinned': pinned ? 1 : 0},
-        where: 'id = ?', whereArgs: [id]);
+    await _db.update(
+      'workspaces',
+      {'pinned': pinned ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<List<Workspace>> pinnedWorkspaces() async {
-    final rows = await _db.query('workspaces',
-        where: 'pinned = 1', orderBy: 'sort_order ASC, id ASC');
+    final rows = await _db.query(
+      'workspaces',
+      where: 'pinned = 1',
+      orderBy: 'sort_order ASC, id ASC',
+    );
     return rows.map(Workspace.fromRow).toList();
   }
 
@@ -249,13 +260,21 @@ class Store {
   /// Find the existing Inbox project without side effects.
   /// Returns null when no mapping exists in app_settings or the pointer dangles.
   Future<Project?> getInboxProject() async {
-    final rows = await _db.query('app_settings',
-        where: 'key = ?', whereArgs: [inboxProjectKey], limit: 1);
+    final rows = await _db.query(
+      'app_settings',
+      where: 'key = ?',
+      whereArgs: [inboxProjectKey],
+      limit: 1,
+    );
     if (rows.isNotEmpty) {
       final id = int.tryParse(rows.first['value']! as String);
       if (id != null) {
-        final found = await _db.query('projects',
-            where: 'id = ?', whereArgs: [id], limit: 1);
+        final found = await _db.query(
+          'projects',
+          where: 'id = ?',
+          whereArgs: [id],
+          limit: 1,
+        );
         if (found.isNotEmpty) return Project.fromRow(found.first);
       }
     }
@@ -274,12 +293,130 @@ class Store {
         ? wsList.first
         : await createWorkspace('Inbox');
     final project = await createProject(ws.id, 'Inbox');
-    await _db.insert(
-      'app_settings',
-      {'key': inboxProjectKey, 'value': '${project.id}'},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _db.insert('app_settings', {
+      'key': inboxProjectKey,
+      'value': '${project.id}',
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
     return project;
+  }
+
+  // --- dua library (Mission 03 Phase 7) ---
+  static const String duaProjectKey = 'dua_project_id';
+  static const String duaProjectSyncKey = 'dua_project_sync_id';
+
+  /// The recorded Dua Library project sync identity, if any.
+  Future<String?> _setting(String key) async {
+    final rows = await _db.query(
+      'app_settings',
+      where: 'key = ?',
+      whereArgs: [key],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : rows.first['value'] as String?;
+  }
+
+  Future<void> _setSetting(String key, String value) => _db.insert(
+    'app_settings',
+    {'key': key, 'value': value},
+    conflictAlgorithm: ConflictAlgorithm.replace,
+  );
+
+  /// Find the Dua Library project WITHOUT side effects, in
+  /// identity order: the local pointer first, then the
+  /// project's sync identity (which survives selective sync,
+  /// unlike the local row id). A project that merely shares
+  /// the NAME is never adopted (Phase 7 review safeguard).
+  Future<Project?> getDuaProject() async {
+    final idRaw = await _setting(duaProjectKey);
+    final id = idRaw == null ? null : int.tryParse(idRaw);
+    if (id != null) {
+      final found = await _db.query(
+        'projects',
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+      if (found.isNotEmpty) return Project.fromRow(found.first);
+    }
+    final syncId = await _setting(duaProjectSyncKey);
+    if (syncId != null && syncId.isNotEmpty) {
+      final found = await _db.query(
+        'projects',
+        where: 'sync_id = ?',
+        whereArgs: [syncId],
+        limit: 1,
+      );
+      if (found.isNotEmpty) {
+        final project = Project.fromRow(found.first);
+        await _setSetting(duaProjectKey, '${project.id}');
+        return project;
+      }
+    }
+    return null;
+  }
+
+  /// Ensure the Dua Library project exists: found again via
+  /// [getDuaProject] when present; otherwise created ONCE in
+  /// the first workspace (or a new one), with its identity
+  /// recorded in app_settings. Creates an EMPTY project only
+  /// — Dua entries are created solely by the owner's Add form.
+  Future<Project> ensureDuaProject() async {
+    final existing = await getDuaProject();
+    if (existing != null) return existing;
+    final wsList = await workspaces();
+    final ws = wsList.isNotEmpty
+        ? wsList.first
+        : await createWorkspace('Dua Library');
+    final project = await createProject(ws.id, 'Dua Library');
+    await _setSetting(duaProjectKey, '${project.id}');
+    // Give the project its sync identity now (the same value
+    // the open-time backfill would assign) so the recovery
+    // key exists from the start.
+    var syncId = project.syncId;
+    if (syncId == null || syncId.isEmpty) {
+      syncId = newUuid();
+      final device = await AppDatabase.deviceId(_db);
+      await _db.update(
+        'projects',
+        {
+          'sync_id': syncId,
+          'updated_hlc': formatHlc(AppDatabase.nowMs(), 0, device),
+        },
+        where: 'id = ?',
+        whereArgs: [project.id],
+      );
+    }
+    await _setSetting(duaProjectSyncKey, syncId);
+    return project;
+  }
+
+  /// The Dua entries in the library, in library order. Empty
+  /// when the library project does not exist yet.
+  Future<List<Item>> duaEntries() async {
+    final project = await getDuaProject();
+    if (project == null) return const [];
+    final rows = await _db.query(
+      'items',
+      where: 'project_id = ? AND type = ?',
+      whereArgs: [project.id, ItemType.dua],
+      orderBy: 'sort_order ASC, id ASC',
+    );
+    return rows.map(Item.fromRow).toList();
+  }
+
+  /// How many task records reference [itemId] as their linked
+  /// resource: routine templates + day plan rows (Phase 7
+  /// delete warning).
+  Future<int> duaLinkReferenceCount(int itemId) async {
+    final t = await _db.rawQuery(
+      'SELECT COUNT(*) AS c FROM plan_templates WHERE item_id = ?',
+      [itemId],
+    );
+    final r = await _db.rawQuery(
+      'SELECT COUNT(*) AS c FROM day_plan_items WHERE item_id = ?',
+      [itemId],
+    );
+    return (t.single['c'] as int) + (r.single['c'] as int);
   }
 
   /// Total count of captured content items in the Inbox.
@@ -308,20 +445,24 @@ class Store {
       [limit],
     );
     return rows
-        .map((r) => RecentItem(
-              item: Item.fromRow(r),
-              projectName: r['project_name'] as String,
-              workspaceName: r['workspace_name'] as String,
-            ))
+        .map(
+          (r) => RecentItem(
+            item: Item.fromRow(r),
+            projectName: r['project_name'] as String,
+            workspaceName: r['workspace_name'] as String,
+          ),
+        )
         .toList();
   }
 
   // --- projects ---
   Future<List<Project>> projects(int workspaceId) async {
-    final rows = await _db.query('projects',
-        where: 'workspace_id = ?',
-        whereArgs: [workspaceId],
-        orderBy: 'sort_order ASC, id ASC');
+    final rows = await _db.query(
+      'projects',
+      where: 'workspace_id = ?',
+      whereArgs: [workspaceId],
+      orderBy: 'sort_order ASC, id ASC',
+    );
     return rows.map(Project.fromRow).toList();
   }
 
@@ -330,15 +471,21 @@ class Store {
     final id = await _db.insert('projects', {
       'workspace_id': workspaceId,
       'name': name,
-      'sort_order': (await _maxSort('projects',
-              where: 'workspace_id = ?', whereArgs: [workspaceId])) +
+      'sort_order':
+          (await _maxSort(
+            'projects',
+            where: 'workspace_id = ?',
+            whereArgs: [workspaceId],
+          )) +
           1,
       'created_at': now,
       'updated_at': now,
     });
-    return (await _db.query('projects', where: 'id = ?', whereArgs: [id]))
-        .map(Project.fromRow)
-        .single;
+    return (await _db.query(
+      'projects',
+      where: 'id = ?',
+      whereArgs: [id],
+    )).map(Project.fromRow).single;
   }
 
   /// The stored project-visit history, most recent first
@@ -350,11 +497,13 @@ class Store {
   /// visit-based Recent Projects on the Spaces landing.
   /// Device-local history (never syncs) — see RecentProjects.
   Future<void> recordProjectVisit(int projectId) async {
-    final rows = await _db.query('projects',
-        columns: ['sync_id', 'updated_hlc'],
-        where: 'id = ?',
-        whereArgs: [projectId],
-        limit: 1);
+    final rows = await _db.query(
+      'projects',
+      columns: ['sync_id', 'updated_hlc'],
+      where: 'id = ?',
+      whereArgs: [projectId],
+      limit: 1,
+    );
     if (rows.isEmpty) return;
     var syncId = rows.single['sync_id'];
     if (syncId is! String || syncId.isEmpty) {
@@ -369,7 +518,8 @@ class Store {
         'projects',
         {
           'sync_id': syncId,
-          'updated_hlc': rows.single['updated_hlc'] ??
+          'updated_hlc':
+              rows.single['updated_hlc'] ??
               formatHlc(AppDatabase.nowMs(), 0, device),
         },
         where: 'id = ?',
@@ -394,10 +544,12 @@ class Store {
 
   // --- items ---
   Future<List<Item>> items(int projectId) async {
-    final rows = await _db.query('items',
-        where: 'project_id = ?',
-        whereArgs: [projectId],
-        orderBy: 'sort_order ASC, id ASC');
+    final rows = await _db.query(
+      'items',
+      where: 'project_id = ?',
+      whereArgs: [projectId],
+      orderBy: 'sort_order ASC, id ASC',
+    );
     final list = rows.map(Item.fromRow).toList();
     list.sort((a, b) => (b.isPinned ? 1 : 0).compareTo(a.isPinned ? 1 : 0));
     return list;
@@ -417,15 +569,21 @@ class Store {
       'title': title,
       'note': note,
       'payload': payload == null ? null : jsonEncode(payload),
-      'sort_order': (await _maxSort('items',
-              where: 'project_id = ?', whereArgs: [projectId])) +
+      'sort_order':
+          (await _maxSort(
+            'items',
+            where: 'project_id = ?',
+            whereArgs: [projectId],
+          )) +
           1,
       'created_at': now,
       'updated_at': now,
     });
-    return (await _db.query('items', where: 'id = ?', whereArgs: [id]))
-        .map(Item.fromRow)
-        .single;
+    return (await _db.query(
+      'items',
+      where: 'id = ?',
+      whereArgs: [id],
+    )).map(Item.fromRow).single;
   }
 
   Future<void> updateItem(int id, {String? title, String? note}) async {
@@ -447,8 +605,12 @@ class Store {
   }
 
   Future<Item> itemById(int id) async {
-    final rows =
-        await _db.query('items', where: 'id = ?', whereArgs: [id], limit: 1);
+    final rows = await _db.query(
+      'items',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
     return Item.fromRow(rows.single);
   }
 
@@ -474,10 +636,12 @@ class Store {
 
   // --- checklist entries ---
   Future<List<ChecklistEntry>> checklistEntries(int itemId) async {
-    final rows = await _db.query('checklist_entries',
-        where: 'item_id = ?',
-        whereArgs: [itemId],
-        orderBy: 'sort_order ASC, id ASC');
+    final rows = await _db.query(
+      'checklist_entries',
+      where: 'item_id = ?',
+      whereArgs: [itemId],
+      orderBy: 'sort_order ASC, id ASC',
+    );
     return rows.map(ChecklistEntry.fromRow).toList();
   }
 
@@ -486,27 +650,40 @@ class Store {
       'item_id': itemId,
       'text': text,
       'is_done': 0,
-      'sort_order': (await _maxSort('checklist_entries',
-              where: 'item_id = ?', whereArgs: [itemId])) +
+      'sort_order':
+          (await _maxSort(
+            'checklist_entries',
+            where: 'item_id = ?',
+            whereArgs: [itemId],
+          )) +
           1,
     });
-    return (await _db
-            .query('checklist_entries', where: 'id = ?', whereArgs: [id]))
-        .map(ChecklistEntry.fromRow)
-        .single;
+    return (await _db.query(
+      'checklist_entries',
+      where: 'id = ?',
+      whereArgs: [id],
+    )).map(ChecklistEntry.fromRow).single;
   }
 
   Future<void> setChecklistEntryDone(int id, bool done) async {
-    await _db.update('checklist_entries', {'is_done': done ? 1 : 0},
-        where: 'id = ?', whereArgs: [id]);
+    await _db.update(
+      'checklist_entries',
+      {'is_done': done ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<void> updateChecklistEntry(int id, {String? text}) async {
     final values = <String, Object?>{};
     if (text != null) values['text'] = text;
     if (values.isNotEmpty) {
-      await _db.update('checklist_entries', values,
-          where: 'id = ?', whereArgs: [id]);
+      await _db.update(
+        'checklist_entries',
+        values,
+        where: 'id = ?',
+        whereArgs: [id],
+      );
     }
   }
 
@@ -514,9 +691,17 @@ class Store {
     await _db.delete('checklist_entries', where: 'id = ?', whereArgs: [id]);
   }
 
-  Future<int> _maxSort(String table, {String? where, List<Object?>? whereArgs}) async {
-    final rows = await _db.query(table,
-        columns: ['MAX(sort_order) AS m'], where: where, whereArgs: whereArgs);
+  Future<int> _maxSort(
+    String table, {
+    String? where,
+    List<Object?>? whereArgs,
+  }) async {
+    final rows = await _db.query(
+      table,
+      columns: ['MAX(sort_order) AS m'],
+      where: where,
+      whereArgs: whereArgs,
+    );
     return (rows.single['m'] as int?) ?? -1;
   }
 }

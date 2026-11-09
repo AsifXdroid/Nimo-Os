@@ -23,6 +23,7 @@ import '../items/link_card/thumbnail_service.dart';
 import '../learn/learn_services.dart';
 import '../shared_ui.dart';
 import '../store.dart';
+import 'dua_library_screen.dart';
 import 'plan_link.dart';
 import 'routine_screen.dart';
 import 'today_store.dart';
@@ -524,6 +525,12 @@ class PlanList extends StatelessWidget {
               onTap: () => Navigator.pop(c, 'item'),
             ),
             ListTile(
+              leading: const Icon(Icons.menu_book_outlined),
+              title: const Text('Dua from library'),
+              subtitle: const Text('Link a Dua you added'),
+              onTap: () => Navigator.pop(c, 'dua'),
+            ),
+            ListTile(
               leading: const Icon(Icons.headphones_outlined),
               title: const Text('Pick an audio file'),
               subtitle: const Text('For a listening task'),
@@ -596,11 +603,41 @@ class PlanList extends StatelessWidget {
         return;
       }
       await todayStore.setPlanItemLink(item.id, url: raw);
-    } else {
-      final picked = await pickLinkItem(context, store);
-      if (picked == null) return;
-      await todayStore.setPlanItemLink(item.id, itemId: picked.id);
+      onReload();
+      return;
     }
+    if (choice == 'dua') {
+      final current = item.itemId == null ? null : linkedItems[item.itemId];
+      // The lint's async-gap note does not apply: the picker
+      // checks mounted itself before building and its result
+      // is guarded immediately after the await.
+      final picked = await pickDuaItem(
+        // ignore: use_build_context_synchronously
+        context,
+        store,
+        currentResourceLabel: item.url ?? current?.title,
+        onAddDua: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DuaLibraryScreen(
+                store: store,
+                learn: learn,
+                thumbnails: thumbnails,
+              ),
+            ),
+          );
+        },
+      );
+      if (picked == null || !context.mounted) return;
+      await todayStore.setPlanItemLink(item.id, itemId: picked.id);
+      onReload();
+      return;
+    }
+    // choice == 'item'
+    final picked = await pickLinkItem(context, store);
+    if (picked == null || !context.mounted) return;
+    await todayStore.setPlanItemLink(item.id, itemId: picked.id);
     onReload();
   }
 

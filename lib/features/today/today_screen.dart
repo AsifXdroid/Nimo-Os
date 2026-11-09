@@ -1716,11 +1716,19 @@ class _TodayScreenState extends State<TodayScreen> {
     );
   }
 
-  /// "Quiet progress" (D-037): today's two scores in their inset
-  /// wells — always side by side, never merged. Before Day Close
-  /// both read as a quiet dash, exactly like the prototype.
+  /// "Quiet progress" (D-037): today's two scores — always
+  /// side by side, never merged into one number.
+  /// Core C3 (owner-confirmed 2026-11-09): ONE shared card
+  /// shows the pair normalised to a common /10 reading —
+  /// first = Done (auto), second = Self (yours) — with the
+  /// labels kept and NO denominator printed. This is
+  /// presentation only: the stored scores, their separate
+  /// calculations and the gauge fractions (Done/100,
+  /// Self/10) are exactly as before. Before Day Close both
+  /// read as a quiet dash, exactly like the prototype.
   Widget _scoresSection(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final review = data.todayReview;
     final closed = review != null && review.isClosed;
     final streak = data.streak;
@@ -1729,43 +1737,41 @@ class _TodayScreenState extends State<TodayScreen> {
       children: [
         const NeoSectionHead(title: 'Quiet progress'),
         const SizedBox(height: Space.s3),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: SpatialCard(
-                elevation: SpatialDepth.elevated,
-                borderRadius: 14,
-                padding: EdgeInsets.zero,
-                enablePerspective: true,
-                // D-053: charcoal in dark (was the spatial
-                // kit's default surface).
-                backgroundColor: Theme.of(context).brightness == Brightness.dark
-                    ? GlassTokens.darkCharcoalSolid
-                    : null,
+        SpatialCard(
+          key: const ValueKey('quiet_progress_pair'),
+          elevation: SpatialDepth.elevated,
+          borderRadius: 14,
+          padding: const EdgeInsets.all(Space.s3),
+          enablePerspective: true,
+          // D-053: charcoal in dark (was the spatial
+          // kit's default surface).
+          backgroundColor: Theme.of(context).brightness == Brightness.dark
+              ? GlassTokens.darkCharcoalSolid
+              : null,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
                 child: NeoScoreWell(
                   label: 'Done score · auto',
                   value: closed && review.doneScore != null
-                      ? '${review.doneScore}'
+                      ? '${(review.doneScore! / 10).round()}'
                       : '—',
                   sub: 'Based on your core plan',
-                  suffix: ' / 100',
+                  suffix: '',
                   fraction: closed && review.doneScore != null
                       ? review.doneScore! / 100
                       : null,
                 ),
               ),
-            ),
-            const SizedBox(width: Space.s4),
-            Expanded(
-              child: SpatialCard(
-                elevation: SpatialDepth.elevated,
-                borderRadius: 14,
-                padding: EdgeInsets.zero,
-                enablePerspective: true,
-                backgroundColor: Theme.of(context).brightness == Brightness.dark
-                    ? GlassTokens.darkCharcoalSolid
-                    : null,
+              const SizedBox(width: Space.s3),
+              Text(
+                '/',
+                style: AppType.statistic(size: 20)
+                    .copyWith(color: scheme.onSurfaceVariant),
+              ),
+              const SizedBox(width: Space.s3),
+              Expanded(
                 child: NeoScoreWell(
                   label: 'Self score · yours',
                   value: closed && review.selfScore != null
@@ -1774,14 +1780,15 @@ class _TodayScreenState extends State<TodayScreen> {
                   sub: closed
                       ? 'Your own reflection'
                       : 'Add yours at Day Close',
+                  suffix: '',
                   accentValue: true,
                   fraction: closed && review.selfScore != null
                       ? review.selfScore! / 10
                       : null,
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         if (streak.shieldsHeld > 0) ...[
           const SizedBox(height: Space.s4),

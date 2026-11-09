@@ -748,50 +748,6 @@ class NeoScoreWell extends StatelessWidget {
   }
 }
 
-/// A filter chip (`.chip`): quiet outline, or raised with an
-/// accent label when selected.
-class NeoChip extends StatelessWidget {
-  const NeoChip({
-    super.key,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return InkWell(
-      borderRadius: BorderRadius.circular(RadiusToken.control),
-      onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: Space.touch),
-        padding: const EdgeInsets.symmetric(horizontal: Space.s4),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: scheme.surface,
-          borderRadius: BorderRadius.circular(RadiusToken.control),
-          border: Border.all(
-            color: selected ? scheme.primary : scheme.outline,
-          ),
-        ),
-        child: Text(
-          label,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-            color: selected ? scheme.primary : scheme.onSurfaceVariant,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// Which of the two rationed feature surfaces (D-039).
 enum FeatureSurfaceKind { deep, paper }
 

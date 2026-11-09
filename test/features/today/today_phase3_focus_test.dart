@@ -62,10 +62,7 @@ void main() {
   /// polls cannot see it — Phase 2's smaller page kept it in
   /// range. Drags are capped; absence after the cap is a real
   /// failure.
-  Future<bool> scrollUntilFound(
-    WidgetTester tester,
-    Finder finder,
-  ) async {
+  Future<bool> scrollUntilFound(WidgetTester tester, Finder finder) async {
     // A repump can start mid-scroll: targets near the top of
     // the page (the Focus panel) are only findable from offset
     // zero, so jump home first — but wait for the loaded page
@@ -100,10 +97,7 @@ void main() {
         timeout: const Duration(milliseconds: 700),
       );
       if (found) return true;
-      await tester.drag(
-        find.byType(Scrollable).first,
-        const Offset(0, -400),
-      );
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
     }
     return finder.evaluate().isNotEmpty;
   }
@@ -156,7 +150,6 @@ void main() {
     return (tmp: tmp, db: db, todayStore: todayStore);
   }
 
-
   /// Re-pumps Today over the SAME database (screen recreation /
   /// simulated restart). Top-level-style helper built from the
   /// boot's locals so it can be declared before use.
@@ -165,13 +158,9 @@ void main() {
     final store = Store(db);
     final reviewStore = ReviewStore(db, todayStore);
     final goalsStore = GoalsStore(db);
-    final library = LibraryStore(
-      Directory('${tmp.path}/Library'),
-    );
+    final library = LibraryStore(Directory('${tmp.path}/Library'));
     await library.ensureLayout();
-    final thumbs = ThumbnailService(
-      Directory('${tmp.path}/thumbs'),
-    );
+    final thumbs = ThumbnailService(Directory('${tmp.path}/thumbs'));
     final learn = LearnServices(LearnStore(db), library, db: db);
     await tester.pumpWidget(
       MaterialApp(
@@ -251,8 +240,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
   }
 
-  testWidgets('Phase 3: default focus is the first incomplete task',
-      (tester) async {
+  testWidgets('Phase 3: default focus is the first incomplete task', (
+    tester,
+  ) async {
     await tester.runAsync(() async {
       final h = await boot(tester);
       expect(find.byKey(const ValueKey('focus_panel')), findsOneWidget);
@@ -273,16 +263,16 @@ void main() {
     });
   });
 
-  testWidgets('Phase 3: carried-over task can be the default focus',
-      (tester) async {
+  testWidgets('Phase 3: carried-over task can be the default focus', (
+    tester,
+  ) async {
     await tester.runAsync(() async {
       final h = await boot(tester);
       // Complete both routines at data level; a fresh boot then
       // defaults to the carried item (third in plan order).
       final items = await h.todayStore.planItems(DateTime.now());
       for (final t in ['Morning pages', 'Arabic revision']) {
-        await h.todayStore
-            .toggleItem(items.firstWhere((e) => e.title == t));
+        await h.todayStore.toggleItem(items.firstWhere((e) => e.title == t));
       }
       await repump(tester, h.db, h.tmp);
       // The toggles above ran while the first screen was live;
@@ -303,10 +293,7 @@ void main() {
       );
       expect(await scrollUntilFound(tester, find.text("Today's plan")), isTrue);
       expect(
-        await pollFor(
-          tester,
-          focusTitle('Call the bank about the card'),
-        ),
+        await pollFor(tester, focusTitle('Call the bank about the card')),
         isTrue,
       );
       // CARRIED tag shows inside the panel too.
@@ -365,10 +352,7 @@ void main() {
       // survives within the same day.
       await repump(tester, h.db, h.tmp);
       expect(await scrollUntilFound(tester, find.text("Today's plan")), isTrue);
-      expect(
-        await pollFor(tester, focusTitle('Read 10 pages')),
-        isTrue,
-      );
+      expect(await pollFor(tester, focusTitle('Read 10 pages')), isTrue);
       expect(find.text('Chosen by you'), findsOneWidget);
       await h.db.close();
       await h.tmp.delete(recursive: true);
@@ -380,10 +364,7 @@ void main() {
     await tester.runAsync(() async {
       final h = await boot(tester);
       await pickFocus(tester, 'Read 10 pages');
-      expect(
-        await pollFor(tester, focusTitle('Read 10 pages')),
-        isTrue,
-      );
+      expect(await pollFor(tester, focusTitle('Read 10 pages')), isTrue);
       // Customize: open the dialog, toggle the week strip off,
       // save (a _refresh reload). 'Customize Home' is the hero's
       // text button — scroll to the very top first (the pick
@@ -393,15 +374,20 @@ void main() {
       // strip section OFF and saving triggers exactly the
       // _refresh reload the button's flow uses (proven in the
       // Phase 2 correction tests via the same Customize save).
-      await h.todayStore
-          .setHomeSectionVisible(TodayStore.sectionWeekStrip, false);
+      await h.todayStore.setHomeSectionVisible(
+        TodayStore.sectionWeekStrip,
+        false,
+      );
       // Rebuild the screen so it performs its _refresh reload
       // with the changed setting (same reload class as the
       // dialog's onSave setState).
       await repump(tester, h.db, h.tmp);
       expect(
-        await pollFor(tester, focusTitle('Read 10 pages'),
-            timeout: const Duration(seconds: 10)),
+        await pollFor(
+          tester,
+          focusTitle('Read 10 pages'),
+          timeout: const Duration(seconds: 10),
+        ),
         isTrue,
         reason: 'manual focus survives the unrelated reload',
       );
@@ -413,20 +399,14 @@ void main() {
     await tester.runAsync(() async {
       final h = await boot(tester);
       await pickFocus(tester, 'Read 10 pages');
-      expect(
-        await pollFor(tester, focusTitle('Read 10 pages')),
-        isTrue,
-      );
+      expect(await pollFor(tester, focusTitle('Read 10 pages')), isTrue);
       await tester.ensureVisible(find.text('Done'));
       await tester.pump(const Duration(milliseconds: 300));
       await tester.tap(find.widgetWithText(FilledButton, 'Done'));
       await tester.pump();
       // Next incomplete in plan order is now focused,
       // automatically.
-      expect(
-        await pollFor(tester, focusTitle('Morning pages')),
-        isTrue,
-      );
+      expect(await pollFor(tester, focusTitle('Morning pages')), isTrue);
       expect(find.text('Chosen by you'), findsNothing);
       expect(await h.todayStore.focusSelection(), isNull);
       expect(find.text('1 of 7 done'), findsOneWidget);
@@ -440,10 +420,7 @@ void main() {
     await tester.runAsync(() async {
       final h = await boot(tester);
       await pickFocus(tester, 'Read 10 pages');
-      expect(
-        await pollFor(tester, focusTitle('Read 10 pages')),
-        isTrue,
-      );
+      expect(await pollFor(tester, focusTitle('Read 10 pages')), isTrue);
       // Tap the task's row inside the preview (plan panel).
       final row = find.descendant(
         of: find.byKey(const ValueKey('focus_plan_anchor')),
@@ -506,18 +483,14 @@ void main() {
       );
       // Yesterday's date: even a REAL task sync_id is stale.
       final items = await h.todayStore.planItems(DateTime.now());
-      final target =
-          items.firstWhere((e) => e.title == 'Read 10 pages');
+      final target = items.firstWhere((e) => e.title == 'Read 10 pages');
       await h.todayStore.setFocusSelection(
         DateTime.now().subtract(const Duration(days: 1)),
         target.syncId!,
       );
       await repump(tester, h.db, h.tmp);
       expect(await scrollUntilFound(tester, find.text("Today's plan")), isTrue);
-      expect(
-        await pollFor(tester, focusTitle('Morning pages')),
-        isTrue,
-      );
+      expect(await pollFor(tester, focusTitle('Morning pages')), isTrue);
       expect(find.text('Chosen by you'), findsNothing);
       expect(await h.todayStore.focusSelection(), isNull);
       await h.db.close();
@@ -530,23 +503,32 @@ void main() {
     await tester.runAsync(() async {
       final h = await boot(tester);
       await pickFocus(tester, 'Read 10 pages');
-      expect(
-        await pollFor(tester, focusTitle('Read 10 pages')),
-        isTrue,
-      );
+      expect(await pollFor(tester, focusTitle('Read 10 pages')), isTrue);
       await tester.ensureVisible(find.text('Change'));
       await tester.pump(const Duration(milliseconds: 300));
       await tester.tap(find.text('Change'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      await tester.tap(
+      // Wait for the sheet to actually build its rows, then invoke
+      // the Automatic row's onTap directly: synthetic taps in this
+      // dense sheet are unreliable under load (audit Step 4 — this
+      // was the flaky step: a fixed 300ms pump raced the sheet's
+      // entrance and the real-IO reload that follows).
+      expect(
+        await pollFor(
+          tester,
+          find.byKey(const ValueKey('focus_pick_automatic')),
+          timeout: const Duration(seconds: 10),
+        ),
+        isTrue,
+        reason: 'focus picker sheet opened',
+      );
+      final autoTile = tester.widget<ListTile>(
         find.byKey(const ValueKey('focus_pick_automatic')),
       );
+      autoTile.onTap!.call();
       await tester.pump();
-      expect(
-        await pollFor(tester, focusTitle('Morning pages')),
-        isTrue,
-      );
+      expect(await pollFor(tester, focusTitle('Morning pages')), isTrue);
       expect(find.text('Chosen by you'), findsNothing);
       expect(await h.todayStore.focusSelection(), isNull);
       await h.db.close();
@@ -559,19 +541,12 @@ void main() {
     await tester.runAsync(() async {
       final h = await boot(tester);
       final items = await h.todayStore.planItems(DateTime.now());
-      final target =
-          items.firstWhere((e) => e.title == 'Read 10 pages');
-      await h.todayStore.setFocusSelection(
-        DateTime.now(),
-        target.syncId!,
-      );
+      final target = items.firstWhere((e) => e.title == 'Read 10 pages');
+      await h.todayStore.setFocusSelection(DateTime.now(), target.syncId!);
       await h.todayStore.deletePlanItem(target.id);
       await repump(tester, h.db, h.tmp);
       expect(await scrollUntilFound(tester, find.text("Today's plan")), isTrue);
-      expect(
-        await pollFor(tester, focusTitle('Morning pages')),
-        isTrue,
-      );
+      expect(await pollFor(tester, focusTitle('Morning pages')), isTrue);
       expect(find.text('Chosen by you'), findsNothing);
       expect(await h.todayStore.focusSelection(), isNull);
       await h.db.close();
@@ -590,10 +565,7 @@ void main() {
       await repump(tester, h.db, h.tmp);
       expect(await scrollUntilFound(tester, find.text("Today's plan")), isTrue);
       expect(
-        await pollFor(
-          tester,
-          find.text('Everything is done for today.'),
-        ),
+        await pollFor(tester, find.text('Everything is done for today.')),
         isTrue,
       );
       // Slim state: panel present, no Done/Change actions.
@@ -622,10 +594,7 @@ void main() {
       'linked resource action', (tester) async {
     await tester.runAsync(() async {
       final h = await boot(tester);
-      expect(
-        await scrollUntilFound(tester, find.text("Today's plan")),
-        isTrue,
-      );
+      expect(await scrollUntilFound(tester, find.text("Today's plan")), isTrue);
       // Link a Spaces note to the default focus task at data
       // level, then repump: the panel must offer the same
       // 'Open note \u2192' action the plan row carries.
@@ -638,8 +607,7 @@ void main() {
         note: 'body',
       );
       final items = await h.todayStore.planItems(DateTime.now());
-      final first =
-          items.firstWhere((e) => e.title == 'Morning pages');
+      final first = items.firstWhere((e) => e.title == 'Morning pages');
       await h.db.update(
         'day_plan_items',
         {'item_id': note.id},

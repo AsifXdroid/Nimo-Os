@@ -1674,7 +1674,7 @@ class _TodayScreenState extends State<TodayScreen> {
                 key: const ValueKey('dua_library_tile'),
                 elevation: SpatialDepth.elevated,
                 borderRadius: 14,
-                padding: const EdgeInsets.all(Space.s4),
+                padding: const EdgeInsets.all(Space.s3),
                 enablePerspective: true,
                 backgroundColor: Theme.of(context).brightness == Brightness.dark
                     ? GlassTokens.darkCharcoalSolid
@@ -1683,10 +1683,16 @@ class _TodayScreenState extends State<TodayScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.menu_book_outlined, color: scheme.primary),
+                    Icon(
+                      Icons.menu_book_outlined,
+                      size: 20,
+                      color: scheme.primary,
+                    ),
                     const Spacer(),
                     Text(
                       'Your Spiritual Space',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                         fontWeight: FontWeight.w600,
@@ -1699,13 +1705,11 @@ class _TodayScreenState extends State<TodayScreen> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: Space.s2),
-                    Text(
-                      'Your saved duas',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
+                    // C5 (full suite, 2026-11-10): the tile is a
+                    // ~133px square on a 360px phone — a third
+                    // text line overflowed it by 65–80px. Two
+                    // lines only; the library's own empty state
+                    // says what is inside.
                   ],
                 ),
               ),

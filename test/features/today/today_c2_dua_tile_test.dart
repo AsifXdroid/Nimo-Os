@@ -40,8 +40,9 @@ void main() {
   Future<void> pumpToday(
     WidgetTester tester, {
     bool withPlanItem = true,
+    Size surface = const Size(800, 1700),
   }) async {
-    tester.view.physicalSize = const Size(800, 1700);
+    tester.view.physicalSize = surface;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     final tmp = await Directory.systemTemp.createTemp('nimo-c2-');
@@ -106,6 +107,37 @@ void main() {
       await tester.tap(find.byKey(tileKey));
       await waitFor(tester, find.byType(DuaLibraryScreen));
       expect(find.textContaining('Your Dua Library is empty'), findsOneWidget);
+    });
+  });
+
+  // C5 (full suite, 2026-11-10): at phone width the tile is
+  // only ~133px square and its three text lines overflowed by
+  // 65px (today_screen.dart tile Column) — the same overflow
+  // failed three shell tests. Rendering at 360px wide must
+  // produce no overflow error at all.
+  testWidgets('C2: the tile fits on a 360px phone surface '
+      'with no overflow', (tester) async {
+    await tester.runAsync(() async {
+      await pumpToday(tester, surface: const Size(360, 800));
+      // Scroll until the tile is built (at phone height it
+      // sits below the lazy-build cutoff).
+      for (var i = 0; i < 40; i++) {
+        if (find.byKey(tileKey).evaluate().isNotEmpty) break;
+        await Future<void>.delayed(const Duration(milliseconds: 60));
+        await tester.pump(const Duration(milliseconds: 60));
+        if (i % 4 == 3 && find.byType(Scrollable).evaluate().isNotEmpty) {
+          await tester.drag(
+            find.byType(Scrollable).first,
+            const Offset(0, -400),
+          );
+          await tester.pump(const Duration(milliseconds: 150));
+        }
+      }
+      await waitFor(tester, find.byKey(tileKey));
+      final size = tester.getSize(find.byKey(tileKey));
+      expect(size.width, size.height, reason: 'the tile is square');
+      expect(size.width, lessThan(170));
+      expect(find.text('Dua Library'), findsOneWidget);
     });
   });
 

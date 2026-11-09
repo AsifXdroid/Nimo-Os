@@ -1059,10 +1059,17 @@ class SyncStore {
     }
     for (final entry in archive.files) {
       final name = entry.name;
+      final segments = name.split('/');
+      // Same rule as BackupStore._checkEntryName, incl. the
+      // Step 5 P13 empty-segment rejection (trailing slash on a
+      // directory entry is the only permitted empty segment).
       final bad =
           name.startsWith('/') ||
           name.contains('\\') ||
-          name.split('/').any((seg) => seg == '..' || seg == '.');
+          segments.any((seg) => seg == '..' || seg == '.') ||
+          segments.indexed.any(
+            (e) => e.$2.isEmpty && e.$1 < segments.length - 1,
+          );
       if (bad) {
         throw SyncException('Sync package contains an unsafe path: $name');
       }
@@ -1482,7 +1489,7 @@ class SyncStore {
       // bookkeeping column nothing reads for logic.
       row['created_at'] =
           int.tryParse(op.hlc.split('-').first) ??
-              DateTime.now().millisecondsSinceEpoch;
+          DateTime.now().millisecondsSinceEpoch;
     }
     row['sync_id'] = op.syncId;
     row['updated_hlc'] = op.hlc;

@@ -49,8 +49,10 @@ class BackupException implements Exception {
 /// without the D-011 confirmation. Nothing has been touched.
 class RestoreConfirmationRequired extends BackupException {
   RestoreConfirmationRequired()
-      : super('Restoring over existing data needs the '
-            '"replaces everything on this device" confirmation.');
+    : super(
+        'Restoring over existing data needs the '
+        '"replaces everything on this device" confirmation.',
+      );
 }
 
 class BackupManifest {
@@ -72,13 +74,13 @@ class BackupManifest {
   final String? dbSha256;
 
   Map<String, Object?> toJson() => {
-        'kind': 'nimo-backup',
-        'format_version': formatVersion,
-        'schema_version': schemaVersion,
-        'exported_at': exportedAt,
-        'device_id': deviceId,
-        if (dbSha256 != null) 'db_sha256': dbSha256,
-      };
+    'kind': 'nimo-backup',
+    'format_version': formatVersion,
+    'schema_version': schemaVersion,
+    'exported_at': exportedAt,
+    'device_id': deviceId,
+    if (dbSha256 != null) 'db_sha256': dbSha256,
+  };
 
   factory BackupManifest.fromJson(Map<String, Object?> json) {
     if (json['kind'] != 'nimo-backup') {
@@ -156,13 +158,11 @@ class BackupStore {
     final library = LibraryStore(libraryRoot);
     await library.ensureLayout();
 
-    final staging =
-        await Directory.systemTemp.createTemp('nimo-backup-');
+    final staging = await Directory.systemTemp.createTemp('nimo-backup-');
     try {
       final snapshotPath = p.join(staging.path, 'database.sqlite');
       // VACUUM INTO writes a consistent snapshot of the live DB.
-      await db.execute(
-          "VACUUM INTO '${snapshotPath.replaceAll("'", "''")}'");
+      await db.execute("VACUUM INTO '${snapshotPath.replaceAll("'", "''")}'");
       final manifest = BackupManifest(
         formatVersion: formatVersion,
         schemaVersion: AppDatabase.schemaVersion,
@@ -171,29 +171,41 @@ class BackupStore {
         // D-043: digest of the snapshot exactly as it will be
         // zipped, so a damaged or tampered copy is caught at
         // inspect time — before any restore begins.
-        dbSha256:
-            sha256.convert(await File(snapshotPath).readAsBytes()).toString(),
+        dbSha256: sha256
+            .convert(await File(snapshotPath).readAsBytes())
+            .toString(),
       );
       final manifestFile = File(p.join(staging.path, 'backup.json'));
-      await manifestFile
-          .writeAsString(jsonEncode(manifest.toJson()), flush: true);
+      await manifestFile.writeAsString(
+        jsonEncode(manifest.toJson()),
+        flush: true,
+      );
 
       final name = 'nimo-backup-${_fileStamp(stamp)}.zip';
-      final tmpZip = File(p.join(
-          libraryRoot.path, 'backups', '$name.tmp-${stamp.microsecondsSinceEpoch % 100000}'));
+      final tmpZip = File(
+        p.join(
+          libraryRoot.path,
+          'backups',
+          '$name.tmp-${stamp.microsecondsSinceEpoch % 100000}',
+        ),
+      );
       final encoder = ZipFileEncoder();
       encoder.create(tmpZip.path);
       try {
         await encoder.addFile(manifestFile, 'backup.json');
         await encoder.addFile(File(snapshotPath), 'database.sqlite');
         if (await libraryRoot.exists()) {
-          await for (final entity
-              in libraryRoot.list(recursive: true, followLinks: false)) {
+          await for (final entity in libraryRoot.list(
+            recursive: true,
+            followLinks: false,
+          )) {
             if (entity is! File) continue;
             final rel = p.relative(entity.path, from: libraryRoot.path);
             if (rel.startsWith('backups${p.separator}')) continue;
             await encoder.addFile(
-                entity, 'library/${rel.split(p.separator).join('/')}');
+              entity,
+              'library/${rel.split(p.separator).join('/')}',
+            );
           }
         }
       } finally {
@@ -223,8 +235,9 @@ class BackupStore {
       // Entry content decompresses lazily — a corrupt entry
       // throws here, not inside _decode.
       manifest = BackupManifest.fromJson(
-          (jsonDecode(utf8.decode(manifestFile.content)) as Map)
-              .cast<String, Object?>());
+        (jsonDecode(utf8.decode(manifestFile.content)) as Map)
+            .cast<String, Object?>(),
+      );
     } on BackupException {
       rethrow;
     } catch (_) {
@@ -232,16 +245,18 @@ class BackupStore {
     }
     if (manifest.formatVersion > formatVersion) {
       throw BackupException(
-          'This backup uses a newer backup format '
-          '(format ${manifest.formatVersion}, this app understands '
-          '$formatVersion). Update the app first.');
+        'This backup uses a newer backup format '
+        '(format ${manifest.formatVersion}, this app understands '
+        '$formatVersion). Update the app first.',
+      );
     }
     if (manifest.schemaVersion > AppDatabase.schemaVersion) {
       throw BackupException(
-          'This backup was made by a newer version of the app '
-          '(data format ${manifest.schemaVersion}, this app '
-          'understands ${AppDatabase.schemaVersion}). Update the '
-          'app first.');
+        'This backup was made by a newer version of the app '
+        '(data format ${manifest.schemaVersion}, this app '
+        'understands ${AppDatabase.schemaVersion}). Update the '
+        'app first.',
+      );
     }
     final snapshot = archive.findFile('database.sqlite');
     if (snapshot == null) {
@@ -256,14 +271,16 @@ class BackupStore {
         actual = sha256.convert(snapshot.content).toString();
       } catch (_) {
         throw BackupException(
-            'Backup failed its integrity check (unreadable '
-            'database).');
+          'Backup failed its integrity check (unreadable '
+          'database).',
+        );
       }
       if (actual != manifest.dbSha256) {
         throw BackupException(
-            'Backup failed its integrity check — the database '
-            'does not match the manifest digest. The file may '
-            'be damaged; try another backup.');
+          'Backup failed its integrity check — the database '
+          'does not match the manifest digest. The file may '
+          'be damaged; try another backup.',
+        );
       }
     }
     return manifest;
@@ -276,15 +293,17 @@ class BackupStore {
     if (!await File(dbPath).exists()) return false;
     Database? db;
     try {
-      db = await databaseFactory.openDatabase(dbPath,
-          options: OpenDatabaseOptions(readOnly: true));
+      db = await databaseFactory.openDatabase(
+        dbPath,
+        options: OpenDatabaseOptions(readOnly: true),
+      );
       final tables = await db.rawQuery(
-          "SELECT name FROM sqlite_master WHERE type = 'table'");
+        "SELECT name FROM sqlite_master WHERE type = 'table'",
+      );
       final present = tables.map((r) => r['name'] as String).toSet();
       for (final table in _contentTables) {
         if (!present.contains(table)) continue;
-        final rows =
-            await db.rawQuery('SELECT COUNT(*) AS c FROM "$table"');
+        final rows = await db.rawQuery('SELECT COUNT(*) AS c FROM "$table"');
         if ((rows.single['c'] as int) > 0) return true;
       }
       return false;
@@ -327,7 +346,10 @@ class BackupStore {
       final conn = await databaseFactory.openDatabase(dbPath);
       try {
         final pre = await exportBackup(
-            db: conn, libraryRoot: libraryRoot, now: now);
+          db: conn,
+          libraryRoot: libraryRoot,
+          now: now,
+        );
         preRestorePath = pre.path;
       } finally {
         await conn.close();
@@ -336,13 +358,13 @@ class BackupStore {
 
     // Stage the snapshot and prove it is a sound database before
     // it goes anywhere near the live path.
-    final staging =
-        await Directory.systemTemp.createTemp('nimo-restore-');
+    final staging = await Directory.systemTemp.createTemp('nimo-restore-');
     try {
       final stagedDb = File(p.join(staging.path, 'database.sqlite'));
       await stagedDb.writeAsBytes(
-          archive.findFile('database.sqlite')!.content,
-          flush: true);
+        archive.findFile('database.sqlite')!.content,
+        flush: true,
+      );
       await _verifySnapshot(stagedDb.path);
 
       // Prove every library entry decompresses BEFORE the swap,
@@ -354,8 +376,7 @@ class BackupStore {
           }
         }
       } catch (_) {
-        throw BackupException(
-            'Backup contains an unreadable file entry.');
+        throw BackupException('Backup contains an unreadable file entry.');
       }
 
       // Swap the database files (same directory = same volume, so
@@ -458,8 +479,7 @@ class BackupStore {
         totalEntryBytes += entry.size;
         if (entry.size > maxEntryBytes ||
             totalEntryBytes > maxTotalEntryBytes) {
-          throw BackupException(
-              'Backup contents are unreasonably large.');
+          throw BackupException('Backup contents are unreasonably large.');
         }
       }
     }
@@ -468,10 +488,18 @@ class BackupStore {
 
   /// Zip-slip defence: no absolute paths, no `..` segments, no
   /// backslash tricks — in ANY entry, even ones we would ignore.
+  /// Empty segments (`a//b`) are rejected too (Step 5 probe P13):
+  /// `library//…` passed this check, then threw inside
+  /// LibraryStore mid-restore — AFTER the live Library subdirs
+  /// had been cleared. A trailing slash (directory entry) is the
+  /// only permitted empty segment.
   static void _checkEntryName(String name) {
-    final bad = name.startsWith('/') ||
+    final segments = name.split('/');
+    final bad =
+        name.startsWith('/') ||
         name.contains('\\') ||
-        name.split('/').any((seg) => seg == '..' || seg == '.');
+        segments.any((seg) => seg == '..' || seg == '.') ||
+        segments.indexed.any((e) => e.$2.isEmpty && e.$1 < segments.length - 1);
     if (bad) {
       throw BackupException('Backup contains an unsafe path: $name');
     }
@@ -480,24 +508,25 @@ class BackupStore {
   Future<void> _verifySnapshot(String path) async {
     Database? db;
     try {
-      db = await databaseFactory.openDatabase(path,
-          options: OpenDatabaseOptions(readOnly: true));
+      db = await databaseFactory.openDatabase(
+        path,
+        options: OpenDatabaseOptions(readOnly: true),
+      );
       final integrity = await db.rawQuery('PRAGMA integrity_check');
-      if (integrity.isEmpty ||
-          integrity.first['integrity_check'] != 'ok') {
+      if (integrity.isEmpty || integrity.first['integrity_check'] != 'ok') {
         throw BackupException('The backup database is damaged.');
       }
       final version = await db.rawQuery('PRAGMA user_version');
       final v = version.first['user_version'] as int;
       if (v > AppDatabase.schemaVersion) {
         throw BackupException(
-            'This backup was made by a newer version of the app.');
+          'This backup was made by a newer version of the app.',
+        );
       }
       // integrity_check does not catch dangling references.
       final fk = await db.rawQuery('PRAGMA foreign_key_check');
       if (fk.isNotEmpty) {
-        throw BackupException(
-            'The backup database has broken references.');
+        throw BackupException('The backup database has broken references.');
       }
     } on BackupException {
       rethrow;

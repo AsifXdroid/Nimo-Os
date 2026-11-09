@@ -565,25 +565,67 @@ class _RoutineScreenState extends State<RoutineScreen> {
                   tooltip: "Add to today's plan",
                   onPressed: () => _addToToday(t),
                 ),
-              IconButton(
-                icon: const Icon(Icons.spa_outlined, size: 20),
-                tooltip: 'Habit details',
-                onPressed: () => _habitDetails(t),
-              ),
-              IconButton(
-                icon: const Icon(Icons.event_outlined, size: 20),
-                tooltip: 'Schedule & link',
-                onPressed: () => _scheduleLink(t),
-              ),
-              IconButton(
-                icon: const Icon(Icons.edit_outlined, size: 20),
-                tooltip: 'Rename',
-                onPressed: () => _rename(t),
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, size: 20),
-                tooltip: 'Delete',
-                onPressed: () => _delete(t),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, size: 20),
+                tooltip: 'Routine options',
+                onSelected: (val) {
+                  switch (val) {
+                    case 'habit':
+                      _habitDetails(t);
+                    case 'schedule':
+                      _scheduleLink(t);
+                    case 'rename':
+                      _rename(t);
+                    case 'delete':
+                      _delete(t);
+                  }
+                },
+                itemBuilder: (ctx) => [
+                  const PopupMenuItem(
+                    value: 'habit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.spa_outlined, size: 18),
+                        SizedBox(width: 12),
+                        Text('Habit details'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'schedule',
+                    child: Row(
+                      children: [
+                        Icon(Icons.event_outlined, size: 18),
+                        SizedBox(width: 12),
+                        Text('Schedule & link'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'rename',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined, size: 18),
+                        SizedBox(width: 12),
+                        Text('Rename'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.delete_outline,
+                          size: 18,
+                          color: scheme.error,
+                        ),
+                        const SizedBox(width: 12),
+                        Text('Delete', style: TextStyle(color: scheme.error)),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

@@ -209,6 +209,31 @@ void main() {
     expect(await Link(linkPath).exists(), isTrue, reason: 'link itself kept');
   });
 
+  test(
+      'delete cleanup: symlink into a prefix-sharing sibling is refused',
+      () async {
+    final f = await fixture();
+    // The audit counterexample: <tmp>/Library-evil shares the
+    // string prefix of <tmp>/Library but is NOT inside it. A
+    // startsWith containment check would pass this path; a
+    // path-aware one must refuse it.
+    final sibling = Directory('${f.dir.path}/Library-evil');
+    await Directory('${sibling.path}/audio').create(recursive: true);
+    final outside = File('${sibling.path}/audio/evil.mp3');
+    await outside.writeAsBytes([9]);
+    final linkPath = '${f.library.rootPath}/audio/sneak.mp3';
+    await Link(linkPath).create(outside.path);
+    final item = await audioItem(f.store, f.projectId, 'audio/sneak.mp3');
+    await deleteItemWithFileCleanup(
+      store: f.store,
+      library: f.library,
+      item: item,
+    );
+    expect(await outside.exists(), isTrue,
+        reason: 'prefix-sharing sibling must not be deleted');
+    expect(await Link(linkPath).exists(), isTrue, reason: 'link itself kept');
+  });
+
   test('import failure after copy leaves no orphan file', () async {
     final f = await fixture();
     final src = File('${f.dir.path}/orphan.mp3');

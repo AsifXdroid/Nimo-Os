@@ -1,3 +1,5 @@
+import 'package:path/path.dart' as p;
+
 import '../learn/library_store.dart';
 import '../store.dart';
 
@@ -31,7 +33,9 @@ Future<void> deleteItemWithFileCleanup({
     // the canonical root (a symlink hop), the file stays.
     final rootCanon = await library.root.resolveSymbolicLinks();
     final fileCanon = await file.resolveSymbolicLinks();
-    if (fileCanon.startsWith(rootCanon) == false) return;
+    if (fileCanon == rootCanon || p.isWithin(rootCanon, fileCanon) == false) {
+      return;
+    }
     await file.delete();
   } catch (_) {
     // Keep the file.

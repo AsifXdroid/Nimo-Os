@@ -178,23 +178,32 @@ void main() {
           // Mission 03 Phase 2/4: Today shows a compact
           // preview of incomplete tasks only. Task #30 is
           // completed (even index), so it never renders on
-          // Today; the last INCOMPLETE task is #29. Phase 4:
-          // 'See all' opens the Daily To-do screen — the full
-          // day renders there, including completed #30 in its
-          // Completed group.
+          // Today; the last INCOMPLETE task is #29. UX Phase
+          // 5: the permanent View Full Plan entry opens the
+          // Full Plan — the full day renders there, including
+          // completed #30 in its Completed group — and the
+          // card counts the 11 tasks the preview hides.
           expect(find.text('Task #30'), findsNothing);
-          await tester.ensureVisible(find.text('See all'));
+          expect(find.text('+11 more tasks'), findsOneWidget);
+          final entry = find.byKey(const ValueKey('view_full_plan_entry'));
+          for (var i = 0; i < 30 && entry.evaluate().isEmpty; i++) {
+            await tester.drag(
+              find.byType(ListView).first,
+              const Offset(0, -300),
+            );
+            await tester.pump();
+            await Future<void>.delayed(const Duration(milliseconds: 30));
+          }
+          await tester.ensureVisible(entry);
           await tester.pump(const Duration(milliseconds: 300));
-          // Invoke the button's callback directly: a synthetic
-          // tap at this density can land on the row above the
-          // button instead (same lesson as the sheet tiles).
-          final seeAll = tester.widget<TextButton>(
-            find.ancestor(
-              of: find.text('See all'),
-              matching: find.byType(TextButton),
-            ),
-          );
-          seeAll.onPressed!();
+          // Invoke the row's callback directly: a synthetic
+          // tap at this density can land on the row above
+          // instead (same lesson as the sheet tiles).
+          tester
+              .widget<InkWell>(
+                find.descendant(of: entry, matching: find.byType(InkWell)),
+              )
+              .onTap!();
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 300));
           var opened = false;

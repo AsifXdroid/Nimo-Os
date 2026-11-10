@@ -285,10 +285,9 @@ void main() {
     });
   });
 
-  testWidgets('Phase 4: cross-screen — See all navigates; a completion '
-      'in Daily To-do shows on Today after return, Focus included', (
-    tester,
-  ) async {
+  testWidgets('Phase 4: cross-screen — View Full Plan navigates; a '
+      'completion in Daily To-do shows on Today after return, Focus '
+      'included', (tester) async {
     tallSurface(tester);
     await tester.runAsync(() async {
       final h = await boot(tester, withToday: true);
@@ -301,10 +300,11 @@ void main() {
         ),
         'today preview',
       );
-      await until(tester, find.text('See all'), 'see all');
-      await tester.ensureVisible(find.text('See all'));
+      final entry = find.byKey(const ValueKey('view_full_plan_entry'));
+      await until(tester, entry, 'view full plan entry');
+      await tester.ensureVisible(entry);
       await tester.pump(const Duration(milliseconds: 300));
-      await tester.tap(find.text('See all'));
+      await tester.tap(entry);
       await until(tester, find.text('DAILY TO-DO'), 'daily to-do screen');
       expect(find.byType(DailyTodoScreen), findsOneWidget);
 

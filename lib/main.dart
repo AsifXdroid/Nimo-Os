@@ -742,6 +742,7 @@ class _AppShellState extends State<AppShell> {
           syncSection: _syncSection(),
           themeChoice: widget.themeChoice,
           onThemeChanged: widget.onThemeChanged,
+          todayStore: widget.todayStore,
         ),
       ),
     );

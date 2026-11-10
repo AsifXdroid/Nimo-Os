@@ -18,7 +18,9 @@
 ///    steppers and Today button are gone.
 /// 5. Cross-screen: Open in Daily To-do shows the same date;
 ///    completing a row there reflects back in Agenda.
-/// 6. Reachable from Today via the 'Agenda' button (D9).
+/// 6. Reachable from Today via the hero calendar (D9;
+///    UX Phase 5 moved the door from the plan card to the
+///    header).
 library;
 
 import 'dart:io';
@@ -556,8 +558,8 @@ void main() {
     });
   });
 
-  testWidgets('Phase 6: reachable from Today via the Agenda '
-      'button (D9)', (tester) async {
+  testWidgets('Phase 6: reachable from Today via the hero '
+      'calendar (D9)', (tester) async {
     tallSurface(tester);
     await tester.runAsync(() async {
       final h = await boot(tester);
@@ -567,23 +569,10 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(theme: AppTheme.neoDark(), home: h.todayScreen),
       );
-      // Wait for Today's plan card + its button row.
-      final anchor = find.byKey(const ValueKey('focus_plan_anchor'));
-      await until(
-        tester,
-        find.descendant(of: anchor, matching: find.text('Tasks')),
-        'plan card buttons',
-      );
-      final agendaBtn = find.descendant(
-        of: anchor,
-        matching: find.text('Agenda'),
-      );
-      expect(agendaBtn, findsOneWidget);
-      tester
-          .widget<TextButton>(
-            find.ancestor(of: agendaBtn, matching: find.byType(TextButton)),
-          )
-          .onPressed!();
+      // UX Phase 5: the Agenda door is the hero brand row's
+      // calendar button.
+      await until(tester, find.byTooltip('Agenda'), 'calendar button');
+      await tester.tap(find.byTooltip('Agenda'));
       await until(tester, find.byType(AgendaScreen), 'agenda screen');
       expect(find.text('Agenda'), findsWidgets);
       // The week strip is there.

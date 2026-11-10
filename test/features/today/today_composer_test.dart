@@ -1,9 +1,9 @@
 // TODAY — the inline "Add a task for today…" composer is
 // gone (UX refinement, 2026-11-01): it duplicated the global
-// Quick Add capture (shell floating + and the hub's quick-add
-// row). Task creation survives through those paths; the plan,
-// its rows and the quick-add row (Task / Goal / Note /
-// Checklist) are unchanged.
+// Quick Add capture lives in the shell's floating + alone
+// since UX Phase 5 retired Today's duplicate quick-add row.
+// The plan and its rows are unchanged; there is no inline
+// composer on Today.
 //
 // Harness mirrors routine_visibility_test.dart.
 import 'dart:io';
@@ -29,7 +29,7 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
-  testWidgets('no inline composer; plan and quick-add row intact',
+  testWidgets('no inline composer; plan intact; quick tiles retired',
       (tester) async {
     await tester.runAsync(() async {
       tester.view.physicalSize = const Size(800, 1700);
@@ -93,12 +93,12 @@ void main() {
         findsNothing,
       );
 
-      // The quick-add row still offers all four captures,
-      // including Goal and Checklist (not in the global sheet).
-      await scrollUntil(find.text('Checklist'));
+      // UX Phase 5: the duplicate quick-add row is retired —
+      // none of its four tiles render. Capture lives in the
+      // shell's global + (untouched, covered by shell tests).
       for (final label in ['Task', 'Goal', 'Note', 'Checklist']) {
-        expect(find.text(label), findsWidgets,
-            reason: 'quick-add row keeps $label');
+        expect(find.text(label), findsNothing,
+            reason: 'quick tile $label retired');
       }
     });
   });

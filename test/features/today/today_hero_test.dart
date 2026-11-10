@@ -1,8 +1,10 @@
 // D-053 hero: the Today hero carries the background
 // photograph (shipped default or the owner's own image) as
 // a FIXED backdrop (2026-11-05 refinement), the if–then
-// control lives in the scrolling hero content over it, and
-// Customize Home offers change / reset for the image.
+// control lives in the scrolling hero content over it.
+// (UX Phase 5 restored the hero after a brief removal;
+// the Customize Home picker that used to change the image
+// is retired — the stored preference still drives it.)
 //
 // Harness mirrors today_header_test.dart (unique temp DB
 // per test; FFI futures need runAsync polling).
@@ -58,7 +60,7 @@ Future<void> _pump(WidgetTester tester, Widget screen) async {
     await Future<void>.delayed(const Duration(milliseconds: 100));
     await tester.pump();
     if (find.byIcon(Icons.bolt_outlined).evaluate().isNotEmpty &&
-        find.text('Task').evaluate().isNotEmpty) {
+        find.text("Today's plan").evaluate().isNotEmpty) {
       for (var j = 0; j < 5; j++) {
         await Future<void>.delayed(const Duration(milliseconds: 50));
         await tester.pump();
@@ -75,27 +77,6 @@ Future<void> _pump(WidgetTester tester, Widget screen) async {
 // the scroll view above it.
 Finder _inHero(Finder inner) =>
     find.descendant(of: find.byType(ClipPath), matching: inner);
-
-/// The Customize Home button sits at the foot of the
-/// ListView — scroll it into the built region, then open
-/// the dialog and wait for the Background group.
-Future<void> _openCustomize(WidgetTester tester) async {
-  for (var i = 0; i < 30; i++) {
-    if (find.text('Customize Home').evaluate().isNotEmpty) break;
-    await tester.drag(find.byType(ListView), const Offset(0, -300));
-    await tester.pump();
-    await Future<void>.delayed(const Duration(milliseconds: 30));
-  }
-  await tester.ensureVisible(find.text('Customize Home'));
-  await tester.pump();
-  await tester.tap(find.text('Customize Home'));
-  await tester.pump();
-  for (var i = 0; i < 20; i++) {
-    await Future<void>.delayed(const Duration(milliseconds: 50));
-    await tester.pump();
-    if (find.text('Hero image').evaluate().isNotEmpty) break;
-  }
-}
 
 void main() {
   setUpAll(() {
@@ -161,48 +142,6 @@ void main() {
       final image = tester.widget<Image>(_inHero(find.byType(Image)));
       final provider = (image.image as ResizeImage).imageProvider;
       expect(provider, isA<AssetImage>());
-    });
-  });
-
-  testWidgets('customize offers change, and reset when custom', (tester) async {
-    await tester.runAsync(() async {
-      final h = await _harness();
-      await _pump(tester, h.screen);
-      await _openCustomize(tester);
-      expect(find.text('Hero image'), findsOneWidget);
-      expect(find.text('Default photograph'), findsOneWidget);
-      expect(find.text('Change image…'), findsOneWidget);
-      expect(find.text('Reset to default'), findsNothing);
-      await tester.tap(find.text('Cancel'));
-      await tester.pump();
-
-      // With a custom image stored, reset appears.
-      final custom = File('${h.tmp.path}/mine.png');
-      await custom.writeAsBytes(_pngBytes);
-      await h.store.setHeroImagePath(custom.path);
-      await tester.pumpWidget(const SizedBox());
-      await _pump(tester, h.screen);
-      await _openCustomize(tester);
-      for (var i = 0; i < 20; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-        await tester.pump();
-        if (find.text('Your photo').evaluate().isNotEmpty) break;
-      }
-      expect(find.text('Your photo'), findsOneWidget);
-      expect(find.text('Reset to default'), findsOneWidget);
-      // Reset clears the stored path (the file is deleted by
-      // the same action in the screen's handler).
-      await tester.ensureVisible(find.text('Reset to default'));
-      await tester.pump();
-      await tester.tap(find.text('Reset to default'));
-      await tester.pump();
-      for (var i = 0; i < 20; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-        await tester.pump();
-        if (await h.store.heroImagePath() == null) break;
-      }
-      expect(await h.store.heroImagePath(), isNull);
-      expect(await custom.exists(), isFalse);
     });
   });
 }

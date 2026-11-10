@@ -10,9 +10,7 @@ library;
 import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../core/brand.dart';
 import '../../core/glass_ui.dart';
@@ -21,17 +19,12 @@ import '../../core/neo_ui.dart';
 import '../../core/spatial_ui.dart';
 import '../../core/theme.dart';
 import '../goals/goals_store.dart';
-import '../items/item_detail_screen.dart';
-import '../items/item_registry.dart';
-import '../items/link_card/link_card_service.dart';
 import '../items/link_card/thumbnail_service.dart';
 import '../learn/learn_services.dart';
 import '../learn/session_composer.dart';
 import '../learn/session_screen.dart';
 import '../progress/progress_store.dart';
 import '../progress/weekly_summary.dart';
-import '../quick_add/quick_add_service.dart';
-import '../quick_add/quick_add_sheet.dart';
 import '../review/day_close_screen.dart';
 import '../review/review_store.dart';
 import '../shared_ui.dart';
@@ -43,39 +36,6 @@ import 'dua_library_screen.dart';
 import 'plan_list.dart';
 import 'routine_screen.dart';
 import 'today_store.dart';
-
-const _weekdayNames = [
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-  'Sunday',
-];
-const _monthNames = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
-
-String _formatDate(DateTime d) =>
-    '${_weekdayNames[d.weekday - 1]}, ${d.day} ${_monthNames[d.month - 1]}';
-
-String _greeting(DateTime now) {
-  if (now.hour < 12) return 'Good morning';
-  if (now.hour < 17) return 'Good afternoon';
-  return 'Good evening';
-}
 
 /// Everything Hub Home renders, loaded in one pass.
 class _HubData {
@@ -359,296 +319,13 @@ class _TodayScreenState extends State<TodayScreen> {
 
   // ------------------------------------------------------------ actions
 
-  /// D-045: the shared Quick Add capture workflow — the same
-  /// operations the shell's Quick Add sheet runs.
-  QuickAddService get _quickAdd => QuickAddService(
-    store: widget.store,
-    todayStore: widget.todayStore,
-    learnStore: widget.learn.store,
-    linkCards: LinkCardService(
-      widget.store,
-      widget.learn.store,
-      widget.thumbnails,
-    ),
-    library: widget.learn.library,
-  );
-
-  Future<void> _quickAddTask() async {
-    if (await quickAddTaskFlow(context, service: _quickAdd)) {
-      await _afterPlanEdit();
-      setState(_reloadPlan);
-    }
-  }
-
-  /// D-045: the row's Note button runs the shared quick-note
-  /// capture (Inbox project, title derived from the text),
-  /// like the shell sheet — not the old picker chain.
-  Future<void> _quickAddNote() async {
-    await quickAddNoteFlow(
-      context,
-      service: _quickAdd,
-      onOpenItem: (item) async {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ItemDetailScreen(
-              store: widget.store,
-              item: item,
-              learn: widget.learn,
-              thumbnails: widget.thumbnails,
-            ),
-          ),
-        );
-        if (mounted) setState(_refresh);
-      },
-    );
-  }
-
-  Future<void> _quickAddGoal() async {
-    final input = await promptGoal(context);
-    if (input == null) return;
-    await widget.goalsStore.addGoal(input.title, input.target, input.unit);
-    setState(_refresh);
-  }
-
-  Future<void> _quickAddItem(String type) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final def = itemTypeDef(type);
-    final title = await promptText(
-      context,
-      title: 'New ${def.label.toLowerCase()}',
-      label: 'Title',
-    );
-    if (title == null || title.isEmpty) return;
-    final inbox = await widget.learn.store.ensureInboxProject();
-    final item = await widget.store.createItem(
-      inbox.id,
-      type: type,
-      title: title,
-    );
-    if (!mounted) return;
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text('Added to ${inbox.name}.'),
-        action: SnackBarAction(
-          label: 'Open',
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ItemDetailScreen(
-                  store: widget.store,
-                  item: item,
-                  learn: widget.learn,
-                  thumbnails: widget.thumbnails,
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-    setState(_refresh);
-  }
-
-  Future<void> _customize(_HubData data) async {
-    const labels = {
-      TodayStore.sectionQuickActions: 'Show quick actions on Today',
-      TodayStore.sectionWeekStrip: 'Week strip',
-      TodayStore.sectionDayClose: 'Day Close banner',
-      TodayStore.sectionPinned: 'Pinned spaces',
-      TodayStore.sectionRecent: 'Recent items',
-      TodayStore.sectionGoals: 'Goals',
-    };
-    // D-040: the Header group's element switches.
-    const headerLabels = [
-      (TodayStore.headerDate, 'Date label'),
-      (TodayStore.headerEyebrow, 'Eyebrow line'),
-      (TodayStore.headerHeading, 'Greeting heading'),
-      (TodayStore.headerTagline, 'Tagline'),
-    ];
-    final result = await showDialog<Map<String, bool>>(
-      context: context,
-      builder: (context) {
-        final values = Map<String, bool>.of(data.sections);
-        // D-053: the hero image state rides along in the
-        // dialog (changed immediately, not via Save — picking
-        // a file can't wait for the switch form).
-        var heroCustom = data.heroImagePath != null;
-        return AlertDialog(
-          title: const Text('Customize Home'),
-          content: StatefulBuilder(
-            builder: (context, setDialogState) {
-              final masterOn = values[TodayStore.headerGreeting] ?? true;
-              // Scrollable: the Header group makes the dialog
-              // taller than small screens are.
-              return SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Header',
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    SwitchListTile(
-                      title: const Text('Show editorial greeting'),
-                      value: masterOn,
-                      onChanged: (v) => setDialogState(
-                        () => values[TodayStore.headerGreeting] = v,
-                      ),
-                    ),
-                    for (final (key, label) in headerLabels)
-                      SwitchListTile(
-                        title: Text(label),
-                        value: values[key] ?? true,
-                        // Editable only while the master greeting
-                        // is on (D-040).
-                        onChanged: masterOn
-                            ? (v) => setDialogState(() => values[key] = v)
-                            : null,
-                      ),
-                    const Divider(),
-                    Text(
-                      'Background',
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.image_outlined),
-                      title: const Text('Hero image'),
-                      subtitle: Text(
-                        heroCustom ? 'Your photo' : 'Default photograph',
-                      ),
-                    ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.photo_library_outlined),
-                      title: const Text('Change image…'),
-                      onTap: () async {
-                        if (await _changeHeroImage()) {
-                          setDialogState(() => heroCustom = true);
-                        }
-                      },
-                    ),
-                    if (heroCustom)
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.restart_alt_outlined),
-                        title: const Text('Reset to default'),
-                        onTap: () async {
-                          if (await _resetHeroImage()) {
-                            setDialogState(() => heroCustom = false);
-                          }
-                        },
-                      ),
-                    const Divider(),
-                    Text(
-                      'Sections',
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    for (final key in TodayStore.homeSections)
-                      SwitchListTile(
-                        title: Text(labels[key]!),
-                        subtitle: key == TodayStore.sectionQuickActions
-                            ? const Text(
-                                'Show or hide the Task, Goal, Note and '
-                                'Checklist shortcuts on your Today screen.',
-                              )
-                            : null,
-                        value: values[key] ?? true,
-                        onChanged: (v) => setDialogState(() => values[key] = v),
-                      ),
-                  ],
-                ),
-              );
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, values),
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-    if (result == null) return;
-    for (final e in result.entries) {
-      await widget.todayStore.setHomeSectionVisible(e.key, e.value);
-    }
-    if (!mounted) return;
-    setState(_refresh);
-  }
-
-  /// D-053: pick a replacement hero photograph. The picked
-  /// file is COPIED into app storage first (a picker may hand
-  /// back a cache path that later vanishes), and the store
-  /// remembers where the copy lives. Returns true when the
-  /// hero actually changed.
-  Future<bool> _changeHeroImage() async {
-    final picked = await openFile(
-      acceptedTypeGroups: const [
-        XTypeGroup(label: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp']),
-      ],
-    );
-    if (picked == null || !mounted) return false;
-    try {
-      final dir = await getApplicationDocumentsDirectory();
-      final ext = picked.name.contains('.')
-          ? picked.name.split('.').last.toLowerCase()
-          : 'jpg';
-      final dest = File('${dir.path}/nimo_hero_custom.$ext');
-      await File(picked.path).copy(dest.path);
-      // A previous custom image with a different extension
-      // would linger beside the new one — remove siblings.
-      await for (final f in dir.list()) {
-        if (f is File &&
-            f.path.contains('nimo_hero_custom') &&
-            f.path != dest.path) {
-          await f.delete();
-        }
-      }
-      await widget.todayStore.setHeroImagePath(dest.path);
-      if (!mounted) return true;
-      setState(_refresh);
-      return true;
-    } catch (e) {
-      if (!mounted) return false;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not use that image: $e')));
-      return false;
-    }
-  }
-
-  /// D-053: back to the shipped default photograph — the
-  /// custom file is deleted and the stored path cleared.
-  Future<bool> _resetHeroImage() async {
-    final stored = await widget.todayStore.heroImagePath();
-    if (stored != null) {
-      final f = File(stored);
-      if (await f.exists()) await f.delete();
-    }
-    await widget.todayStore.setHeroImagePath(null);
-    if (!mounted) return true;
-    setState(_refresh);
-    return true;
-  }
-
   // ------------------------------------------------------------ build
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    // D-053: Today has NO AppBar — the brand row lives inside
-    // the hero and scrolls away with it (the hero is the
-    // screen's environment, not a pinned bar). The shell's
-    // bottom capsule navigation is untouched and stays fixed.
+    // Today has NO AppBar — the brand row lives inside the
+    // hero and scrolls away with it. The shell's bottom
+    // capsule navigation is untouched and stays fixed.
     return Scaffold(
       body: FutureBuilder<_HubData>(
         future: _data,
@@ -667,19 +344,8 @@ class _TodayScreenState extends State<TodayScreen> {
             );
           }
           final data = snapshot.data!;
-          // D-040: the greeting block renders only when its
-          // master switch is on AND at least one element is —
-          // hidden means NO placeholder and NO leftover gap:
-          // each block below carries its own trailing spacing.
           bool on(String k) => data.sections[k] ?? true;
-          final showIntro =
-              on(TodayStore.headerGreeting) &&
-              (on(TodayStore.headerDate) ||
-                  on(TodayStore.headerEyebrow) ||
-                  on(TodayStore.headerHeading) ||
-                  on(TodayStore.headerTagline));
           final showWeek = on(TodayStore.sectionWeekStrip);
-          final showQuick = on(TodayStore.sectionQuickActions);
           // Mission 03 Phase 3: a closed day shows no actionable
           // Focus Now panel (same isClosed signal the scores use).
           final closedToday = data.todayReview?.isClosed ?? false;
@@ -689,13 +355,13 @@ class _TodayScreenState extends State<TodayScreen> {
             padding: const EdgeInsets.symmetric(horizontal: Space.page),
             child: w,
           );
-          // Visual refinement (2026-11-05): the screen is two
-          // layers — the photograph is a FIXED backdrop behind
-          // the scroll view (it never moves), while the hero
-          // CONTENT (brand row, greeting, if–then) stays in
-          // the ListView and scrolls away over it. Both layers
-          // share one hero height so the content sits exactly
-          // on the photograph at rest.
+          // UX Phase 5 (owner update): the photo hero is
+          // restored as the top section — a FIXED backdrop
+          // behind the scroll view, its content (brand row,
+          // if-then) in the list, scrolling away over it.
+          // The compact header elements live in the hero's
+          // brand row; there is no second header and no
+          // greeting block.
           final heroHeight = _heroHeight(MediaQuery.of(context).size);
           return Stack(
             children: [
@@ -711,13 +377,7 @@ class _TodayScreenState extends State<TodayScreen> {
               ListView(
                 padding: const EdgeInsets.only(bottom: 110.0),
                 children: [
-                  _heroContent(
-                    context,
-                    now,
-                    data,
-                    showIntro: showIntro,
-                    height: heroHeight,
-                  ),
+                  _heroContent(context, data, height: heroHeight),
                   const SizedBox(height: Gap.md),
                   if (data.weekSummary != null) ...[
                     pad(_sundaySummaryCard(context, data.weekSummary!)),
@@ -739,33 +399,23 @@ class _TodayScreenState extends State<TodayScreen> {
                   // Quick actions are optional (Customize Home):
                   // hidden means the row AND its spacing vanish,
                   // so the plan moves up into the space.
-                  if (showQuick) ...[
-                    pad(_quickAddRow(context)),
-                    const SizedBox(height: Gap.lg),
-                  ],
                   // Mission 03 Phase 1: the plan card always
                   // renders — the This Week swap is removed.
                   pad(_planCard(context, data)),
+                  const SizedBox(height: Gap.lg),
+                  pad(_viewFullPlanEntry(context)),
                   if (data.dueCount + data.newCount > 0) ...[
                     const SizedBox(height: Gap.lg),
                     pad(_learnSection(context, data)),
                   ],
                   const SizedBox(height: Gap.lg),
-                  pad(_duaTile(context)),
+                  pad(_duaEntry(context)),
                   const SizedBox(height: Gap.lg),
                   pad(_scoresSection(context, data)),
                   if (data.sections[TodayStore.sectionDayClose] ?? true) ...[
                     const SizedBox(height: Gap.lg),
                     pad(_dayCloseSection(context, data)),
                   ],
-                  const SizedBox(height: Gap.sm),
-                  Center(
-                    child: TextButton.icon(
-                      onPressed: () => _customize(data),
-                      icon: const Icon(Icons.tune_outlined),
-                      label: const Text('Customize Home'),
-                    ),
-                  ),
                   // UX Phase 4: the Organise section closes
                   // the page — a utility destination, kept
                   // out of the day loop above. It renders
@@ -1142,8 +792,8 @@ class _TodayScreenState extends State<TodayScreen> {
     // fixed floor would squeeze the column and overflow
     // (page_top_test: 47dp inset, 6px overflow, measured).
     final inset = MediaQuery.paddingOf(context).top;
-    final floor = (viewport.width < 340 ? 268.0 : 252.0) + inset;
-    return (viewport.height * 0.30 + inset).clamp(floor, 330.0 + inset);
+    final floor = (viewport.width < 340 ? 204.0 : 192.0) + inset;
+    return (viewport.height * 0.24 + inset).clamp(floor, 252.0 + inset);
   }
 
   /// How far the hug contour's centre dips below its sides —
@@ -1210,9 +860,7 @@ class _TodayScreenState extends State<TodayScreen> {
   /// nothing here is pinned.
   Widget _heroContent(
     BuildContext context,
-    DateTime now,
     _HubData data, {
-    required bool showIntro,
     required double height,
   }) {
     final theme = Theme.of(context);
@@ -1245,6 +893,15 @@ class _TodayScreenState extends State<TodayScreen> {
                 _streakChip(context, data.streak, onPhoto: true),
                 IconButton(
                   icon: const Icon(
+                    Icons.calendar_month_outlined,
+                    color: GlassTokens.darkOnCharcoal,
+                    semanticLabel: 'Open agenda',
+                  ),
+                  tooltip: 'Agenda',
+                  onPressed: _openAgenda,
+                ),
+                IconButton(
+                  icon: const Icon(
                     Icons.settings_outlined,
                     color: GlassTokens.darkOnCharcoal,
                   ),
@@ -1256,10 +913,6 @@ class _TodayScreenState extends State<TodayScreen> {
               ],
             ),
             const Spacer(),
-            if (showIntro) ...[
-              _heroIntro(context, now, data),
-              const SizedBox(height: Space.s3),
-            ],
             _ifThenControl(context, data),
           ],
         ),
@@ -1267,97 +920,6 @@ class _TodayScreenState extends State<TodayScreen> {
     );
   }
 
-  /// The greeting block ON the photograph (D-053): the same
-  /// D-040 element switches as the old intro — date, eyebrow,
-  /// greeting heading, tagline — in white-family colours for
-  /// the image. The caller omits the block entirely when the
-  /// master switch is off.
-  Widget _heroIntro(BuildContext context, DateTime now, _HubData data) {
-    final theme = Theme.of(context);
-    bool on(String k) => data.sections[k] ?? true;
-    final parts = <Widget>[];
-    void add(Widget part, double gapBefore) {
-      if (parts.isNotEmpty) parts.add(SizedBox(height: gapBefore));
-      parts.add(part);
-    }
-
-    if (on(TodayStore.headerDate)) {
-      add(
-        Text(
-          _formatDate(now).toUpperCase(),
-          style: AppType.eyebrow.copyWith(
-            fontSize: 10,
-            letterSpacing: 1.2,
-            color: GlassTokens.darkOnCharcoalSecondary,
-          ),
-        ),
-        0,
-      );
-    }
-    if (on(TodayStore.headerEyebrow)) {
-      add(
-        Text(
-          'A LITTLE INTENTION GOES A LONG WAY',
-          // Mission 03 Phase 2: at most one line in the
-          // shorter hero — the wide-tracked eyebrow wrapped
-          // to two lines at 320dp wide (measured: it plus
-          // the two-line greeting and tagline overflowed the
-          // 252dp hero by 57px). One line with an ellipsis;
-          // at normal widths it fits whole, unchanged.
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: AppType.eyebrow.copyWith(
-            letterSpacing: 1.2,
-            color: GlassTokens.darkOnCharcoalSecondary,
-          ),
-        ),
-        Gap.sm,
-      );
-    }
-    if (on(TodayStore.headerHeading)) {
-      add(
-        Text(
-          _greeting(now),
-          // Mission 03 Phase 2: one line in the shorter hero
-          // (see the eyebrow note in this method).
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: AppType.display(theme.textTheme)
-              ?.copyWith(color: GlassTokens.darkOnCharcoal),
-        ),
-        // Mission 03 Phase 2: tightened s3 → s2 as part of
-        // the ~25% hero reduction (the full greeting stack no
-        // longer fits the shorter hero at narrow widths
-        // otherwise — 61px overflow at 320dp, test-proven).
-        Space.s2,
-      );
-    }
-    if (on(TodayStore.headerTagline)) {
-      add(
-        Text(
-          'A little better, at your pace.',
-          // Mission 03 Phase 2: one line in the shorter hero
-          // (see the eyebrow note in this method).
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: GlassTokens.darkOnCharcoalSecondary,
-          ),
-        ),
-        Space.s2,
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: parts,
-    );
-  }
-
-  /// The if–then line as the hero's translucent charcoal
-  /// control (D-053): bolt in the accent green, the line in
-  /// neutral white, the edit affordance at the end. Same
-  /// action as always ([_editIfThen]) — only its home moved;
-  /// it used to sit at the foot of the plan card.
   Widget _ifThenControl(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
     final empty = data.ifThen.isEmpty;
@@ -1435,7 +997,7 @@ class _TodayScreenState extends State<TodayScreen> {
     final scheme = theme.colorScheme;
     final n = streak.currentStreak;
     final label = n == 1 ? '1 day' : '$n days';
-    final narrow = MediaQuery.sizeOf(context).width < 360;
+    final narrow = MediaQuery.sizeOf(context).width < 400;
     final body = SizedBox(
       height: 48,
       child: Padding(
@@ -1591,99 +1153,6 @@ class _TodayScreenState extends State<TodayScreen> {
     return Row(children: [for (var i = 0; i < 7; i++) cell(i)]);
   }
 
-  Widget _quickAddRow(BuildContext context) {
-    Widget button(
-      IconData icon,
-      String label,
-      VoidCallback onTap, {
-      bool primary = false,
-    }) => Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: _quickTile(context, icon, label, onTap, primary: primary),
-      ),
-    );
-    return Row(
-      children: [
-        button(Icons.add_task_outlined, 'Task', _quickAddTask, primary: true),
-        button(Icons.flag_outlined, 'Goal', _quickAddGoal),
-        button(Icons.note_outlined, 'Note', _quickAddNote),
-        button(
-          Icons.checklist_outlined,
-          'Checklist',
-          () => _quickAddItem(ItemType.checklist),
-        ),
-      ],
-    );
-  }
-
-  /// One quick-action tile (D-053): a floating charcoal
-  /// surface — translucent fill, grey hairline, soft lift —
-  /// with a NEUTRAL icon; only the primary action (Task)
-  /// carries the accent green. Same layout rhythm as the
-  /// spatial tile it replaces (icon over label, centred),
-  /// restyled for the charcoal system. Light theme keeps a
-  /// white tile on the paper page.
-  Widget _quickTile(
-    BuildContext context,
-    IconData icon,
-    String label,
-    VoidCallback onTap, {
-    bool primary = false,
-  }) {
-    final theme = Theme.of(context);
-    final dark = theme.brightness == Brightness.dark;
-    final radius = BorderRadius.circular(14);
-    return Material(
-      color: dark ? GlassTokens.darkCharcoalRaised : Colors.white,
-      elevation: dark ? 3 : 1,
-      shadowColor: Colors.black.withValues(alpha: dark ? 0.45 : 0.18),
-      shape: RoundedRectangleBorder(
-        borderRadius: radius,
-        side: BorderSide(
-          color: dark
-              ? GlassTokens.darkCharcoalBorder
-              : theme.colorScheme.outlineVariant,
-        ),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: radius,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 24,
-                color: primary
-                    ? theme.colorScheme.primary
-                    : (dark
-                          ? GlassTokens.darkOnCharcoal
-                          : theme.colorScheme.onSurface),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                  color: dark
-                      ? GlassTokens.darkOnCharcoal
-                      : theme.colorScheme.onSurface,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Future<void> _openDayClose(
     _HubData data, {
     DateTime? date,
@@ -1802,65 +1271,117 @@ class _TodayScreenState extends State<TodayScreen> {
   /// in every plan state, so the library stays reachable when
   /// the plan is empty or all done. It takes its space below
   /// the plan card; the scores keep their own section (C3).
-  Widget _duaTile(BuildContext context) {
+  /// UX Phase 5: the permanent View Full Plan entry —
+  /// rendered in EVERY plan state (empty, partial, all
+  /// done), where the old conditional buttons vanished.
+  /// Same surface language as the Organise entry below.
+  Widget _viewFullPlanEntry(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = (constraints.maxWidth - Space.s4) / 2;
-        return Align(
-          alignment: Alignment.centerLeft,
-          child: SizedBox(
-            width: width,
-            child: AspectRatio(
-              aspectRatio: 1,
-              child: SpatialCard(
-                key: const ValueKey('dua_library_tile'),
-                elevation: SpatialDepth.elevated,
-                borderRadius: 14,
-                padding: const EdgeInsets.all(Space.s3),
-                enablePerspective: true,
-                backgroundColor: Theme.of(context).brightness == Brightness.dark
-                    ? GlassTokens.darkCharcoalSolid
-                    : null,
-                onTap: _openDuaLibrary,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.menu_book_outlined,
-                      size: 20,
-                      color: scheme.primary,
-                    ),
-                    const Spacer(),
-                    Text(
-                      'Your Spiritual Space',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
+    return Container(
+      decoration: planSurfaceDeco(context),
+      child: Semantics(
+        key: const ValueKey('view_full_plan_entry'),
+        button: true,
+        label: 'View full plan',
+        child: ExcludeSemantics(
+          child: InkWell(
+            onTap: _openDailyTodo,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.s4,
+                vertical: Space.s3,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.format_list_bulleted,
+                    size: 20,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: Space.s3),
+                  Expanded(
+                    child: Text(
+                      'View Full Plan',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                    const SizedBox(height: Space.s2),
-                    Text(
-                      'Dua Library',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    // C5 (full suite, 2026-11-10): the tile is a
-                    // ~133px square on a 360px phone — a third
-                    // text line overflowed it by 65–80px. Two
-                    // lines only; the library's own empty state
-                    // says what is inside.
-                  ],
-                ),
+                  ),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 20,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ],
               ),
             ),
           ),
-        );
-      },
+        ),
+      ),
+    );
+  }
+
+  /// UX Phase 5: the Dua Library entry is a compact row
+  /// now (Core C2's square tile retired — it overflowed at
+  /// 360dp in C5 and cost a whole line of the page). Same
+  /// library, same data, same destination; the tile's two
+  /// lines become the row's title and quiet subtitle.
+  Widget _duaEntry(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Container(
+      decoration: planSurfaceDeco(context),
+      child: Semantics(
+        key: const ValueKey('dua_library_entry'),
+        button: true,
+        label: 'Open Dua Library',
+        child: ExcludeSemantics(
+          child: InkWell(
+            onTap: _openDuaLibrary,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.s4,
+                vertical: Space.s3,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.menu_book_outlined,
+                    size: 20,
+                    color: scheme.primary,
+                  ),
+                  const SizedBox(width: Space.s3),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Dua Library',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          'Your Spiritual Space',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 20,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -2198,30 +1719,25 @@ class _TodayScreenState extends State<TodayScreen> {
                       if (mounted) setState(_refresh);
                     },
                   ),
-                  // Wrap, not Row (Phase 7 safeguard): the
-                  // actions must never crowd a 360px card —
-                  // they flow to a second line instead of
-                  // shrinking below their tap targets.
-                  // Core C2: Dua Library is no longer a button
-                  // here — it has its own square tile below.
-                  Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    children: [
-                      if (open.length > 4)
-                        TextButton(
-                          onPressed: _openDailyTodo,
-                          child: const Text('See all'),
+                  // UX Phase 5: the conditional door buttons
+                  // that used to sit here ('See all', 'Tasks',
+                  // 'Agenda') are gone — View Full Plan is a
+                  // permanent entry below the card, Agenda is
+                  // the header calendar, and Tasks lives in
+                  // the Full Plan's third tab. What remains is
+                  // the honest signal that the preview is
+                  // truncated: a plain count, not a button.
+                  if (open.length > 4)
+                    Padding(
+                      padding: const EdgeInsets.only(top: Space.s3),
+                      child: Text(
+                        '+${open.length - 4} more '
+                        '${open.length - 4 == 1 ? 'task' : 'tasks'}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
-                      TextButton(
-                        onPressed: _openTasks,
-                        child: const Text('Tasks'),
                       ),
-                      TextButton(
-                        onPressed: _openAgenda,
-                        child: const Text('Agenda'),
-                      ),
-                    ],
-                  ),
+                    ),
                 ],
               );
             },
@@ -2247,6 +1763,17 @@ class _TodayScreenState extends State<TodayScreen> {
   /// Mission 03 Phase 4: the preview's "See all" opens the
   /// full Daily To-do screen; the plan may have changed
   /// there, so returning reloads it.
+  Future<void> _openRoutineScreen() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            RoutineScreen(todayStore: widget.todayStore, store: widget.store),
+      ),
+    );
+    setState(_reloadPlan);
+  }
+
   Future<void> _openDailyTodo() async {
     await Navigator.push(
       context,
@@ -2304,34 +1831,6 @@ class _TodayScreenState extends State<TodayScreen> {
   /// Plan on its Open Tasks tab — the standalone Tasks
   /// screen retired once the tab reached parity (the Phase 2
   /// parity tests are the proof).
-  Future<void> _openTasks() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => DailyTodoScreen(
-          todayStore: widget.todayStore,
-          store: widget.store,
-          learn: widget.learn,
-          thumbnails: widget.thumbnails,
-          reviewStore: widget.reviewStore,
-          initialTab: 2,
-        ),
-      ),
-    );
-    setState(_reloadPlan);
-  }
-
-  Future<void> _openRoutineScreen() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            RoutineScreen(todayStore: widget.todayStore, store: widget.store),
-      ),
-    );
-    setState(_reloadPlan);
-  }
-
   /// D-044: add every scheduled-but-missing routine to today's
   /// plan (the explicit exception to tomorrow-by-default).
   Future<void> _addMissingToToday(List<PlanTemplate> missing) async {

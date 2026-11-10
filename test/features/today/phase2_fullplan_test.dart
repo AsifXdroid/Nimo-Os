@@ -490,9 +490,9 @@ void main() {
       await h.tmp.delete(recursive: true);
     });
   });
-  testWidgets('Phase 2 (D7 kept): Today\'s plan card Tasks '
-      'entry opens the Full Plan on its Open Tasks tab; a '
-      'completion there reflects on Today after return', (tester) async {
+  testWidgets('Phase 5 (D7 intent kept): the View Full Plan '
+      'entry opens the Full Plan; a completion in its Open '
+      'Tasks tab reflects on Today after return', (tester) async {
     tallSurface(tester);
     await tester.runAsync(() async {
       final tmp = await Directory.systemTemp.createTemp('nimo-phase2-nav-');
@@ -528,12 +528,13 @@ void main() {
         ),
       );
 
-      // Scroll to the plan card's Tasks entry point and invoke
-      // it (the Phase 5 pattern: guarded drag, then onPressed).
-      for (var i = 0; i < 30; i++) {
+      // UX Phase 5: the plan card's own 'Tasks' button is
+      // retired; the permanent View Full Plan entry opens
+      // the Full Plan, and Open Tasks is its third tab.
+      final entry = find.byKey(const ValueKey('view_full_plan_entry'));
+      for (var i = 0; i < 30 && entry.evaluate().isEmpty; i++) {
         await Future<void>.delayed(const Duration(milliseconds: 80));
         await tester.pump(const Duration(milliseconds: 80));
-        if (find.text('Tasks').evaluate().isNotEmpty) break;
         if (find.byType(Scrollable).evaluate().isNotEmpty) {
           await tester.drag(
             find.byType(Scrollable).first,
@@ -541,20 +542,12 @@ void main() {
           );
         }
       }
-      await until(tester, find.text('Tasks'), 'Tasks entry point');
-      tester
-          .widget<TextButton>(
-            find.ancestor(
-              of: find.text('Tasks'),
-              matching: find.byType(TextButton),
-            ),
-          )
-          .onPressed!();
+      await until(tester, entry, 'View Full Plan entry');
+      await tester.ensureVisible(entry);
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(entry);
       await until(tester, find.byType(DailyTodoScreen), 'full plan');
-
-      // It opened on the Open Tasks tab: the row is on screen
-      // without any tab switch.
-      await untilVisible(tester, find.text('Read 10 pages'), 'open tasks tab');
+      await openTab(tester, 'Open Tasks', marker: find.text('Read 10 pages'));
       await tester.tap(visible(find.text('Read 10 pages')));
       await untilGone(
         tester,

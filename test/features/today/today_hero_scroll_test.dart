@@ -1,8 +1,9 @@
 // Visual refinement (2026-11-05): the hero photograph is a
 // FIXED backdrop — scrolling moves the hero content and the
 // page sections over it, never the image. The hug contour
-// is a broad shallow cosine bowl. The four quick-action
-// tiles are optional via Customize Home (default ON).
+// is a broad shallow cosine bowl. (The four quick-action
+// tiles this file once toggled were retired in UX Phase 5;
+// their tests went with them.)
 //
 // Harness mirrors today_hero_test.dart (unique temp DB per
 // test; FFI futures need runAsync polling).
@@ -23,15 +24,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-Future<({TodayStore store, Widget screen})> _harness({
-  Map<String, bool> prefs = const {},
-}) async {
+Future<({TodayStore store, Widget screen})> _harness() async {
   final tmp = await Directory.systemTemp.createTemp('nimo-scroll-');
   final db = await AppDatabase.openFile('${tmp.path}/test.db');
   final todayStore = TodayStore(db);
-  for (final e in prefs.entries) {
-    await todayStore.setHomeSectionVisible(e.key, e.value);
-  }
   final library = LibraryStore(Directory('${tmp.path}/Library'));
   await library.ensureLayout();
   final screen = TodayScreen(
@@ -87,30 +83,30 @@ void main() {
 
       final backdropBefore = tester.getRect(_backdropImage());
       final boltBefore = tester.getTopLeft(find.byIcon(Icons.bolt_outlined));
-      final tileBefore = tester.getTopLeft(find.text('Goal'));
+      final planBefore = tester.getTopLeft(find.text("Today's plan"));
       expect(backdropBefore.top, 0);
-      // Mission 03 Phase 2: the hero is ~25% shorter. At the
-      // default 800dp height it now measures 252dp (30% of
-      // height, floor 252) instead of the D-053 320dp.
-      expect(backdropBefore.height, greaterThan(240));
+      // UX Phase 5 (hero restored, refined): the band is
+      // 24% of the viewport with a 192dp floor at this
+      // width — at the default 600dp-tall test surface the
+      // floor rules, so the backdrop measures 192dp.
+      expect(backdropBefore.height, closeTo(192, 1));
 
-      // Scroll the page down 260 logical pixels.
-      // Mission 03 Phase 2: the hero is now 252dp tall, so a
-      // 260dp scroll would push the if–then chip fully above
-      // the viewport and cull it from the tree. 200dp keeps
-      // the chip (and the first section) partially visible
-      // while exercising the same fixed-backdrop geometry.
-      _scrollPosition(tester).jumpTo(200);
+      // Scroll the page down 120 logical pixels. (The
+      // Phase 2 version scrolled 200 when the hero was
+      // 252dp; at the refined 192dp band the if–then chip
+      // leaves the tree beyond ~130dp of scroll — 120 keeps
+      // it in frame while exercising the same geometry.)
+      _scrollPosition(tester).jumpTo(120);
       await tester.pump();
 
       // The photograph did not move a single pixel.
       expect(tester.getRect(_backdropImage()), backdropBefore);
       // The hero content scrolled away by the same amount.
       final boltAfter = tester.getTopLeft(find.byIcon(Icons.bolt_outlined));
-      expect((boltBefore.dy - boltAfter.dy), closeTo(200, 1.5));
+      expect((boltBefore.dy - boltAfter.dy), closeTo(120, 1.5));
       // Foreground sections scroll too.
-      final tileAfter = tester.getTopLeft(find.text('Goal'));
-      expect((tileBefore.dy - tileAfter.dy), closeTo(200, 1.5));
+      final planAfter = tester.getTopLeft(find.text("Today's plan"));
+      expect((planBefore.dy - planAfter.dy), closeTo(120, 1.5));
 
       // Back to the top: the original composition is restored.
       _scrollPosition(tester).jumpTo(0);
@@ -152,96 +148,6 @@ void main() {
       final quarterY = 340 - dip + dip * 0.5; // cosine at t=0.25
       expect(path.contains(Offset(100, quarterY - 1)), isTrue);
       expect(path.contains(Offset(100, quarterY + 1)), isFalse);
-    });
-  });
-
-  testWidgets('quick actions: on by default, off removes them + the space', (
-    tester,
-  ) async {
-    await tester.runAsync(() async {
-      var h = await _harness();
-      await _pump(tester, h.screen);
-      expect(find.byIcon(Icons.add_task_outlined), findsOneWidget);
-      expect(find.byIcon(Icons.checklist_outlined), findsOneWidget);
-      final planDyOn = tester.getTopLeft(find.text("Today's plan")).dy;
-      await tester.pumpWidget(const SizedBox());
-
-      h = await _harness(prefs: const {TodayStore.sectionQuickActions: false});
-      await _pump(tester, h.screen);
-      expect(find.byIcon(Icons.add_task_outlined), findsNothing);
-      expect(find.byIcon(Icons.checklist_outlined), findsNothing);
-      expect(find.text('Goal'), findsNothing);
-      // No placeholder: the plan moves UP into the freed
-      // space (tile row + its gap are gone entirely).
-      final planDyOff = tester.getTopLeft(find.text("Today's plan")).dy;
-      expect(planDyOff, lessThan(planDyOn - 40));
-    });
-  });
-
-  testWidgets('quick actions toggle in Customize Home persists', (
-    tester,
-  ) async {
-    await tester.runAsync(() async {
-      final h = await _harness();
-      await _pump(tester, h.screen);
-      expect(find.byIcon(Icons.checklist_outlined), findsOneWidget);
-
-      // Open Customize Home (foot of the ListView).
-      for (var i = 0; i < 30; i++) {
-        if (find.text('Customize Home').evaluate().isNotEmpty) break;
-        await tester.drag(find.byType(ListView), const Offset(0, -300));
-        await tester.pump();
-        await Future<void>.delayed(const Duration(milliseconds: 30));
-      }
-      await tester.ensureVisible(find.text('Customize Home'));
-      await tester.pump();
-      await tester.tap(find.text('Customize Home'));
-      await tester.pump();
-      for (var i = 0; i < 20; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-        await tester.pump();
-        if (find.text('Show quick actions on Today').evaluate().isNotEmpty) {
-          break;
-        }
-      }
-      expect(find.text('Show quick actions on Today'), findsOneWidget);
-      expect(
-        find.text(
-          'Show or hide the Task, Goal, Note and Checklist '
-          'shortcuts on your Today screen.',
-        ),
-        findsOneWidget,
-      );
-      final tile = find.ancestor(
-        of: find.text('Show quick actions on Today'),
-        matching: find.byType(SwitchListTile),
-      );
-      expect(tester.widget<SwitchListTile>(tile).value, isTrue);
-      // The dialog's content scrolls on short surfaces —
-      // bring the switch into view before tapping it.
-      await tester.ensureVisible(tile);
-      await tester.pump();
-      await tester.tap(tile);
-      await tester.pump();
-      await tester.tap(find.text('Save'));
-      await tester.pump();
-      for (var i = 0; i < 20; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-        await tester.pump();
-        if (find.byIcon(Icons.checklist_outlined).evaluate().isEmpty) {
-          break;
-        }
-      }
-      // Saved through the real dialog path and persisted in
-      // the store (survives a fresh screen instance).
-      expect(find.byIcon(Icons.checklist_outlined), findsNothing);
-      expect(
-        await h.store.homeSectionVisible(TodayStore.sectionQuickActions),
-        isFalse,
-      );
-      await tester.pumpWidget(const SizedBox());
-      await _pump(tester, h.screen);
-      expect(find.byIcon(Icons.checklist_outlined), findsNothing);
     });
   });
 }

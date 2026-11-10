@@ -20,6 +20,7 @@ import '../../core/brand.dart';
 import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
+import '../today/today_store.dart';
 import 'reminders.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -30,9 +31,17 @@ class SettingsScreen extends StatefulWidget {
     this.syncSection,
     this.themeChoice,
     this.onThemeChanged,
+    this.todayStore,
   });
 
   final ReminderController reminders;
+
+  /// UX Phase 5: Today's three live section switches (Week
+  /// strip, Day Close banner, Pinned spaces) live here as
+  /// ordinary preferences — they moved out of the retired
+  /// Customize Home dialog. Optional, same pattern as the
+  /// sync section, so tests can mount Settings without one.
+  final TodayStore? todayStore;
 
   /// The S4 backup export/import section, wired by the shell.
   final Widget backupSection;
@@ -55,6 +64,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   ReminderSettings? _settings;
   bool _suggestOff = false;
 
+  /// The Today section switches, keyed by the TodayStore
+  /// section constants — the same keys Today reads.
+  Map<String, bool>? _todaySections;
+
+  /// Labels for the three Today switches — the same words
+  /// the retired Customize Home dialog used.
+  static const _todaySectionLabels = <String, String>{
+    TodayStore.sectionWeekStrip: 'Week strip',
+    TodayStore.sectionDayClose: 'Day Close banner',
+    TodayStore.sectionPinned: 'Pinned spaces',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -64,11 +85,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _load() async {
     final s = await widget.reminders.load();
     final suggest = await widget.reminders.shouldSuggestTurningOff();
+    Map<String, bool>? sections;
+    final ts = widget.todayStore;
+    if (ts != null) {
+      sections = {
+        for (final key in _todaySectionLabels.keys)
+          key: await ts.homeSectionVisible(key),
+      };
+    }
     if (!mounted) return;
     setState(() {
       _settings = s;
       _suggestOff = suggest;
+      _todaySections = sections;
     });
+  }
+
+  Future<void> _toggleTodaySection(String key, bool v) async {
+    await widget.todayStore!.setHomeSectionVisible(key, v);
+    await _load();
   }
 
   Future<void> _toggleMorning(bool v) async {
@@ -129,7 +164,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(Space.page, Gap.md, Space.page, Gap.lg),
+        padding: const EdgeInsets.fromLTRB(
+          Space.page,
+          Gap.md,
+          Space.page,
+          Gap.lg,
+        ),
         children: [
           const NeoPageTitle(
             eyebrow: 'Your Nimo',
@@ -137,17 +177,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             sub: 'Offline by design. No account. No cloud.',
           ),
           const SizedBox(height: Gap.lg),
-          if (widget.themeChoice != null &&
-              widget.onThemeChanged != null) ...[
+          if (widget.themeChoice != null && widget.onThemeChanged != null) ...[
             // D-039: Appearance is a canvas section, not a panel.
             Row(
               children: [
-                const Expanded(
-                  child: NeoSectionHead(title: 'Appearance'),
-                ),
+                const Expanded(child: NeoSectionHead(title: 'Appearance')),
                 NeoInfoButton(
                   title: 'Appearance',
-                  message: 'The Editorial design, in dark or light. Dark is '
+                  message:
+                      'The Editorial design, in dark or light. Dark is '
                       'Nimo\'s home; light is there whenever you want it.',
                 ),
               ],
@@ -167,19 +205,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
               selected: {widget.themeChoice!},
-              onSelectionChanged: (sel) =>
-                  widget.onThemeChanged!(sel.first),
+              onSelectionChanged: (sel) => widget.onThemeChanged!(sel.first),
             ),
+            const SizedBox(height: Gap.lg),
+          ],
+          if (widget.todayStore != null && _todaySections != null) ...[
+            Row(
+              children: [
+                const Expanded(child: NeoSectionHead(title: 'Today')),
+                NeoInfoButton(
+                  title: 'Today',
+                  message:
+                      'Choose what your Today page shows: the week '
+                      'strip inside the plan card, the Day Close banner, '
+                      'and the spaces you pin under Organise.',
+                ),
+              ],
+            ),
+            const SizedBox(height: Gap.sm),
+            for (final e in _todaySectionLabels.entries)
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(e.value),
+                value: _todaySections![e.key] ?? true,
+                onChanged: (v) => _toggleTodaySection(e.key, v),
+              ),
             const SizedBox(height: Gap.lg),
           ],
           Row(
             children: [
-              const Expanded(
-                child: NeoSectionHead(title: 'Gentle reminders'),
-              ),
+              const Expanded(child: NeoSectionHead(title: 'Gentle reminders')),
               NeoInfoButton(
                 title: 'Gentle reminders',
-                message: 'Gentle nudges, off by default. They are scheduled '
+                message:
+                    'Gentle nudges, off by default. They are scheduled '
                     'inexactly — one may arrive a little after its time — '
                     'and nothing depends on them.',
               ),
@@ -215,8 +274,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Morning plan reminder'),
-              subtitle: Text('Daily at ${_fmt(s.morningTime)} — '
-                  '"${ReminderCopy.morningTitle}"'),
+              subtitle: Text(
+                'Daily at ${_fmt(s.morningTime)} — '
+                '"${ReminderCopy.morningTitle}"',
+              ),
               value: s.morningEnabled,
               onChanged: _toggleMorning,
             ),
@@ -232,8 +293,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Evening Day Close reminder'),
-              subtitle: Text('Daily at ${_fmt(s.eveningTime)} — '
-                  '"${ReminderCopy.eveningTitle}"'),
+              subtitle: Text(
+                'Daily at ${_fmt(s.eveningTime)} — '
+                '"${ReminderCopy.eveningTitle}"',
+              ),
               value: s.eveningEnabled,
               onChanged: _toggleEvening,
             ),

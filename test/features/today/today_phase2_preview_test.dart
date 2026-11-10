@@ -9,8 +9,11 @@
 /// 3. Carried items keep their CARRIED tag.
 /// 4. Completed items leave the preview; the next incomplete
 ///    item fills the vacancy.
-/// 5. 'See all' NAVIGATES to the Daily To-do screen (Phase 4);
-///    there is no in-place expansion and no 'Show less'.
+/// 5. The permanent 'View Full Plan' entry NAVIGATES to the
+///    Full Plan (the evolved Daily To-do screen); there is no
+///    in-place expansion and no 'Show less'. (UX Phase 5
+///    replaced the old conditional 'See all' button; the card
+///    now shows a plain '+N more tasks' count instead.)
 /// 6. The done-track ('X of Y done') remains.
 library;
 
@@ -82,9 +85,8 @@ void main() {
     return false;
   }
 
-  Future<({Directory tmp, Database db, TodayStore todayStore})> boot(
-    WidgetTester tester,
-  ) async {
+  Future<({Directory tmp, Database db, TodayStore todayStore, Widget screen})>
+  boot(WidgetTester tester) async {
     final tmp = await Directory.systemTemp.createTemp('nimo-phase2-');
     final db = await AppDatabase.openFile('${tmp.path}/test.db');
     final store = Store(db);
@@ -108,29 +110,27 @@ void main() {
     await todayStore.addOneOff(today, 'Book the train tickets');
     await todayStore.addOneOff(today, 'Evening walk');
 
+    final screen = TodayScreen(
+      store: store,
+      todayStore: todayStore,
+      goalsStore: goalsStore,
+      reviewStore: reviewStore,
+      learn: learn,
+      thumbnails: thumbs,
+      onOpenTopics: () {},
+      onOpenWorkspace: (_) async {},
+      onOpenLearn: () {},
+      onOpenSettings: () {},
+    );
     await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.neoDark(),
-        home: TodayScreen(
-          store: store,
-          todayStore: todayStore,
-          goalsStore: goalsStore,
-          reviewStore: reviewStore,
-          learn: learn,
-          thumbnails: thumbs,
-          onOpenTopics: () {},
-          onOpenWorkspace: (_) async {},
-          onOpenLearn: () {},
-          onOpenSettings: () {},
-        ),
-      ),
+      MaterialApp(theme: AppTheme.neoDark(), home: screen),
     );
     expect(
       await planLanded(tester),
       isTrue,
       reason: 'plan rows built after load',
     );
-    return (tmp: tmp, db: db, todayStore: todayStore);
+    return (tmp: tmp, db: db, todayStore: todayStore, screen: screen);
   }
 
   /// Scrolls the Daily To-do ListView until [title] is built
@@ -152,7 +152,7 @@ void main() {
   }
 
   testWidgets('Phase 2: preview shows first 4 incomplete, flat, '
-      'interleaved; See all navigates (Phase 4)', (tester) async {
+      'interleaved; View Full Plan navigates (Phase 5)', (tester) async {
     await tester.runAsync(() async {
       final h = await boot(tester);
 
@@ -168,7 +168,9 @@ void main() {
       expect(row('Call the bank about the card'), findsOneWidget);
       expect(find.text('CARRIED'), findsOneWidget);
       expect(row('Read 10 pages'), findsOneWidget);
-      // The rest are behind See all.
+      // The rest are behind the Full Plan entry, and the
+      // card says so with a plain count.
+      expect(find.text('+3 more tasks'), findsOneWidget);
       expect(find.text('Reply to the landlord'), findsNothing);
       expect(find.text('Book the train tickets'), findsNothing);
       expect(find.text('Evening walk'), findsNothing);
@@ -185,24 +187,24 @@ void main() {
       expect(yCarried, greaterThan(yRoutine));
       expect(yCarried, lessThan(yFresh));
 
-      // Phase 4: 'See all' navigates to the Daily To-do
-      // screen, where the full day (all 7 rows, grouped) is
-      // managed; there is no in-place expansion.
+      // UX Phase 5: the permanent View Full Plan entry
+      // navigates to the Full Plan, where the whole day
+      // (all 7 rows, grouped) is managed; there is no
+      // in-place expansion.
       expect(find.text('Show less'), findsNothing);
-      await tester.ensureVisible(find.text('See all'));
+      final entry = find.byKey(const ValueKey('view_full_plan_entry'));
+      for (var i = 0; i < 30 && entry.evaluate().isEmpty; i++) {
+        await tester.drag(find.byType(ListView), const Offset(0, -300));
+        await tester.pump();
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+      }
+      await tester.ensureVisible(entry);
       await tester.pump(const Duration(milliseconds: 300));
-      tester
-          .widget<TextButton>(
-            find.ancestor(
-              of: find.text('See all'),
-              matching: find.byType(TextButton),
-            ),
-          )
-          .onPressed!();
+      await tester.tap(entry);
       expect(
         await pollFor(tester, find.byType(DailyTodoScreen)),
         isTrue,
-        reason: 'See all opened the Daily To-do screen',
+        reason: 'View Full Plan opened the Full Plan screen',
       );
       // The screen type lands before its async group load;
       // poll for the group head too (in-batch load timing
@@ -216,11 +218,21 @@ void main() {
       expect(find.text('Reply to the landlord'), findsOneWidget);
       expect(find.text('Evening walk'), findsOneWidget);
       tester.state<NavigatorState>(find.byType(Navigator)).pop();
-      expect(
-        await pollFor(tester, row('Arabic revision')),
-        isTrue,
-        reason: 'returned to Today with the preview intact',
-      );
+      // Today keeps its deep scroll offset on return; the
+      // preview rows sit above the lazy-build window until
+      // the list scrolls back (the backToToday helper below
+      // does the same for the other tests).
+      var back = false;
+      for (var i = 0; i < 40 && !back; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        await tester.pump(const Duration(milliseconds: 100));
+        back = row('Arabic revision').evaluate().isNotEmpty;
+        if (!back && i % 4 == 3) {
+          await tester.drag(find.byType(ListView).first, const Offset(0, 500));
+          await tester.pump(const Duration(milliseconds: 150));
+        }
+      }
+      expect(back, isTrue, reason: 'returned to Today with the preview intact');
 
       // Refill: completing the first preview item (data-level)
       // removes it and pulls the 5th incomplete item up.
@@ -306,18 +318,25 @@ void main() {
   // ---- Phase 2 correction, re-pinned for Phase 4 ----
   //
   // The correction's intent survives the navigation change:
-  // UNRELATED screen refreshes (Customize Home, Quick
-  // Capture actions that do not touch today's plan) must
-  // neither lose nor corrupt plan state, and a plan change
-  // made anywhere (here: inside Daily To-do) must be
-  // reflected on Today when the user returns.
+  // UNRELATED activity that does not touch today's plan (a
+  // goal capture) must neither lose nor corrupt plan state,
+  // and a plan change made anywhere (here: inside the Full
+  // Plan) must be reflected on Today when the user returns.
 
-  /// Phase 4: open the Daily To-do screen via See all and
-  /// confirm the full day is there.
+  /// Open the Full Plan via the permanent View Full Plan
+  /// entry and confirm the full day is there.
   Future<void> openDailyTodo(WidgetTester tester) async {
-    await tester.ensureVisible(find.text('See all'));
+    final entry = find.byKey(const ValueKey('view_full_plan_entry'));
+    // The entry sits below a full plan card — drag until it
+    // is built before asking ensureVisible to find it.
+    for (var i = 0; i < 30 && entry.evaluate().isEmpty; i++) {
+      await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+      await tester.pump();
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+    }
+    await tester.ensureVisible(entry);
     await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.text('See all'));
+    await tester.tap(entry);
     expect(
       await pollFor(tester, find.byType(DailyTodoScreen)),
       isTrue,
@@ -340,157 +359,37 @@ void main() {
     var back = false;
     for (var i = 0; i < 40 && !back; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 100));
-      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
       back = row('Arabic revision').evaluate().isNotEmpty;
       if (!back && i % 4 == 3) {
-        await tester.drag(find.byType(ListView), const Offset(0, 500));
+        await tester.drag(find.byType(ListView).first, const Offset(0, 500));
         await tester.pump(const Duration(milliseconds: 150));
       }
     }
     expect(back, isTrue, reason: 'back on Today');
   }
 
-  /// Scrolls the page until [finder] exists in the tree.
-  /// Today's ListView builds ALL its children at once (84
-  /// children — slivers are not lazy here), so absence means
-  /// "not rendered", never "not yet built"; this helper is
-  /// for controls that appear only after another action
-  /// (kept from the earlier layout investigation).
-  Future<void> scrollUntil(WidgetTester tester, Finder finder) async {
-    for (var i = 0; i < 30; i++) {
-      if (finder.evaluate().isNotEmpty) return;
-      await tester.drag(find.byType(ListView), const Offset(0, -300));
-      await tester.pump();
-      await Future<void>.delayed(const Duration(milliseconds: 30));
-    }
-    fail('never scrolled into the tree: $finder');
-  }
-
-  testWidgets('Phase 4: an unrelated Customize Home save '
-      'keeps Today intact; the full day waits in Daily To-do', (tester) async {
+  testWidgets('Phase 5: an unrelated goal capture leaves '
+      'Today and the Full Plan consistent', (tester) async {
     await tester.runAsync(() async {
       final h = await boot(tester);
 
-      await scrollUntil(tester, find.text('Customize Home'));
-      await tester.ensureVisible(find.text('Customize Home'));
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.tap(find.text('Customize Home'));
-      expect(await pollFor(tester, find.text('Week strip')), isTrue);
-      // The switch sits low in the scrollable dialog — bring
-      // it on-screen before tapping (a missed tap here leaves
-      // the save loop running against a closed database).
-      final weekSwitch = find.ancestor(
-        of: find.text('Week strip'),
-        matching: find.byType(SwitchListTile),
+      // A goal capture (the retired Goal tile's whole job,
+      // now the global +'s) creates a goal and never touches
+      // today's plan. Done at store level; Today is then
+      // re-mounted, which is the same reload the capture's
+      // return performed.
+      await GoalsStore(h.db).addGoal('Read 12 books', 12, 'books');
+      await tester.pumpWidget(
+        MaterialApp(theme: AppTheme.neoDark(), home: h.screen),
       );
-      await tester.ensureVisible(weekSwitch);
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.tap(weekSwitch);
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
-      // Wait for the customization to actually land before
-      // asserting (the save writes sections to the DB).
-      expect(
-        await pollFor(
-          tester,
-          find.text('10'),
-          timeout: const Duration(seconds: 2),
-        ),
-        isFalse,
-      );
-      // (Phase 2 asserted the expanded preview here; Phase 4
-      // keeps the same intent — the unrelated save must not
-      // corrupt the plan — verified below through the
-      // untouched preview and Daily To-do.)
+      expect(await planLanded(tester), isTrue);
 
-      // The customization really applied: the strip's day
-      // numbers vanish (Nov 10 only exists in the strip).
-      expect(find.text('10'), findsNothing);
-      // Core C2: the page grew by the Dua tile, so while the
-      // list is still scrolled at the bottom the plan section
-      // can sit outside the lazy-build window — scroll back
-      // up until the preview row is built again.
-      for (
-        var i = 0;
-        i < 20 && row('Arabic revision').evaluate().isEmpty;
-        i++
-      ) {
-        await tester.drag(find.byType(ListView), const Offset(0, 400));
-        await tester.pump();
-        await Future<void>.delayed(const Duration(milliseconds: 30));
-      }
-      // The preview is untouched by the unrelated refresh:
-      // still exactly the first 4, no expansion state at all.
-      expect(row('Arabic revision'), findsOneWidget);
+      // The preview still shows the first 4 only, with the
+      // honest count, and the untouched full day waits
+      // behind the permanent entry.
       expect(row('Evening walk'), findsNothing);
-      expect(find.text('Show less'), findsNothing);
-      // …and the full day is one tap away, unchanged.
-      await openDailyTodo(tester);
-      await backToToday(tester);
-
-      await h.db.close();
-      await h.tmp.delete(recursive: true);
-    });
-  });
-
-  testWidgets('Phase 4: a Quick Capture that does not touch '
-      'the plan leaves Today and Daily To-do consistent', (tester) async {
-    await tester.runAsync(() async {
-      final h = await boot(tester);
-
-      // Quick Capture → Goal creates a goal; it never touches
-      // today's plan. (The Goal dialog: title + numeric
-      // target, then its Save button.) Expanding the preview
-      // scrolls the plan card into view and the quick-add row
-      // above it leaves the ListView's built range, so return
-      // to the top before looking for the Goal tile.
-      tester
-          .state<ScrollableState>(find.byType(Scrollable).first)
-          .position
-          .jumpTo(0);
-      await tester.pump(const Duration(milliseconds: 300));
-      final icon = find.byIcon(Icons.flag_outlined);
-      expect(await pollFor(tester, icon), isTrue);
-      await tester.tapAt(tester.getCenter(icon));
-      // Poll for the dialog by PUMPING DURATION frames:
-      // dialogs animate in on frame time, and pollFor's bare
-      // pump() advances none — the hero-scroll suite settles
-      // the same way after its taps.
-      var dialogIn = false;
-      for (var i = 0; i < 30; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 60));
-        await tester.pump(const Duration(milliseconds: 60));
-        if (find.text('New goal').evaluate().isNotEmpty) {
-          dialogIn = true;
-          break;
-        }
-      }
-      expect(dialogIn, isTrue, reason: 'goal dialog opened');
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Goal'),
-        'Read 12 books',
-      );
-      await tester.enterText(find.widgetWithText(TextField, 'Target'), '12');
-      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
-      // Saving runs the real async addGoal + screen refresh;
-      // poll the database instead of assuming a fixed settle.
-      var goalSaved = false;
-      for (var i = 0; i < 50; i++) {
-        final goals = await GoalsStore(h.db).goals();
-        if (goals.any((g) => g.title == 'Read 12 books')) {
-          goalSaved = true;
-          break;
-        }
-        await Future<void>.delayed(const Duration(milliseconds: 100));
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-      expect(goalSaved, isTrue, reason: 'goal really created');
-
-      // The unrelated refresh happened; scroll the plan back
-      // into view: the preview still shows the first 4 only,
-      // and the untouched full day waits behind See all.
-      await scrollUntil(tester, find.text('See all'));
-      expect(row('Evening walk'), findsNothing);
+      expect(find.text('+3 more tasks'), findsOneWidget);
       expect(find.text('Show less'), findsNothing);
       await openDailyTodo(tester);
       await backToToday(tester);
@@ -568,7 +467,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       // Back to at most 4 incomplete rows; the completed
-      // task is gone from the preview; See all is back.
+      // task is gone from the preview; the hidden count
+      // updates to the 2 tasks the preview cannot show.
       expect(find.text('Morning pages'), findsNothing);
       expect(row('Arabic revision'), findsOneWidget);
       expect(row('Call the bank about the card'), findsOneWidget);
@@ -576,7 +476,7 @@ void main() {
       expect(row('Reply to the landlord'), findsOneWidget);
       expect(row('Book the train tickets'), findsNothing);
       expect(row('Evening walk'), findsNothing);
-      expect(find.text('See all'), findsOneWidget);
+      expect(find.text('+2 more tasks'), findsOneWidget);
 
       await h.db.close();
       await h.tmp.delete(recursive: true);

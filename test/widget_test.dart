@@ -72,7 +72,10 @@ void main() {
         );
 
         // Default tab is Today / Hub Home.
-        expect(await pollFor(find.text('Task')), isTrue); // Quick add row
+        expect(
+          await pollFor(find.text("Today's plan")),
+          isTrue,
+        ); // Today loaded
 
         // S4's Topics & Library card sits above the plan card, so
         // scroll the plan card into the ListView's built region.
@@ -86,15 +89,22 @@ void main() {
         }
         expect(find.text("Today's plan"), findsOneWidget);
 
-        // Customize Home sits at the bottom of the scrolling hub:
-        // drag up until it is built, then it must exist exactly once.
+        // The Organise entry sits at the bottom of the
+        // scrolling hub (UX Phase 4/5; Customize Home used to
+        // be the bottom marker before it retired): drag up
+        // until it is built, then it must exist exactly once.
         for (var i = 0; i < 12; i++) {
-          if (find.text('Customize Home').evaluate().isNotEmpty) break;
+          if (find
+              .byKey(const ValueKey('organise_entry'))
+              .evaluate()
+              .isNotEmpty) {
+            break;
+          }
           await tester.drag(find.byType(ListView), const Offset(0, -300));
           await Future<void>.delayed(const Duration(milliseconds: 100));
           await tester.pump();
         }
-        expect(find.text('Customize Home'), findsOneWidget);
+        expect(find.byKey(const ValueKey('organise_entry')), findsOneWidget);
 
         // Phase 1: the bottom bar's destinations; Progress
         // is the visible 4th destination and opens on Progress by default.
@@ -120,7 +130,7 @@ void main() {
 
         // Back to Today for the Learn flow below.
         await tester.tap(find.text('Today'));
-        expect(await pollFor(find.text('Task')), isTrue);
+        expect(await pollFor(find.text("Today's plan")), isTrue);
         final learnDest = find.descendant(
           of: find.byType(FloatingCapsuleBar),
           matching: find.text('Learn'),
@@ -137,10 +147,8 @@ void main() {
         // drag its entry into view at the bottom of the
         // list, then tap it.
         await tester.tap(find.text('Today'));
-        expect(await pollFor(find.text('Task')), isTrue);
-        final organiseEntry = find.byKey(
-          const ValueKey('organise_entry'),
-        );
+        expect(await pollFor(find.text("Today's plan")), isTrue);
+        final organiseEntry = find.byKey(const ValueKey('organise_entry'));
         for (var i = 0; i < 12; i++) {
           if (organiseEntry.evaluate().isNotEmpty) break;
           await tester.drag(find.byType(ListView), const Offset(0, -300));

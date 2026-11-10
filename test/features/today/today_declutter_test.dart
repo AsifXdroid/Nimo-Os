@@ -81,9 +81,11 @@ void main() {
 
       // Wait for TodayScreen to load
       expect(await pollFor(tester, find.text("Today's plan")), isTrue);
-      expect(find.text('Task'), findsOneWidget);
-      expect(find.text('Note'), findsOneWidget);
-      expect(find.text('Checklist'), findsOneWidget);
+      expect(find.text("Today's plan"), findsOneWidget);
+      // UX Phase 5: the quick tiles this test once used as
+      // load markers are retired.
+      expect(find.text('Note'), findsNothing);
+      expect(find.text('Checklist'), findsNothing);
 
       // Verify that Pinned Spaces, Recently touched, and Goals headings are NOT rendered
       expect(find.text('Pinned spaces'), findsNothing);

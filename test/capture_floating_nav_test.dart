@@ -40,10 +40,13 @@ Future<String> _captureOutDir() async {
 
 Future<void> loadRealFonts() async {
   final iconFile = File(
-      '/home/Asif/development/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf');
+    '/home/Asif/development/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+  );
   if (iconFile.existsSync()) {
     final loader = FontLoader('MaterialIcons');
-    loader.addFont(Future.value(ByteData.view(iconFile.readAsBytesSync().buffer)));
+    loader.addFont(
+      Future.value(ByteData.view(iconFile.readAsBytesSync().buffer)),
+    );
     await loader.load();
   }
 
@@ -79,7 +82,9 @@ Future<void> loadRealFonts() async {
   ]) {
     final f = File(path);
     if (f.existsSync()) {
-      monoLoader.addFont(Future.value(ByteData.view(f.readAsBytesSync().buffer)));
+      monoLoader.addFont(
+        Future.value(ByteData.view(f.readAsBytesSync().buffer)),
+      );
     }
   }
   await monoLoader.load();
@@ -98,6 +103,7 @@ void main() {
     required String outputPath,
     int tabIndex = 0,
     bool openQuickAdd = false,
+    bool openOrganise = false,
   }) async {
     final globalKey = GlobalKey();
     final db = await AppDatabase.openInMemory();
@@ -116,7 +122,12 @@ void main() {
     // Seed sample workspace and project
     final ws = await store.createWorkspace('Personal & Life');
     final prj = await store.createProject(ws.id, 'Self-Development');
-    await store.createItem(prj.id, type: 'note', title: 'Daily Intentions', note: 'Focus on small, mindful steps every morning.');
+    await store.createItem(
+      prj.id,
+      type: 'note',
+      title: 'Daily Intentions',
+      note: 'Focus on small, mindful steps every morning.',
+    );
     await goalsStore.addGoal('Read 12 books this year', 12, 'books');
     await goalsStore.addGoal('Meditate 30 days', 30, 'days');
 
@@ -144,9 +155,25 @@ void main() {
       await tester.pump();
     }
 
+    if (openOrganise) {
+      final entry = find.byKey(const ValueKey('organise_entry'));
+      if (entry.evaluate().isNotEmpty) {
+        await tester.scrollUntilVisible(entry, 200);
+        for (var i = 0; i < 10; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+          await tester.pump();
+        }
+        await tester.tap(entry);
+        for (var i = 0; i < 15; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+          await tester.pump();
+        }
+      }
+    }
+
     if (tabIndex > 0) {
       // Tap destination
-      final destLabels = ['Today', 'Organise', 'Learn', 'Progress'];
+      final destLabels = ['Today', 'Learn', 'Progress'];
       final target = find.text(destLabels[tabIndex]);
       if (target.evaluate().isNotEmpty) {
         await tester.tap(target);
@@ -195,22 +222,55 @@ void main() {
       final outDir = await _captureOutDir();
 
       // 1. Home Dark
-      await captureScreen(tester, themeChoice: AppThemeChoice.dark, outputPath: '$outDir/screen_home_dark.png', tabIndex: 0);
+      await captureScreen(
+        tester,
+        themeChoice: AppThemeChoice.dark,
+        outputPath: '$outDir/screen_home_dark.png',
+        tabIndex: 0,
+      );
 
       // 2. Home Light
-      await captureScreen(tester, themeChoice: AppThemeChoice.light, outputPath: '$outDir/screen_home_light.png', tabIndex: 0);
+      await captureScreen(
+        tester,
+        themeChoice: AppThemeChoice.light,
+        outputPath: '$outDir/screen_home_light.png',
+        tabIndex: 0,
+      );
 
       // 3. Learn Screen
-      await captureScreen(tester, themeChoice: AppThemeChoice.dark, outputPath: '$outDir/screen_learn_dark.png', tabIndex: 1);
+      await captureScreen(
+        tester,
+        themeChoice: AppThemeChoice.dark,
+        outputPath: '$outDir/screen_learn_dark.png',
+        tabIndex: 1,
+      );
 
-      // 4. Spaces (Workspaces/Projects/Notes)
-      await captureScreen(tester, themeChoice: AppThemeChoice.dark, outputPath: '$outDir/screen_spaces_dark.png', tabIndex: 2);
+      // 4. Spaces (Workspaces/Projects/Notes) — UX Phase 4:
+      // Organise is a pushed screen from Today, not a tab.
+      await captureScreen(
+        tester,
+        themeChoice: AppThemeChoice.dark,
+        outputPath: '$outDir/screen_spaces_dark.png',
+        tabIndex: 0,
+        openOrganise: true,
+      );
 
       // 5. Progress / Insights
-      await captureScreen(tester, themeChoice: AppThemeChoice.dark, outputPath: '$outDir/screen_progress_dark.png', tabIndex: 3);
+      await captureScreen(
+        tester,
+        themeChoice: AppThemeChoice.dark,
+        outputPath: '$outDir/screen_progress_dark.png',
+        tabIndex: 2,
+      );
 
       // 6. Quick Add Contextual Sheet
-      await captureScreen(tester, themeChoice: AppThemeChoice.dark, outputPath: '$outDir/screen_quick_add_dark.png', tabIndex: 0, openQuickAdd: true);
+      await captureScreen(
+        tester,
+        themeChoice: AppThemeChoice.dark,
+        outputPath: '$outDir/screen_quick_add_dark.png',
+        tabIndex: 0,
+        openQuickAdd: true,
+      );
     });
   });
 }

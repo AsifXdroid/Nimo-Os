@@ -134,7 +134,7 @@ void main() {
         learn: env.learn,
         thumbnails: ThumbnailService(Directory('${env.dir.path}/thumbs')),
         onOpenTopics: () {},
-        onOpenWorkspace: (_) {},
+        onOpenWorkspace: (_) async {},
         onOpenLearn: () {},
         onOpenSettings: () {},
         onOpenProgress: () {},

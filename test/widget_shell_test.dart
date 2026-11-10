@@ -5,6 +5,7 @@
 // widget_test.dart (the FFI database deadlocks otherwise).
 import 'dart:io';
 
+import 'package:daily_life_app/core/capsule_nav_bar.dart';
 import 'package:daily_life_app/core/db/app_database.dart';
 import 'package:daily_life_app/features/goals/goals_store.dart';
 import 'package:daily_life_app/features/items/link_card/thumbnail_service.dart';
@@ -15,6 +16,7 @@ import 'package:daily_life_app/features/review/review_store.dart';
 import 'package:daily_life_app/features/settings/backup_store.dart';
 import 'package:daily_life_app/features/store.dart';
 import 'package:daily_life_app/features/today/today_store.dart';
+import 'package:daily_life_app/features/workspaces/workspaces_screen.dart';
 import 'package:daily_life_app/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -41,21 +43,24 @@ void main() {
     final tmp = await Directory.systemTemp.createTemp('nimo-shell-');
     final library = LibraryStore(Directory('${tmp.path}/Library'));
     await library.ensureLayout();
-    await tester.pumpWidget(DailyLifeApp(
-      db: db,
-      store: Store(db),
-      todayStore: todayStore,
-      goalsStore: GoalsStore(db),
-      reviewStore: ReviewStore(db, todayStore),
-      learn: LearnServices(LearnStore(db), library, db: db),
-      thumbnails: ThumbnailService(Directory('${tmp.path}/thumbs')),
-      backup: BackupStore(),
-      onRestoreBackup: (_, {required replaceConfirmed}) async {},
-    ));
+    await tester.pumpWidget(
+      DailyLifeApp(
+        db: db,
+        store: Store(db),
+        todayStore: todayStore,
+        goalsStore: GoalsStore(db),
+        reviewStore: ReviewStore(db, todayStore),
+        learn: LearnServices(LearnStore(db), library, db: db),
+        thumbnails: ThumbnailService(Directory('${tmp.path}/thumbs')),
+        backup: BackupStore(),
+        onRestoreBackup: (_, {required replaceConfirmed}) async {},
+      ),
+    );
   }
 
-  testWidgets('wide surface: rail replaces the bar; Direction works',
-      (tester) async {
+  testWidgets('wide surface: rail replaces the bar; Direction works', (
+    tester,
+  ) async {
     await tester.runAsync(() async {
       tester.view.physicalSize = const Size(2400, 1600);
       tester.view.devicePixelRatio = 2.0;
@@ -75,8 +80,9 @@ void main() {
     });
   });
 
-  testWidgets('phone: Quick Add sheet offers the three captures',
-      (tester) async {
+  testWidgets('phone: Quick Add sheet offers the three captures', (
+    tester,
+  ) async {
     await tester.runAsync(() async {
       tester.view.physicalSize = const Size(1170, 2532);
       tester.view.devicePixelRatio = 3.0;
@@ -90,8 +96,51 @@ void main() {
     });
   });
 
-  testWidgets('streak chip opens Direction on its Progress tab',
-      (tester) async {
+  testWidgets('Phase 4: capsule offers exactly Today, Learn, '
+      'Progress; Organise opens from Today as a pushed screen', (tester) async {
+    await tester.runAsync(() async {
+      tester.view.physicalSize = const Size(1170, 2532);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+
+      await pumpApp(tester);
+      expect(await pollFor(tester, find.byType(FloatingCapsuleBar)), isTrue);
+      Finder inCapsule(String label) => find.descendant(
+        of: find.byType(FloatingCapsuleBar),
+        matching: find.text(label),
+      );
+      expect(await pollFor(tester, inCapsule('Today')), isTrue);
+      expect(inCapsule('Learn'), findsOneWidget);
+      expect(inCapsule('Progress'), findsOneWidget);
+      expect(inCapsule('Organise'), findsNothing);
+
+      // The Organise entry at the bottom of Today opens the
+      // real Organise screen; Back returns to Today. The
+      // entry sits below Today's fold, so scroll it into
+      // view (the ListView builds it as it approaches).
+      final entry = find.byKey(const ValueKey('organise_entry'));
+      await tester.scrollUntilVisible(entry, 200);
+      await tester.pump(const Duration(milliseconds: 150));
+      await tester.tap(entry);
+      expect(await pollFor(tester, find.byType(WorkspacesScreen)), isTrue);
+      expect(
+        await pollFor(tester, find.byKey(const ValueKey('spaces_inbox_card'))),
+        isTrue,
+      );
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      for (var i = 0; i < 30; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        await tester.pump();
+        if (find.byType(WorkspacesScreen).evaluate().isEmpty) break;
+      }
+      expect(find.byType(WorkspacesScreen), findsNothing);
+      expect(find.byType(FloatingCapsuleBar), findsOneWidget);
+    });
+  });
+
+  testWidgets('streak chip opens Direction on its Progress tab', (
+    tester,
+  ) async {
     await tester.runAsync(() async {
       tester.view.physicalSize = const Size(1170, 2532);
       tester.view.devicePixelRatio = 3.0;

@@ -339,23 +339,23 @@ class _DailyLifeAppState extends State<DailyLifeApp> {
               onDone: () => setState(() => _showOnboarding = false),
             )
           : AppShell(
-        db: widget.db,
-        store: widget.store,
-        todayStore: widget.todayStore,
-        goalsStore: widget.goalsStore,
-        reviewStore: widget.reviewStore,
-        progressStore: widget.progressStore,
-        reminders: widget.reminders,
-        reminderRouter: widget.reminderRouter,
-        learn: widget.learn,
-        thumbnails: widget.thumbnails,
-        backup: widget.backup,
-        shareService: widget.shareService,
-        externalBackup: widget.externalBackup,
-        onRestoreBackup: widget.onRestoreBackup,
-        themeChoice: _themeChoice,
-        onThemeChanged: _setThemeChoice,
-      ),
+              db: widget.db,
+              store: widget.store,
+              todayStore: widget.todayStore,
+              goalsStore: widget.goalsStore,
+              reviewStore: widget.reviewStore,
+              progressStore: widget.progressStore,
+              reminders: widget.reminders,
+              reminderRouter: widget.reminderRouter,
+              learn: widget.learn,
+              thumbnails: widget.thumbnails,
+              backup: widget.backup,
+              shareService: widget.shareService,
+              externalBackup: widget.externalBackup,
+              onRestoreBackup: widget.onRestoreBackup,
+              themeChoice: _themeChoice,
+              onThemeChanged: _setThemeChoice,
+            ),
     );
   }
 }
@@ -437,12 +437,18 @@ class _AppShellState extends State<AppShell> {
   // Progress. Ids are unchanged ('spaces', 'direction'), so
   // routing, the Direction tab request and stored state are
   // untouched; only labels and order move.
+  // UX Phase 4: the 'spaces' destination is retired — Organise
+  // is a pushed route owned by the shell (see _openOrganise),
+  // reached from the Organise section at the bottom of Today.
   static const List<_Destination> _destinations = [
     _Destination('today', 'Today', Icons.today_outlined, Icons.today),
-    _Destination('spaces', 'Organise', Icons.folder_outlined, Icons.folder),
     _Destination('learn', 'Learn', Icons.school_outlined, Icons.school),
     _Destination(
-        'direction', 'Progress', Icons.insights_outlined, Icons.insights),
+      'direction',
+      'Progress',
+      Icons.insights_outlined,
+      Icons.insights,
+    ),
   ];
 
   String _destId = 'today';
@@ -469,34 +475,37 @@ class _AppShellState extends State<AppShell> {
   int get _index => _destinations.indexWhere((d) => d.id == _destId);
 
   void _select(String id) => setState(() {
-        _destId = id;
-        if (id == 'direction') _directionRequest = null;
-      });
+    _destId = id;
+    if (id == 'direction') _directionRequest = null;
+  });
 
   /// D-045: Today's streak chip opens Direction directly on
   /// its Progress tab.
   void _openDirectionProgress() => setState(() {
-        _directionRequest = DirectionTab.progress;
-        _directionToken++;
-        _destId = 'direction';
-      });
+    _directionRequest = DirectionTab.progress;
+    _directionToken++;
+    _destId = 'direction';
+  });
 
   /// D-045: the shared Quick Add capture workflow (also used
   /// by Today's quick-add row).
   QuickAddService get _quickAdd => QuickAddService(
-        store: widget.store,
-        todayStore: widget.todayStore,
-        learnStore: widget.learn.store,
-        linkCards: LinkCardService(
-            widget.store, widget.learn.store, widget.thumbnails),
-        library: widget.learn.library,
-      );
+    store: widget.store,
+    todayStore: widget.todayStore,
+    learnStore: widget.learn.store,
+    linkCards: LinkCardService(
+      widget.store,
+      widget.learn.store,
+      widget.thumbnails,
+    ),
+    library: widget.learn.library,
+  );
 
   void _openQuickAdd() => showQuickAddSheet(
-        context,
-        service: _quickAdd,
-        onOpenItem: _openItemDetail,
-      );
+    context,
+    service: _quickAdd,
+    onOpenItem: _openItemDetail,
+  );
 
   void _openItemDetail(Item item) {
     Navigator.of(context).push(
@@ -622,9 +631,25 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
-  void _openWorkspace(Workspace ws) {
-    _select('spaces');
-    Navigator.of(context).push(
+  /// UX Phase 4: Organise is a pushed route now, not a shell
+  /// destination. The shell owns both Organise routes: the
+  /// workspace list, and a single workspace's projects (the
+  /// pinned rows on Today). Each future completes when the
+  /// route pops, so Today can refresh on return.
+  Future<void> _openOrganise() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => WorkspacesScreen(
+          store: widget.store,
+          learn: widget.learn,
+          thumbnails: widget.thumbnails,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openWorkspace(Workspace ws) async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ProjectsScreen(
           store: widget.store,
@@ -637,33 +662,34 @@ class _AppShellState extends State<AppShell> {
   }
 
   Widget _backupSection() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          BackupSection(
-            onExport: () => widget.backup.exportBackup(
-              db: widget.db,
-              libraryRoot: widget.learn.library.root,
-            ),
-            onInspect: (zip) => widget.backup.inspectBackup(zip),
-            onTargetHasData: () async => widget.backup
-                .databaseHasUserData(await AppDatabase.databaseFilePath()),
-            onRestore: widget.onRestoreBackup,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      BackupSection(
+        onExport: () => widget.backup.exportBackup(
+          db: widget.db,
+          libraryRoot: widget.learn.library.root,
+        ),
+        onInspect: (zip) => widget.backup.inspectBackup(zip),
+        onTargetHasData: () async => widget.backup.databaseHasUserData(
+          await AppDatabase.databaseFilePath(),
+        ),
+        onRestore: widget.onRestoreBackup,
+      ),
+      // D-043 (P0): the uninstall-surviving copy, Android only.
+      if (widget.externalBackup != null) ...[
+        const SizedBox(height: Gap.lg),
+        ExternalBackupSection(
+          store: widget.externalBackup!,
+          libraryRoot: widget.learn.library.root,
+          onInspect: (zip) => widget.backup.inspectBackup(zip),
+          onTargetHasData: () async => widget.backup.databaseHasUserData(
+            await AppDatabase.databaseFilePath(),
           ),
-          // D-043 (P0): the uninstall-surviving copy, Android only.
-          if (widget.externalBackup != null) ...[
-            const SizedBox(height: Gap.lg),
-            ExternalBackupSection(
-              store: widget.externalBackup!,
-              libraryRoot: widget.learn.library.root,
-              onInspect: (zip) => widget.backup.inspectBackup(zip),
-              onTargetHasData: () async => widget.backup
-                  .databaseHasUserData(
-                      await AppDatabase.databaseFilePath()),
-              onRestore: widget.onRestoreBackup,
-            ),
-          ],
-        ],
-      );
+          onRestore: widget.onRestoreBackup,
+        ),
+      ],
+    ],
+  );
 
   void _openTopics() {
     Navigator.of(context)
@@ -734,41 +760,37 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     final body = switch (_destId) {
       'learn' => LearnScreen(
-          learn: widget.learn,
-          reviewStore: widget.reviewStore,
-          store: widget.store,
-          onOpenTopics: _openTopics,
-        ),
-      'spaces' => WorkspacesScreen(
-          store: widget.store,
-          learn: widget.learn,
-          thumbnails: widget.thumbnails,
-        ),
+        learn: widget.learn,
+        reviewStore: widget.reviewStore,
+        store: widget.store,
+        onOpenTopics: _openTopics,
+      ),
       'direction' => DirectionScreen(
-          // Keyed by the one-shot token: a streak-chip request
-          // always rebuilds the host on its Progress tab.
-          key: ValueKey('direction-$_directionToken'),
-          goalsStore: widget.goalsStore,
-          progressStore: _progress,
-          todayStore: widget.todayStore,
-          reviewStore: widget.reviewStore,
-          initialTab: _directionRequest ?? DirectionTab.progress,
-        ),
+        // Keyed by the one-shot token: a streak-chip request
+        // always rebuilds the host on its Progress tab.
+        key: ValueKey('direction-$_directionToken'),
+        goalsStore: widget.goalsStore,
+        progressStore: _progress,
+        todayStore: widget.todayStore,
+        reviewStore: widget.reviewStore,
+        initialTab: _directionRequest ?? DirectionTab.progress,
+      ),
       _ => TodayScreen(
-          store: widget.store,
-          todayStore: widget.todayStore,
-          goalsStore: widget.goalsStore,
-          reviewStore: widget.reviewStore,
-          learn: widget.learn,
-          thumbnails: widget.thumbnails,
-          onOpenTopics: _openTopics,
-          onOpenWorkspace: _openWorkspace,
-          onOpenLearn: () => _select('learn'),
-          progressStore: _progress,
-          onOpenSettings: _openSettings,
-          onOpenWeeklySummary: _openWeeklySummary,
-          onOpenProgress: _openDirectionProgress,
-        ),
+        store: widget.store,
+        todayStore: widget.todayStore,
+        goalsStore: widget.goalsStore,
+        reviewStore: widget.reviewStore,
+        learn: widget.learn,
+        thumbnails: widget.thumbnails,
+        onOpenTopics: _openTopics,
+        onOpenWorkspace: _openWorkspace,
+        onOpenOrganise: _openOrganise,
+        onOpenLearn: () => _select('learn'),
+        progressStore: _progress,
+        onOpenSettings: _openSettings,
+        onOpenWeeklySummary: _openWeeklySummary,
+        onOpenProgress: _openDirectionProgress,
+      ),
     };
     // D-045: one Quick Add action at every destination root —
     // a restrained floating + on mobile, the rail's leading
@@ -796,8 +818,7 @@ class _AppShellState extends State<AppShell> {
                   ),
                   child: NavigationRail(
                     selectedIndex: _index,
-                    onDestinationSelected: (i) =>
-                        _select(_destinations[i].id),
+                    onDestinationSelected: (i) => _select(_destinations[i].id),
                     labelType: NavigationRailLabelType.all,
                     leading: Padding(
                       padding: const EdgeInsets.only(bottom: Space.s2),

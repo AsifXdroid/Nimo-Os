@@ -169,7 +169,7 @@ void main() {
           learn: s.learn,
           thumbnails: s.thumbs,
           onOpenTopics: () {},
-          onOpenWorkspace: (_) {},
+          onOpenWorkspace: (_) async {},
           onOpenLearn: () {},
           onOpenSettings: () {},
         ),

@@ -69,7 +69,7 @@ void main() {
           thumbnails:
               ThumbnailService(Directory('${tmp.path}/thumbs')),
           onOpenTopics: () {},
-          onOpenWorkspace: (_) {},
+          onOpenWorkspace: (_) async {},
           onOpenLearn: () {},
           onOpenSettings: () {},
           onOpenProgress: () {},

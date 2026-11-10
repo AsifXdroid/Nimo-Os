@@ -166,6 +166,7 @@ class TodayScreen extends StatefulWidget {
     required this.onOpenTopics,
     required this.onOpenWorkspace,
     required this.onOpenLearn,
+    this.onOpenOrganise,
     this.progressStore,
     this.onOpenSettings,
     this.onOpenWeeklySummary,
@@ -188,9 +189,18 @@ class TodayScreen extends StatefulWidget {
   /// also wires the backup section into it).
   final void Function() onOpenTopics;
 
-  /// Called when a pinned space is tapped: the shell switches to the
-  /// Spaces tab and opens the workspace.
-  final void Function(Workspace workspace) onOpenWorkspace;
+  /// Called when a pinned space is tapped: the shell pushes
+  /// the workspace's Projects screen (UX Phase 4 — Organise is
+  /// a pushed route now, not a shell destination). The future
+  /// completes when that route pops, so Home can refresh.
+  final Future<void> Function(Workspace workspace) onOpenWorkspace;
+
+  /// Opens the Organise screen itself (UX Phase 4): the shell
+  /// owns the route, like Topics. Optional so isolated tests
+  /// can mount Home without it; the Organise section renders
+  /// only when it is wired. The future completes when the
+  /// route pops.
+  final Future<void> Function()? onOpenOrganise;
 
   /// Opens the Learn tab (the shell selects the learn destination).
   final void Function() onOpenLearn;
@@ -756,11 +766,142 @@ class _TodayScreenState extends State<TodayScreen> {
                       label: const Text('Customize Home'),
                     ),
                   ),
+                  // UX Phase 4: the Organise section closes
+                  // the page — a utility destination, kept
+                  // out of the day loop above. It renders
+                  // only when the shell wired onOpenOrganise.
+                  if (widget.onOpenOrganise != null) ...[
+                    const SizedBox(height: Gap.lg),
+                    pad(_organiseSection(context, data)),
+                  ],
                 ],
               ),
             ],
           );
         },
+      ),
+    );
+  }
+
+  /// UX Phase 4: the Organise section. The entry row opens
+  /// the Organise screen through the shell; below it, one
+  /// row per pinned workspace (the 'Pinned spaces' Customize
+  /// value is honoured — stored OFF hides the rows, never
+  /// the entry). Both routes refresh Home when they pop, so
+  /// pin/unpin and item changes inside Organise show
+  /// immediately on return.
+  Widget _organiseSection(BuildContext context, _HubData data) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final showPinned =
+        (data.sections[TodayStore.sectionPinned] ?? true) &&
+        data.pinned.isNotEmpty;
+    return Container(
+      decoration: planSurfaceDeco(context),
+      child: Column(
+        children: [
+          Semantics(
+            key: const ValueKey('organise_entry'),
+            button: true,
+            label: 'Organise',
+            child: ExcludeSemantics(
+              child: InkWell(
+                onTap: () async {
+                  await widget.onOpenOrganise!();
+                  if (mounted) {
+                    setState(() {
+                      _data = _load();
+                    });
+                  }
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Space.s4,
+                    vertical: Space.s3,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.folder_outlined,
+                        size: 20,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: Space.s3),
+                      Expanded(
+                        child: Text(
+                          'Organise',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right,
+                        size: 20,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (showPinned)
+            for (final p in data.pinned) ...[
+              Divider(
+                height: 1,
+                indent: Space.s4,
+                endIndent: Space.s4,
+                color: scheme.outlineVariant,
+              ),
+              Semantics(
+                key: ValueKey('pinned_workspace_${p.workspace.id}'),
+                button: true,
+                label:
+                    'Open ${p.workspace.name}, '
+                    '${p.itemCount} ${p.itemCount == 1 ? 'item' : 'items'}',
+                child: ExcludeSemantics(
+                  child: InkWell(
+                    onTap: () async {
+                      await widget.onOpenWorkspace(p.workspace);
+                      if (mounted) {
+                        setState(() {
+                          _data = _load();
+                        });
+                      }
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Space.s4,
+                        vertical: Space.s3,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.folder, size: 20, color: scheme.primary),
+                          const SizedBox(width: Space.s3),
+                          Expanded(
+                            child: Text(
+                              p.workspace.name,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '${p.itemCount} '
+                            '${p.itemCount == 1 ? 'item' : 'items'}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+        ],
       ),
     );
   }

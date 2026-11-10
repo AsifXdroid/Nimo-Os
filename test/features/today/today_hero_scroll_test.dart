@@ -42,7 +42,7 @@ Future<({TodayStore store, Widget screen})> _harness({
     learn: LearnServices(LearnStore(db), library, db: db),
     thumbnails: ThumbnailService(Directory('${tmp.path}/thumbs')),
     onOpenTopics: () {},
-    onOpenWorkspace: (_) {},
+    onOpenWorkspace: (_) async {},
     onOpenLearn: () {},
     onOpenSettings: () {},
     onOpenProgress: () {},

@@ -521,7 +521,7 @@ void main() {
             learn: learn,
             thumbnails: thumbs,
             onOpenTopics: () {},
-            onOpenWorkspace: (_) {},
+            onOpenWorkspace: (_) async {},
             onOpenLearn: () {},
             onOpenSettings: () {},
           ),

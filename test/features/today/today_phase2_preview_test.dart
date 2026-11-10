@@ -537,15 +537,20 @@ void main() {
       );
       // The Daily screen's own counter sits under its AppBar
       // while scrolled — bring the ListView back to the top,
-      // then the refreshed counter shows.
+      // then the refreshed counter shows. (UX Phase 2: the
+      // screen's first Scrollable is now the tabs' PageView —
+      // target the Today tab's own ListView explicitly.)
       tester
           .state<ScrollableState>(
-            find
-                .descendant(
-                  of: find.byType(DailyTodoScreen),
-                  matching: find.byType(Scrollable),
-                )
-                .first,
+            find.descendant(
+              of: find
+                  .descendant(
+                    of: find.byType(DailyTodoScreen),
+                    matching: find.byType(ListView),
+                  )
+                  .first,
+              matching: find.byType(Scrollable),
+            ),
           )
           .position
           .jumpTo(0);

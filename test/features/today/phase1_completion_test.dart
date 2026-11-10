@@ -9,8 +9,8 @@
 // 3. Agenda future dates with no stored plan show the read-only
 //    projection: no completion checkboxes, browsing writes
 //    nothing, and opening the plan materialises the date.
-// 4. Tasks: completing an open one-off offers Undo; Undo brings
-//    the row back.
+// 4. Open Tasks (the retired Tasks screen's tab): completing an
+//    open one-off offers Undo; Undo brings the row back.
 library;
 
 import 'dart:io';
@@ -25,7 +25,6 @@ import 'package:daily_life_app/features/review/review_store.dart';
 import 'package:daily_life_app/features/store.dart';
 import 'package:daily_life_app/features/today/agenda_screen.dart';
 import 'package:daily_life_app/features/today/daily_todo_screen.dart';
-import 'package:daily_life_app/features/today/tasks_screen.dart';
 import 'package:daily_life_app/features/today/today_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -286,8 +285,8 @@ void main() {
     });
   });
 
-  testWidgets('Phase 1: Tasks completion offers Undo and Undo '
-      'restores the one-off', (tester) async {
+  testWidgets('Phase 1: Open Tasks completion offers Undo and '
+      'Undo restores the one-off', (tester) async {
     tallSurface(tester);
     await tester.runAsync(() async {
       final h = await boot(tester);
@@ -295,25 +294,35 @@ void main() {
       await h.todayStore.planItems(today);
       await h.todayStore.addOneOff(today, 'Water the plants');
 
+      // UX Phase 2: the standalone Tasks screen retired; the
+      // same behaviour is proven through the Full Plan's Open
+      // Tasks tab, which this screen opens on directly.
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.neoDark(),
-          home: TasksScreen(
+          home: DailyTodoScreen(
             todayStore: h.todayStore,
             store: h.store,
+            learn: h.learn,
+            thumbnails: h.thumbnails,
             reviewStore: h.reviewStore,
+            initialTab: 2,
           ),
         ),
       );
-      await until(tester, find.text('Water the plants'), 'tasks rows');
+      // The title also exists on the (off-screen) Today tab —
+      // in its plan before completion, in Completed after —
+      // so presence here means the ON-SCREEN copy.
+      final onScreen = find.text('Water the plants').hitTestable();
+      await until(tester, onScreen, 'open tasks rows');
 
-      await tester.tap(find.text('Water the plants'));
+      await tester.tap(onScreen);
       await until(tester, find.text('Undo'), 'undo offer');
-      await untilGone(tester, find.text('Water the plants'), 'row completed');
+      await untilGone(tester, onScreen, 'row completed');
       expect(await h.todayStore.openOneOffs(), isEmpty);
 
       await tapUndo(tester);
-      await until(tester, find.text('Water the plants'), 'row restored');
+      await until(tester, onScreen, 'row restored');
       expect(await h.todayStore.openOneOffs(), hasLength(1));
 
       await h.tmp.delete(recursive: true);

@@ -40,7 +40,6 @@ import '../store.dart';
 import 'daily_todo_screen.dart';
 import 'agenda_screen.dart';
 import 'dua_library_screen.dart';
-import 'tasks_screen.dart';
 import 'plan_list.dart';
 import 'routine_screen.dart';
 import 'today_store.dart';
@@ -2160,14 +2159,21 @@ class _TodayScreenState extends State<TodayScreen> {
     );
   }
 
+  /// UX Phase 2: the plan card's Tasks entry opens the Full
+  /// Plan on its Open Tasks tab — the standalone Tasks
+  /// screen retired once the tab reached parity (the Phase 2
+  /// parity tests are the proof).
   Future<void> _openTasks() async {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => TasksScreen(
+        builder: (_) => DailyTodoScreen(
           todayStore: widget.todayStore,
           store: widget.store,
+          learn: widget.learn,
+          thumbnails: widget.thumbnails,
           reviewStore: widget.reviewStore,
+          initialTab: 2,
         ),
       ),
     );

@@ -31,7 +31,6 @@ import 'package:daily_life_app/features/review/review_store.dart';
 import 'package:daily_life_app/features/store.dart';
 import 'package:daily_life_app/features/today/agenda_screen.dart';
 import 'package:daily_life_app/features/today/daily_todo_screen.dart';
-import 'package:daily_life_app/features/today/tasks_screen.dart';
 import 'package:daily_life_app/features/today/today_screen.dart';
 import 'package:daily_life_app/features/today/today_store.dart';
 import 'package:flutter/material.dart';
@@ -165,9 +164,8 @@ void main() {
 
       // Marker semantics: plan days name their counts; other
       // days in the month say 'no plan'.
-      String labelOf(DateTime d) => tester
-          .getSemantics(cell(TodayStore.dateKey(d)))
-          .label;
+      String labelOf(DateTime d) =>
+          tester.getSemantics(cell(TodayStore.dateKey(d))).label;
       expect(labelOf(doneDay).contains('1 of 1 done'), isTrue);
       final noPlanDay = DateTime(today.year, today.month, 4);
       expect(labelOf(noPlanDay).contains('no plan'), isTrue);
@@ -367,8 +365,8 @@ void main() {
           .onPressed!();
       await until(tester, find.byType(AgendaScreen), 'agenda screen');
       expect(find.text('Agenda'), findsWidgets);
-      // The Tasks screen was not involved.
-      expect(find.byType(TasksScreen), findsNothing);
+      // The Full Plan was not involved.
+      expect(find.byType(DailyTodoScreen), findsNothing);
 
       await h.tmp.delete(recursive: true);
     });

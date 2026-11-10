@@ -181,6 +181,24 @@ class OpenOneOff {
   final DateTime date;
 }
 
+/// A routine occurrence projected for a future date (UX
+/// redesign Phase 1): derived live from a [PlanTemplate], NOT a
+/// stored day_plan_items row. It carries no plan-row id and is
+/// never persisted — opening the date in an editable plan
+/// materialises real rows through ensurePlanFor.
+class ProjectedPlanItem {
+  ProjectedPlanItem({required this.template, required this.date});
+
+  final PlanTemplate template;
+  final DateTime date;
+
+  int get templateId => template.id;
+  String get title => template.title;
+  bool get countsCore => template.countsCore;
+  int? get itemId => template.itemId;
+  String? get url => template.url;
+}
+
 /// Stored facts about one day's plan, read from day_plans and
 /// its rows (Phase 6 Agenda markers). A plan may exist with
 /// zero items; [allDone] is only true when it has at least
@@ -451,6 +469,31 @@ class TodayStore {
         return DayPlanItem.fromRow(copy);
       }),
     );
+  }
+
+  /// Read-only projection of a future date's plan (UX redesign
+  /// Phase 1): the active templates scheduled that day, in plan
+  /// order. Returns nothing for today or past dates, and nothing
+  /// when the date already has a stored plan (stored rows win).
+  /// Pure reads — browsing never generates, carries or persists
+  /// anything. One-offs and carried items exist only as stored
+  /// rows, so they are never projected.
+  Future<List<ProjectedPlanItem>> projectedPlanItems(DateTime date) async {
+    final day = dayOnly(date);
+    if (!day.isAfter(dayOnly(DateTime.now()))) return const [];
+    final stored = await _db.query(
+      'day_plans',
+      where: 'date = ?',
+      whereArgs: [dateKey(day)],
+      limit: 1,
+    );
+    if (stored.isNotEmpty) return const [];
+    final all = await templates();
+    return [
+      for (final t in all)
+        if (t.isActive && t.scheduledOn(day))
+          ProjectedPlanItem(template: t, date: day),
+    ];
   }
 
   /// Every unticked one-off across all day plans, newest day

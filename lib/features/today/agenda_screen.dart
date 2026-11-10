@@ -1,13 +1,17 @@
 /// TODAY — Agenda screen (Mission 03 Phase 6, Tier 1).
 ///
 /// The date-navigation layer across days. Agenda answers
-/// "what is planned across different days?" — and it stays
-/// strictly READ-ONLY (decision D6): it reads stored plans
+/// "what is planned across different days?". Browsing stays
+/// read-only (decision D6, P6-10): it reads stored plans
 /// through existingPlanItems and planDaySummaries only, so
-/// browsing can never generate, carry or delete a record
-/// (P6-10). Management lives in Daily To-do, which Agenda
-/// opens for the selected date when a plan exists there —
-/// the same records, the same management surface.
+/// browsing can never generate, carry or delete a record.
+/// UX redesign Phase 1 narrows D6 in one place: a stored row's
+/// check is now a real completion control (the shared
+/// togglePlanItemWithUndo path); the row body still opens
+/// Daily To-do, where full management lives. Future dates
+/// with no stored plan show the read-only template projection
+/// (projectedPlanItems) — no checkboxes there; opening the
+/// plan is what materialises the date.
 ///
 /// The month grid (decision D3, accepted in the Phase 6
 /// review over a horizontal strip) shows which days in the
@@ -76,13 +80,22 @@ class AgendaScreen extends StatefulWidget {
 }
 
 class _AgendaData {
-  const _AgendaData({required this.summaries, required this.items});
+  const _AgendaData({
+    required this.summaries,
+    required this.items,
+    required this.projected,
+  });
 
   final Map<String, PlanDaySummary> summaries;
 
   /// The selected day's stored rows; empty also when the day
   /// has no plan at all — the summary lookup distinguishes.
   final List<DayPlanItem> items;
+
+  /// The read-only template projection for a future day with
+  /// no stored plan; empty in every other case (the store
+  /// enforces stored-wins and never projects past/today).
+  final List<ProjectedPlanItem> projected;
 }
 
 class _AgendaScreenState extends State<AgendaScreen> {
@@ -102,6 +115,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
   Future<_AgendaData> _load() async => _AgendaData(
     summaries: await widget.todayStore.planDaySummaries(),
     items: await widget.todayStore.existingPlanItems(_selected),
+    projected: await widget.todayStore.projectedPlanItems(_selected),
   );
 
   void _reload() {
@@ -209,7 +223,8 @@ class _AgendaScreenState extends State<AgendaScreen> {
       label:
           '${weekdayName(day)} ${TodayStore.dateKey(day)}'
           '${summary == null ? ', no plan' : ', ${summary.done} of ${summary.total} done'}',
-      child: InkWell(onTap: () => _select(day),
+      child: InkWell(
+        onTap: () => _select(day),
         customBorder: const CircleBorder(),
         child: isSelected
             ? Container(
@@ -314,62 +329,155 @@ class _AgendaScreenState extends State<AgendaScreen> {
 
   // ------------------------------------------------------------ day rows
 
+  /// A stored row (Phase 1 split): the check is its own
+  /// completion control — it toggles through the shared path
+  /// and offers Undo; the rest of the row opens Daily To-do.
+  /// Same visuals as the plan row; no management sheet here.
   Widget _row(BuildContext context, DayPlanItem item) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    // Read-only mirror of the plan row (D6): same visuals,
-    // no toggle, no sheet — tapping opens Daily To-do.
     return Semantics(
       container: true,
       checked: item.done,
       label: item.title,
-      child: InkWell(
-        onTap: _openDailyTodo,
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 200),
-          opacity: item.done ? 0.62 : 1.0,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: Space.s4,
-              vertical: Space.s3,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 200),
+        opacity: item.done ? 0.62 : 1.0,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Semantics(
+              button: true,
+              checked: item.done,
+              label: item.done
+                  ? 'Mark ${item.title} not done'
+                  : 'Mark ${item.title} done',
+              child: InkWell(
+                key: ValueKey('agenda_check_${item.id}'),
+                customBorder: const CircleBorder(),
+                onTap: () => togglePlanItemWithUndo(
+                  context,
+                  todayStore: widget.todayStore,
+                  item: item,
+                  onChanged: () async {
+                    await widget.reviewStore.refreshDoneScoreIfClosed(
+                      _selected,
+                    );
+                    if (mounted) _reload();
+                  },
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    Space.s4,
+                    Space.s3,
+                    Space.s2,
+                    Space.s3,
+                  ),
+                  child: NeoCheck(done: item.done, size: 26),
+                ),
+              ),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                NeoCheck(done: item.done, size: 26),
-                const SizedBox(width: Space.s3),
-                Expanded(
-                  child: Column(
+            Expanded(
+              child: InkWell(
+                onTap: _openDailyTodo,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    0,
+                    Space.s3,
+                    Space.s4,
+                    Space.s3,
+                  ),
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        item.title,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
-                          decoration: item.done
-                              ? TextDecoration.lineThrough
-                              : null,
-                          color: item.done ? scheme.onSurfaceVariant : null,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.title,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w500,
+                                decoration: item.done
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                                color: item.done
+                                    ? scheme.onSurfaceVariant
+                                    : null,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              item.isRoutine
+                                  ? (item.countsCore
+                                        ? 'Routine · Core'
+                                        : 'Routine')
+                                  : 'One-off',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        item.isRoutine
-                            ? (item.countsCore ? 'Routine · Core' : 'Routine')
-                            : 'One-off',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
+                      if (item.carried) ...[
+                        const SizedBox(width: Space.s2),
+                        const NeoTag('CARRIED', tint: true),
+                      ],
                     ],
                   ),
                 ),
-                if (item.carried) ...[
-                  const SizedBox(width: Space.s2),
-                  const NeoTag('CARRIED', tint: true),
-                ],
-              ],
+              ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// A projected row: display only. There is deliberately NO
+  /// check control — a projection is not a record, so there is
+  /// nothing to complete until the date is materialised by
+  /// opening its plan (the body tap does exactly that).
+  Widget _projectedRow(BuildContext context, ProjectedPlanItem p) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Semantics(
+      container: true,
+      label: p.title,
+      child: InkWell(
+        onTap: _openDailyTodo,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Space.s4,
+            vertical: Space.s3,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      p.title,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      p.countsCore ? 'Routine · Core' : 'Routine',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: Space.s2),
+              const NeoTag('PLANNED'),
+            ],
           ),
         ),
       ),
@@ -379,6 +487,9 @@ class _AgendaScreenState extends State<AgendaScreen> {
   Widget _dayPanel(BuildContext context, _AgendaData data) {
     final summary = data.summaries[TodayStore.dateKey(_selected)];
     if (summary == null) {
+      // No stored plan. A future date may still show the
+      // read-only projection of its scheduled routines.
+      if (data.projected.isNotEmpty) return _projectedPanel(context, data);
       return Text(
         'No plan for this day.',
         style: Theme.of(context).textTheme.bodyMedium,
@@ -426,6 +537,53 @@ class _AgendaScreenState extends State<AgendaScreen> {
                     color: theme.colorScheme.outlineVariant,
                   ),
                 _row(context, data.items[i]),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: Space.s4),
+        SizedBox(
+          height: 48,
+          child: FilledButton.icon(
+            onPressed: _openDailyTodo,
+            icon: const Icon(Icons.open_in_new, size: 20),
+            label: const Text('Open in Daily To-do'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The projection panel: an honest note that these rows are
+  /// scheduled, not yet records, the rows themselves, and the
+  /// same Open action the stored panel offers — opening the
+  /// plan materialises the date.
+  Widget _projectedPanel(BuildContext context, _AgendaData data) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Scheduled from your routines. Opening the plan adds '
+          'these for this day.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: Space.s3),
+        Container(
+          decoration: planSurfaceDeco(context),
+          child: Column(
+            children: [
+              for (var i = 0; i < data.projected.length; i++) ...[
+                if (i > 0)
+                  Divider(
+                    height: 1,
+                    indent: Space.s4,
+                    endIndent: Space.s4,
+                    color: theme.colorScheme.outlineVariant,
+                  ),
+                _projectedRow(context, data.projected[i]),
               ],
             ],
           ),

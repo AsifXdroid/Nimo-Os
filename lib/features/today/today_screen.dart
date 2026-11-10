@@ -786,9 +786,10 @@ class _TodayScreenState extends State<TodayScreen> {
   }
 
   /// Mission 03 Phase 3: the Focus Now panel. One task, two
-  /// actions. Done reuses the plan row's exact completion path
-  /// (toggleItem + _afterPlanEdit + _reloadPlan); Change opens
-  /// the picker sheet. All-done is a slim, action-free state.
+  /// actions. Done reuses the plan rows' shared completion path
+  /// (togglePlanItemWithUndo: toggle + _afterPlanEdit +
+  /// _reloadPlan, with Undo); Change opens the picker sheet.
+  /// All-done is a slim, action-free state.
   Widget _focusPanel(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
@@ -863,12 +864,15 @@ class _TodayScreenState extends State<TodayScreen> {
             Row(
               children: [
                 FilledButton.icon(
-                  onPressed: () async {
-                    await widget.todayStore.toggleItem(focus);
-                    await _afterPlanEdit();
-                    if (!context.mounted) return;
-                    setState(_reloadPlan);
-                  },
+                  onPressed: () => togglePlanItemWithUndo(
+                    context,
+                    todayStore: widget.todayStore,
+                    item: focus,
+                    onChanged: () async {
+                      await _afterPlanEdit();
+                      if (mounted) setState(_reloadPlan);
+                    },
+                  ),
                   icon: const Icon(Icons.check, size: 18),
                   label: const Text('Done'),
                   style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),

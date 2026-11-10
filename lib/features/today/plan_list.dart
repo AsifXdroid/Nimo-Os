@@ -130,6 +130,64 @@ Widget planResourceAction(
   );
 }
 
+/// The ONE completion path for plan rows (UX redesign
+/// Phase 1), shared by Today, Daily To-do, Tasks, Agenda and
+/// the Focus panel: toggle the exact instance, run the host's
+/// [onChanged] (which refreshes a closed day's Done Score and
+/// reloads — the hosts' existing contract), then offer Undo.
+/// Undo toggles the same instance back and runs [onChanged]
+/// again, so the score returns to its exact previous value.
+/// A newer completion replaces the visible SnackBar, closing
+/// the previous Undo window (known, accepted limitation).
+Future<void> togglePlanItemWithUndo(
+  BuildContext context, {
+  required TodayStore todayStore,
+  required DayPlanItem item,
+  required Future<void> Function() onChanged,
+}) async {
+  // Captured before the awaits: the row itself may be gone
+  // after the reload (a completed Tasks one-off leaves the
+  // list), but the messenger belongs to the host Scaffold.
+  final messenger = ScaffoldMessenger.of(context);
+  await todayStore.toggleItem(item);
+  await onChanged();
+  messenger.hideCurrentSnackBar();
+  messenger.showSnackBar(
+    SnackBar(
+      content: Text(
+        item.done
+            ? 'Marked not done: ${item.title}'
+            : 'Completed: ${item.title}',
+      ),
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () async {
+          // toggleItem flips from the object's own flag, so the
+          // undo passes a copy carrying the post-toggle state —
+          // the write lands back on the original value.
+          await todayStore.toggleItem(
+            DayPlanItem(
+              id: item.id,
+              dayPlanId: item.dayPlanId,
+              title: item.title,
+              kind: item.kind,
+              templateId: item.templateId,
+              done: !item.done,
+              carried: item.carried,
+              position: item.position,
+              countsCore: item.countsCore,
+              itemId: item.itemId,
+              url: item.url,
+              syncId: item.syncId,
+            ),
+          );
+          await onChanged();
+        },
+      ),
+    ),
+  );
+}
+
 /// One labelled (or label-less) group of plan rows.
 class PlanList extends StatelessWidget {
   const PlanList({
@@ -232,10 +290,12 @@ class PlanList extends StatelessWidget {
       checked: item.done,
       label: item.title,
       child: InkWell(
-        onTap: () async {
-          await todayStore.toggleItem(item);
-          await onMutated();
-        },
+        onTap: () => togglePlanItemWithUndo(
+          context,
+          todayStore: todayStore,
+          item: item,
+          onChanged: onMutated,
+        ),
         // D-042: management lives in the sheet (long-press is
         // the accelerator; the ⋯ button is the visible path).
         onLongPress: () => _showSheet(context, item),
@@ -509,7 +569,8 @@ class PlanList extends StatelessWidget {
     // Phase 8 (D-4 parity): when a resource is already
     // linked, the chooser NAMES it — for every source, not
     // only the Dua picker. One slot, said out loud.
-    final currentLabel = item.url ??
+    final currentLabel =
+        item.url ??
         (item.itemId == null ? null : linkedItems[item.itemId]?.title);
     final choice = await showModalBottomSheet<String>(
       context: context,

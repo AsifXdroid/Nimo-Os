@@ -428,10 +428,12 @@ class _TasksScreenState extends State<TasksScreen> {
       checked: false,
       label: item.title,
       child: InkWell(
-        onTap: () async {
-          await widget.todayStore.toggleItem(item);
-          await _afterOneOffToggle(entry.date);
-        },
+        onTap: () => togglePlanItemWithUndo(
+          context,
+          todayStore: widget.todayStore,
+          item: item,
+          onChanged: () => _afterOneOffToggle(entry.date),
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: Space.s4,

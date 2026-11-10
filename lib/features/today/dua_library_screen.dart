@@ -42,7 +42,13 @@ class DuaLibraryScreen extends StatefulWidget {
 class _DuaLibraryScreenState extends State<DuaLibraryScreen> {
   late Future<List<Item>> _data;
   String _query = '';
-  String? _category;
+
+  /// The selected collection (UX Phase 6): 'all', 'saved',
+  /// 'uncat', or 'cat:' + group key where the group key is a
+  /// trimmed, lower-cased category. A selection whose
+  /// collection no longer exists falls back to 'all' at
+  /// build time (see the derivation in [build]).
+  String _selection = 'all';
 
   @override
   void initState() {
@@ -269,14 +275,71 @@ class _DuaLibraryScreenState extends State<DuaLibraryScreen> {
           if (entries == null) {
             return const Center(child: CircularProgressIndicator());
           }
-          final categories = <String>{
-            for (final e in entries)
-              if (DuaPayload(e).has('category')) DuaPayload(e).category!,
-          }.toList()..sort();
+          // Collections (UX Phase 6) derive from the actual
+          // entries only — nothing is invented. Category
+          // variants that differ only in case or surrounding
+          // whitespace form ONE group; the chip label is the
+          // group's most common trimmed spelling, ties broken
+          // by code-unit order, so a label never depends on
+          // entry order. Grouping is display-only: stored
+          // categories are never rewritten.
+          final groupForms = <String, Map<String, int>>{};
+          var anySaved = false;
+          var anyUncat = false;
+          for (final e in entries) {
+            final p = DuaPayload(e);
+            if (p.bookmarked) anySaved = true;
+            if (p.has('category')) {
+              final trimmed = p.category!.trim();
+              final forms = groupForms.putIfAbsent(
+                trimmed.toLowerCase(),
+                () => <String, int>{},
+              );
+              forms[trimmed] = (forms[trimmed] ?? 0) + 1;
+            } else {
+              anyUncat = true;
+            }
+          }
+          String labelOf(Map<String, int> forms) {
+            var best = forms.keys.first;
+            var bestCount = 0;
+            for (final f in forms.entries) {
+              if (f.value > bestCount ||
+                  (f.value == bestCount && f.key.compareTo(best) < 0)) {
+                best = f.key;
+                bestCount = f.value;
+              }
+            }
+            return best;
+          }
+
+          final groups =
+              [
+                for (final g in groupForms.entries)
+                  (key: g.key, label: labelOf(g.value)),
+              ]..sort((a, b) {
+                final byLower = a.label.toLowerCase().compareTo(
+                  b.label.toLowerCase(),
+                );
+                return byLower != 0 ? byLower : a.label.compareTo(b.label);
+              });
+          final selectionValid =
+              _selection == 'all' ||
+              (_selection == 'saved' && anySaved) ||
+              (_selection == 'uncat' && anyUncat) ||
+              (_selection.startsWith('cat:') &&
+                  groupForms.containsKey(_selection.substring(4)));
+          final sel = selectionValid ? _selection : 'all';
           final q = _query.trim().toLowerCase();
           final shown = entries.where((e) {
             final p = DuaPayload(e);
-            if (_category != null && p.category != _category) return false;
+            if (sel == 'saved' && !p.bookmarked) return false;
+            if (sel == 'uncat' && p.has('category')) return false;
+            if (sel.startsWith('cat:') &&
+                (!p.has('category') ||
+                    p.category!.trim().toLowerCase() != sel.substring(4))) {
+              return false;
+            }
             if (q.isEmpty) return true;
             return e.title.toLowerCase().contains(q) ||
                 (p.arabic ?? '').toLowerCase().contains(q) ||
@@ -311,26 +374,39 @@ class _DuaLibraryScreenState extends State<DuaLibraryScreen> {
                   ),
                   onChanged: (v) => setState(() => _query = v),
                 ),
-                if (categories.isNotEmpty) ...[
-                  const SizedBox(height: Space.s3),
-                  Wrap(
-                    spacing: 6,
-                    children: [
+                const SizedBox(height: Space.s3),
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('All'),
+                      selected: sel == 'all',
+                      onSelected: (_) => setState(() => _selection = 'all'),
+                    ),
+                    if (anySaved)
                       ChoiceChip(
-                        label: const Text('All'),
-                        selected: _category == null,
-                        onSelected: (_) => setState(() => _category = null),
+                        label: const Text('Saved'),
+                        selected: sel == 'saved',
+                        onSelected: (v) =>
+                            setState(() => _selection = v ? 'saved' : 'all'),
                       ),
-                      for (final c in categories)
-                        ChoiceChip(
-                          label: Text(c),
-                          selected: _category == c,
-                          onSelected: (v) =>
-                              setState(() => _category = v ? c : null),
+                    for (final g in groups)
+                      ChoiceChip(
+                        label: Text(g.label),
+                        selected: sel == 'cat:${g.key}',
+                        onSelected: (v) => setState(
+                          () => _selection = v ? 'cat:${g.key}' : 'all',
                         ),
-                    ],
-                  ),
-                ],
+                      ),
+                    if (anyUncat)
+                      ChoiceChip(
+                        label: const Text('Uncategorised'),
+                        selected: sel == 'uncat',
+                        onSelected: (v) =>
+                            setState(() => _selection = v ? 'uncat' : 'all'),
+                      ),
+                  ],
+                ),
                 const SizedBox(height: Space.s4),
                 if (shown.isEmpty)
                   Text('No entries match.', style: theme.textTheme.bodyMedium)

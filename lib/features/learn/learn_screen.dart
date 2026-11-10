@@ -15,6 +15,7 @@ import '../../core/theme.dart';
 import '../review/review_store.dart';
 import '../shared_ui.dart';
 import '../store.dart';
+import '../today/dua_library_screen.dart';
 import 'image_verify_screen.dart';
 import 'learn_engine_store.dart';
 import 'learn_services.dart';
@@ -115,8 +116,7 @@ class _LearnScreenState extends State<LearnScreen> {
   /// Same first step as Topics & Library: a topic in the
   /// Inbox, opened straight into its detail page.
   Future<void> _newTopic() async {
-    final title =
-        await promptText(context, title: 'New topic', label: 'Title');
+    final title = await promptText(context, title: 'New topic', label: 'Title');
     if (title == null || title.isEmpty || !mounted) return;
     final topic = await widget.learn.store.createTopic(
       projectId: await widget.learn.store.inboxProjectId(),
@@ -157,6 +157,19 @@ class _LearnScreenState extends State<LearnScreen> {
     _load();
   }
 
+  /// The same Dua Library Today opens (UX Phase 6) — one
+  /// library, one store; Learn is only a second door.
+  Future<void> _openDuaLibrary() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            DuaLibraryScreen(store: widget.store, learn: widget.learn),
+      ),
+    );
+    _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_loaded) {
@@ -164,7 +177,11 @@ class _LearnScreenState extends State<LearnScreen> {
         body: PageTop(
           child: Padding(
             padding: EdgeInsets.fromLTRB(
-                Space.page, Gap.md, Space.page, Gap.lg),
+              Space.page,
+              Gap.md,
+              Space.page,
+              Gap.lg,
+            ),
             child: DelayedSkeleton(skeleton: SkeletonList(panels: 2)),
           ),
         ),
@@ -180,67 +197,79 @@ class _LearnScreenState extends State<LearnScreen> {
         // D-052: solid canvas + the prototype's Learn header —
         // eyebrow, curiosity heading, one-line promise.
         child: ListView(
-            padding: const EdgeInsets.fromLTRB(
-                Space.page, Gap.md, Space.page, 110.0),
-            children: [
-              Text(
-                'YOUR LEARNING SPACE',
-                style: AppType.eyebrow.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: Space.s2),
-              Text(
-                'Follow your curiosity.',
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              const SizedBox(height: Space.s2),
-              Text(
-                'Read, revisit, and make an idea your own.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
-              if (total > 0) ...[
-                const SizedBox(height: Gap.md),
-                _compactSessionBar(context, total),
-              ],
-              if (arcPacks.isNotEmpty) ...[
-                const SizedBox(height: Gap.lg),
-                const NeoSectionHead(title: 'Continue exploring'),
-                const SizedBox(height: Space.s3),
-                for (final pack in arcPacks) _continueCard(context, pack),
-              ],
-              const SizedBox(height: Gap.lg),
-              NeoSectionHead(
-                title: 'Your topics',
-                actionLabel: 'New topic',
-                onAction: _newTopic,
-              ),
-              const SizedBox(height: Space.s3),
-              _topicsSection(context),
-              const SizedBox(height: Gap.lg),
-              NeoSectionHead(
-                title: 'Your packs',
-                actionLabel: 'Import a pack',
-                onAction: _importPack,
-              ),
-              const SizedBox(height: Space.s3),
-              if (_packs.isEmpty)
-                Text('No packs yet.',
-                    style: Theme.of(context).textTheme.bodyMedium)
-              else
-                Column(
-                  children: [
-                    for (final pack in _packs) _packRow(context, pack),
-                  ],
-                ),
-              if (_verifyPending.isNotEmpty) ...[
-                const SizedBox(height: Gap.lg),
-                _verifyCard(context),
-              ],
-            ],
+          padding: const EdgeInsets.fromLTRB(
+            Space.page,
+            Gap.md,
+            Space.page,
+            110.0,
           ),
+          children: [
+            Text(
+              'YOUR LEARNING SPACE',
+              style: AppType.eyebrow.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: Space.s2),
+            Text(
+              'Follow your curiosity.',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: Space.s2),
+            Text(
+              'Read, revisit, and make an idea your own.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (total > 0) ...[
+              const SizedBox(height: Gap.md),
+              _compactSessionBar(context, total),
+            ],
+            if (arcPacks.isNotEmpty) ...[
+              const SizedBox(height: Gap.lg),
+              const NeoSectionHead(title: 'Continue exploring'),
+              const SizedBox(height: Space.s3),
+              for (final pack in arcPacks) _continueCard(context, pack),
+            ],
+            const SizedBox(height: Gap.lg),
+            NeoSectionHead(
+              title: 'Your topics',
+              actionLabel: 'New topic',
+              onAction: _newTopic,
+            ),
+            const SizedBox(height: Space.s3),
+            _topicsSection(context),
+            const SizedBox(height: Gap.lg),
+            NeoSectionHead(
+              title: 'Your packs',
+              actionLabel: 'Import a pack',
+              onAction: _importPack,
+            ),
+            const SizedBox(height: Space.s3),
+            if (_packs.isEmpty)
+              Text(
+                'No packs yet.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              )
+            else
+              Column(
+                children: [for (final pack in _packs) _packRow(context, pack)],
+              ),
+            const SizedBox(height: Gap.lg),
+            NeoListRow(
+              icon: Icons.menu_book_outlined,
+              title: 'Dua Library',
+              sub: 'Your Spiritual Space',
+              last: true,
+              onTap: _openDuaLibrary,
+            ),
+            if (_verifyPending.isNotEmpty) ...[
+              const SizedBox(height: Gap.lg),
+              _verifyCard(context),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -315,10 +344,7 @@ class _LearnScreenState extends State<LearnScreen> {
                   ),
                   child: Text(
                     'All topics →',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: ed.deepAccent,
-                    ),
+                    style: TextStyle(fontSize: 12, color: ed.deepAccent),
                   ),
                 ),
             ],
@@ -350,9 +376,7 @@ class _LearnScreenState extends State<LearnScreen> {
       children: [
         for (final t in shown)
           NeoListRow(
-            icon: t.triggerUrl != null
-                ? Icons.link
-                : Icons.lightbulb_outline,
+            icon: t.triggerUrl != null ? Icons.link : Icons.lightbulb_outline,
             title: t.title,
             sub: [
               _projectNames[t.projectId] ?? '',

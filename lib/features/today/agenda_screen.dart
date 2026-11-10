@@ -1,28 +1,35 @@
-/// TODAY — Agenda screen (Mission 03 Phase 6, Tier 1).
+/// TODAY — Agenda screen (Mission 03 Phase 6; UX redesign
+/// Phase 3 shape).
 ///
 /// The date-navigation layer across days. Agenda answers
 /// "what is planned across different days?". Browsing stays
 /// read-only (decision D6, P6-10): it reads stored plans
 /// through existingPlanItems and planDaySummaries only, so
 /// browsing can never generate, carry or delete a record.
-/// UX redesign Phase 1 narrows D6 in one place: a stored row's
-/// check is now a real completion control (the shared
+/// UX Phase 1 narrows D6 in one place: a stored row's check
+/// is a real completion control (the shared
 /// togglePlanItemWithUndo path); the row body still opens
 /// Daily To-do, where full management lives. Future dates
 /// with no stored plan show the read-only template projection
 /// (projectedPlanItems) — no checkboxes there; opening the
 /// plan is what materialises the date.
 ///
-/// The month grid (decision D3, accepted in the Phase 6
-/// review over a horizontal strip) shows which days in the
-/// month hold stored plans: a dot means a day_plans row
-/// exists, and a complete tint means every item in it is
-/// done. Markers describe stored facts only — nothing is
-/// inferred from routines or templates (D1, D4).
+/// Phase 3 replaces the full-month grid with a compact
+/// seven-day week strip (one PageView page per week, Monday
+/// first): swiping changes the visible week, never the
+/// selection; tapping a day selects it. The month heading
+/// opens the full monthly calendar as an overlay (bottom
+/// sheet on narrow screens, dialog on wide ones) with its
+/// own month stepping and NO Today button — selecting
+/// today's cell there is the return path. There are no
+/// Previous/Next day steppers. Markers describe stored facts
+/// only: a dot means a day_plans row exists, in the primary
+/// colour when every item in it is done (D1, D4).
 library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
 import '../../core/theme.dart';
 import '../items/link_card/thumbnail_service.dart';
@@ -33,7 +40,7 @@ import 'daily_todo_screen.dart';
 import 'plan_list.dart';
 import 'today_store.dart';
 
-/// Month names for the grid header.
+/// Month names for the headings.
 const monthNames = [
   'January',
   'February',
@@ -57,6 +64,12 @@ DateTime gridStart(DateTime month) {
   return TodayStore.dayOnly(
     first.subtract(Duration(days: first.weekday - DateTime.monday)),
   );
+}
+
+/// The Monday of the week containing [day].
+DateTime mondayOf(DateTime day) {
+  final d = TodayStore.dayOnly(day);
+  return d.subtract(Duration(days: d.weekday - DateTime.monday));
 }
 
 class AgendaScreen extends StatefulWidget {
@@ -99,8 +112,16 @@ class _AgendaData {
 }
 
 class _AgendaScreenState extends State<AgendaScreen> {
+  /// The strip pages ±260 weeks (five years) around the base
+  /// week — far beyond any real browsing, finite so the
+  /// PageView stays honest.
+  static const _basePage = 260;
+  static const _pageCount = 521;
+
   late DateTime _selected;
-  late DateTime _month;
+  late DateTime _baseMonday;
+  late DateTime _visibleMonday;
+  late PageController _weeks;
   late Future<_AgendaData> _data;
 
   @override
@@ -108,8 +129,16 @@ class _AgendaScreenState extends State<AgendaScreen> {
     super.initState();
     final today = TodayStore.dayOnly(DateTime.now());
     _selected = today;
-    _month = DateTime(today.year, today.month);
+    _baseMonday = mondayOf(today);
+    _visibleMonday = _baseMonday;
+    _weeks = PageController(initialPage: _basePage);
     _data = _load();
+  }
+
+  @override
+  void dispose() {
+    _weeks.dispose();
+    super.dispose();
   }
 
   Future<_AgendaData> _load() async => _AgendaData(
@@ -124,24 +153,41 @@ class _AgendaScreenState extends State<AgendaScreen> {
     });
   }
 
-  void _select(DateTime day) {
+  int _pageFor(DateTime day) =>
+      _basePage + mondayOf(day).difference(_baseMonday).inDays ~/ 7;
+
+  DateTime _mondayForPage(int page) =>
+      _baseMonday.add(Duration(days: 7 * (page - _basePage)));
+
+  /// Selects [day] and reloads its panel. With [jumpStrip]
+  /// the week strip also moves to the day's week (the month
+  /// overlay's picks live in other weeks); strip cell taps
+  /// are already on the right page.
+  void _select(DateTime day, {bool jumpStrip = false}) {
+    final d = TodayStore.dayOnly(day);
     setState(() {
-      _selected = TodayStore.dayOnly(day);
-      _month = DateTime(_selected.year, _selected.month);
+      _selected = d;
       _data = _load();
     });
+    if (jumpStrip) {
+      final page = _pageFor(d);
+      if (page != (_weeks.page?.round() ?? _basePage)) {
+        final duration = motionDuration(
+          context,
+          const Duration(milliseconds: 300),
+        );
+        if (duration == Duration.zero) {
+          _weeks.jumpToPage(page);
+        } else {
+          _weeks.animateToPage(
+            page,
+            duration: duration,
+            curve: Motion.standardCurve,
+          );
+        }
+      }
+    }
   }
-
-  void _stepDay(int delta) =>
-      _select(DateTime(_selected.year, _selected.month, _selected.day + delta));
-
-  void _stepMonth(int delta) {
-    setState(() {
-      _month = DateTime(_month.year, _month.month + delta);
-    });
-  }
-
-  void _goToday() => _select(DateTime.now());
 
   Future<void> _openDailyTodo() async {
     await Navigator.push(
@@ -160,18 +206,24 @@ class _AgendaScreenState extends State<AgendaScreen> {
     if (mounted) _reload();
   }
 
-  // ------------------------------------------------------------ grid
+  // ------------------------------------------------------------ day cells
 
-  Widget _gridCell(
+  /// One day cell, shared by the week strip and the month
+  /// overlay (they differ only in key prefix, dimming and
+  /// what a tap does). The ValueKey rides on the Semantics
+  /// widget itself: find.byKey matches it directly.
+  Widget _dayCell(
     BuildContext context, {
     required DateTime day,
     required PlanDaySummary? summary,
     required bool isToday,
     required bool isSelected,
+    required String keyPrefix,
+    required bool dimmed,
+    required VoidCallback onTap,
   }) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final inMonth = day.month == _month.month;
     final label = Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
       child: Column(
@@ -183,7 +235,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
               fontWeight: isSelected || isToday
                   ? FontWeight.w700
                   : FontWeight.w400,
-              color: !inMonth
+              color: dimmed
                   ? scheme.onSurfaceVariant.withValues(alpha: 0.45)
                   : isSelected
                   ? scheme.onPrimary
@@ -213,18 +265,15 @@ class _AgendaScreenState extends State<AgendaScreen> {
         ],
       ),
     );
-    // The ValueKey rides on the Semantics widget itself:
-    // find.byKey matches it directly (a key on the inner
-    // InkWell resolves through this wrapper instead).
     return Semantics(
-      key: ValueKey('agenda_cell_${TodayStore.dateKey(day)}'),
+      key: ValueKey('${keyPrefix}_${TodayStore.dateKey(day)}'),
       button: true,
       selected: isSelected,
       label:
           '${weekdayName(day)} ${TodayStore.dateKey(day)}'
           '${summary == null ? ', no plan' : ', ${summary.done} of ${summary.total} done'}',
       child: InkWell(
-        onTap: () => _select(day),
+        onTap: onTap,
         customBorder: const CircleBorder(),
         child: isSelected
             ? Container(
@@ -247,84 +296,189 @@ class _AgendaScreenState extends State<AgendaScreen> {
     );
   }
 
-  Widget _monthGrid(
-    BuildContext context,
-    Map<String, PlanDaySummary> summaries,
-  ) {
-    final theme = Theme.of(context);
-    final first = gridStart(_month);
+  // ------------------------------------------------------------ week strip
+
+  Widget _weekStrip(BuildContext context, _AgendaData data) {
     final todayKey = TodayStore.dateKey(DateTime.now());
     final selectedKey = TodayStore.dateKey(_selected);
-    return Container(
-      decoration: planSurfaceDeco(context),
-      padding: const EdgeInsets.all(Space.s3),
-      child: Column(
-        children: [
-          Row(
+    // The strip responds to the mouse wheel natively (the
+    // PageView's own signal scrolling, snapping a week at a
+    // time); only the strip's hit region takes the signal,
+    // so the page's vertical scrolling elsewhere is intact.
+    return SizedBox(
+      height: 76,
+      child: PageView.builder(
+        controller: _weeks,
+        itemCount: _pageCount,
+        onPageChanged: (page) {
+          setState(() {
+            _visibleMonday = _mondayForPage(page);
+          });
+        },
+        itemBuilder: (context, page) {
+          final monday = _mondayForPage(page);
+          return Row(
             children: [
-              IconButton(
-                tooltip: 'Previous month',
-                onPressed: () => _stepMonth(-1),
-                icon: const Icon(Icons.chevron_left),
-              ),
-              Expanded(
-                child: Text(
-                  '${monthNames[_month.month - 1]} ${_month.year}',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.titleMedium,
-                ),
-              ),
-              IconButton(
-                tooltip: 'Next month',
-                onPressed: () => _stepMonth(1),
-                icon: const Icon(Icons.chevron_right),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              for (final d in const ['M', 'T', 'W', 'T', 'F', 'S', 'S'])
+              for (var wd = 0; wd < 7; wd++)
                 Expanded(
-                  child: Text(
-                    d,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                  child: _dayCell(
+                    context,
+                    day: monday.add(Duration(days: wd)),
+                    summary:
+                        data.summaries[TodayStore.dateKey(
+                          monday.add(Duration(days: wd)),
+                        )],
+                    isToday:
+                        TodayStore.dateKey(monday.add(Duration(days: wd))) ==
+                        todayKey,
+                    isSelected:
+                        TodayStore.dateKey(monday.add(Duration(days: wd))) ==
+                        selectedKey,
+                    keyPrefix: 'agenda_cell',
+                    dimmed: false,
+                    onTap: () => _select(monday.add(Duration(days: wd))),
                   ),
                 ),
             ],
-          ),
-          const SizedBox(height: Space.s2),
-          for (var week = 0; week < 6; week++)
-            Row(
+          );
+        },
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------ month overlay
+
+  /// The full monthly calendar: its own displayed month with
+  /// Previous/Next month stepping, the same stored-plan
+  /// markers, and NO Today button — picking any cell (today's
+  /// included) selects it and closes the overlay.
+  Widget _monthOverlay(
+    BuildContext context,
+    _AgendaData data,
+    void Function(DateTime) onPick,
+  ) {
+    var month = DateTime(_selected.year, _selected.month);
+    return StatefulBuilder(
+      builder: (context, setLocal) {
+        final theme = Theme.of(context);
+        final first = gridStart(month);
+        final todayKey = TodayStore.dateKey(DateTime.now());
+        final selectedKey = TodayStore.dateKey(_selected);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(Space.s4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                for (var wd = 0; wd < 7; wd++)
-                  Expanded(
-                    child: _gridCell(
-                      context,
-                      day: first.add(Duration(days: week * 7 + wd)),
-                      summary:
-                          summaries[TodayStore.dateKey(
-                            first.add(Duration(days: week * 7 + wd)),
-                          )],
-                      isToday:
-                          TodayStore.dateKey(
-                            first.add(Duration(days: week * 7 + wd)),
-                          ) ==
-                          todayKey,
-                      isSelected:
-                          TodayStore.dateKey(
-                            first.add(Duration(days: week * 7 + wd)),
-                          ) ==
-                          selectedKey,
+                Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'Previous month',
+                      onPressed: () => setLocal(() {
+                        month = DateTime(month.year, month.month - 1);
+                      }),
+                      icon: const Icon(Icons.chevron_left),
                     ),
+                    Expanded(
+                      child: Text(
+                        '${monthNames[month.month - 1]} ${month.year}',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.titleMedium,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Next month',
+                      onPressed: () => setLocal(() {
+                        month = DateTime(month.year, month.month + 1);
+                      }),
+                      icon: const Icon(Icons.chevron_right),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    for (final d in const ['M', 'T', 'W', 'T', 'F', 'S', 'S'])
+                      Expanded(
+                        child: Text(
+                          d,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: Space.s2),
+                for (var week = 0; week < 6; week++)
+                  Row(
+                    children: [
+                      for (var wd = 0; wd < 7; wd++)
+                        Expanded(
+                          child: _dayCell(
+                            context,
+                            day: first.add(Duration(days: week * 7 + wd)),
+                            summary:
+                                data.summaries[TodayStore.dateKey(
+                                  first.add(Duration(days: week * 7 + wd)),
+                                )],
+                            isToday:
+                                TodayStore.dateKey(
+                                  first.add(Duration(days: week * 7 + wd)),
+                                ) ==
+                                todayKey,
+                            isSelected:
+                                TodayStore.dateKey(
+                                  first.add(Duration(days: week * 7 + wd)),
+                                ) ==
+                                selectedKey,
+                            keyPrefix: 'agenda_month_cell',
+                            dimmed:
+                                first
+                                    .add(Duration(days: week * 7 + wd))
+                                    .month !=
+                                month.month,
+                            onTap: () => onPick(
+                              first.add(Duration(days: week * 7 + wd)),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
               ],
             ),
-        ],
-      ),
+          ),
+        );
+      },
     );
+  }
+
+  Future<void> _openMonthOverlay(_AgendaData data) async {
+    final wide = MediaQuery.sizeOf(context).width >= 720;
+    DateTime? picked;
+    if (wide) {
+      picked = await showDialog<DateTime>(
+        context: context,
+        builder: (dialogContext) => Dialog(
+          child: _monthOverlay(
+            dialogContext,
+            data,
+            (day) => Navigator.pop(dialogContext, day),
+          ),
+        ),
+      );
+    } else {
+      picked = await showModalBottomSheet<DateTime>(
+        context: context,
+        isScrollControlled: true,
+        builder: (sheetContext) => _monthOverlay(
+          sheetContext,
+          data,
+          (day) => Navigator.pop(sheetContext, day),
+        ),
+      );
+    }
+    if (picked != null && mounted) _select(picked, jumpStrip: true);
   }
 
   // ------------------------------------------------------------ day rows
@@ -484,21 +638,48 @@ class _AgendaScreenState extends State<AgendaScreen> {
     );
   }
 
+  Widget _openPlanButton() {
+    return SizedBox(
+      height: 48,
+      child: FilledButton.icon(
+        onPressed: _openDailyTodo,
+        icon: const Icon(Icons.open_in_new, size: 20),
+        label: const Text('Open in Daily To-do'),
+      ),
+    );
+  }
+
   Widget _dayPanel(BuildContext context, _AgendaData data) {
     final summary = data.summaries[TodayStore.dateKey(_selected)];
     if (summary == null) {
       // No stored plan. A future date may still show the
       // read-only projection of its scheduled routines.
       if (data.projected.isNotEmpty) return _projectedPanel(context, data);
-      return Text(
-        'No plan for this day.',
-        style: Theme.of(context).textTheme.bodyMedium,
+      // Phase 3: even the no-plan state offers the Open Plan
+      // action (opening it is how a plan for this day starts).
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'No plan for this day.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: Space.s4),
+          _openPlanButton(),
+        ],
       );
     }
     if (data.items.isEmpty) {
-      return Text(
-        'This day has a plan, but it is empty.',
-        style: Theme.of(context).textTheme.bodyMedium,
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'This day has a plan, but it is empty.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: Space.s4),
+          _openPlanButton(),
+        ],
       );
     }
     final theme = Theme.of(context);
@@ -542,14 +723,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
           ),
         ),
         const SizedBox(height: Space.s4),
-        SizedBox(
-          height: 48,
-          child: FilledButton.icon(
-            onPressed: _openDailyTodo,
-            icon: const Icon(Icons.open_in_new, size: 20),
-            label: const Text('Open in Daily To-do'),
-          ),
-        ),
+        _openPlanButton(),
       ],
     );
   }
@@ -589,14 +763,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
           ),
         ),
         const SizedBox(height: Space.s4),
-        SizedBox(
-          height: 48,
-          child: FilledButton.icon(
-            onPressed: _openDailyTodo,
-            icon: const Icon(Icons.open_in_new, size: 20),
-            label: const Text('Open in Daily To-do'),
-          ),
-        ),
+        _openPlanButton(),
       ],
     );
   }
@@ -618,35 +785,28 @@ class _AgendaScreenState extends State<AgendaScreen> {
           return ListView(
             padding: const EdgeInsets.all(Space.s4),
             children: [
-              _monthGrid(context, data.summaries),
-              const SizedBox(height: Space.s5),
-              Row(
-                children: [
-                  IconButton(
-                    tooltip: 'Previous day',
-                    onPressed: () => _stepDay(-1),
-                    icon: const Icon(Icons.chevron_left),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => _openMonthOverlay(data),
+                  icon: const Icon(Icons.expand_more, size: 20),
+                  label: Text(
+                    '${monthNames[_visibleMonday.month - 1]} '
+                    '${_visibleMonday.year}',
+                    style: theme.textTheme.titleMedium,
                   ),
-                  Expanded(
-                    child: Text(
-                      isSelToday
-                          ? '${weekdayName(_selected)} · Today'
-                          : '${weekdayName(_selected)} · '
-                                '${TodayStore.dateKey(_selected)}',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.titleMedium,
-                    ),
-                  ),
-                  if (!isSelToday)
-                    TextButton(onPressed: _goToday, child: const Text('Today'))
-                  else
-                    const SizedBox(width: 64),
-                  IconButton(
-                    tooltip: 'Next day',
-                    onPressed: () => _stepDay(1),
-                    icon: const Icon(Icons.chevron_right),
-                  ),
-                ],
+                ),
+              ),
+              const SizedBox(height: Space.s2),
+              _weekStrip(context, data),
+              const SizedBox(height: Space.s4),
+              Text(
+                isSelToday
+                    ? '${weekdayName(_selected)} · Today'
+                    : '${weekdayName(_selected)} · '
+                          '${TodayStore.dateKey(_selected)}',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleMedium,
               ),
               const SizedBox(height: Space.s3),
               _dayPanel(context, data),

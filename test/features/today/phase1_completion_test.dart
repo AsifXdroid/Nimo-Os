@@ -247,10 +247,12 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(theme: AppTheme.neoDark(), home: agendaOf(h)),
       );
-      // Select the future date's grid cell via its InkWell.
-      final cell = find.bySemanticsLabel(RegExp('.*$key.*'));
-      await until(tester, cell, 'month grid');
-      await tester.scrollUntilVisible(cell, 120);
+      // Select the future date via its week-strip cell
+      // (UX Phase 3: the strip replaced the month grid; the
+      // keyed cell is unique, where the semantics label now
+      // matches more than one node).
+      final cell = find.byKey(ValueKey('agenda_cell_$key'));
+      await until(tester, cell, 'week strip cell');
       await tester.pump(const Duration(milliseconds: 120));
       tester
           .widget<InkWell>(

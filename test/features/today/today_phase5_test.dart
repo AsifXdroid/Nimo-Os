@@ -1,6 +1,8 @@
-// UX Phase 5 — the compact Today: a compact header instead
-// of the photo hero, the if–then row under it, a permanent
-// View Full Plan entry, and a compact Dua Library entry.
+// UX Phase 5 — the compact Today: the photo hero restored
+// and refined (brand row inside it, if–then back in the
+// hero), a permanent View Full Plan entry, and a compact
+// Dua Library entry. (The step-1 compact header was
+// superseded by the owner's hero restore in step 1'.)
 // Written test-first per step; each test names the behaviour
 // it protects. Harness mirrors today_phase4_organise_test.
 import 'dart:io';

@@ -3,7 +3,7 @@
 /// Sections, in order: header (date, greeting, search/settings
 /// placeholders — global search is S5, settings is S6), week strip,
 /// quick-add row, today's plan card (or the This-week pending view),
-/// pinned spaces, recent items, goals, Customize Home. Which of the
+/// pinned spaces, recent items, goals. Which of the
 /// optional sections show is persisted in `app_settings`.
 library;
 

@@ -14,7 +14,9 @@ library;
 
 import 'dart:io';
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../core/brand.dart';
 import '../../core/motion.dart';
@@ -68,6 +70,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// section constants — the same keys Today reads.
   Map<String, bool>? _todaySections;
 
+  /// The stored hero photo path (D-053): null means the
+  /// shipped default photograph. Loaded with the switches.
+  String? _heroPath;
+
   /// Labels for the three Today switches — the same words
   /// the retired Customize Home dialog used.
   static const _todaySectionLabels = <String, String>{
@@ -86,23 +92,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final s = await widget.reminders.load();
     final suggest = await widget.reminders.shouldSuggestTurningOff();
     Map<String, bool>? sections;
+    String? heroPath;
     final ts = widget.todayStore;
     if (ts != null) {
       sections = {
         for (final key in _todaySectionLabels.keys)
           key: await ts.homeSectionVisible(key),
       };
+      heroPath = await ts.heroImagePath();
     }
     if (!mounted) return;
     setState(() {
       _settings = s;
       _suggestOff = suggest;
       _todaySections = sections;
+      _heroPath = heroPath;
     });
   }
 
   Future<void> _toggleTodaySection(String key, bool v) async {
     await widget.todayStore!.setHomeSectionVisible(key, v);
+    await _load();
+  }
+
+  /// D-053's hero picker, rehomed here when the Customize
+  /// Home dialog retired (owner decision, 2026-11-12: no
+  /// dialog — the photo controls join the Today switches in
+  /// Settings). The picked file is COPIED into app storage
+  /// first (a picker may hand back a cache path that later
+  /// vanishes), and the store remembers where the copy lives.
+  Future<void> _changeHeroImage() async {
+    final picked = await openFile(
+      acceptedTypeGroups: const [
+        XTypeGroup(label: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp']),
+      ],
+    );
+    if (picked == null || !mounted) return;
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final ext = picked.name.contains('.')
+          ? picked.name.split('.').last.toLowerCase()
+          : 'jpg';
+      final dest = File('${dir.path}/nimo_hero_custom.$ext');
+      await File(picked.path).copy(dest.path);
+      // A previous custom image with a different extension
+      // would linger beside the new one — remove siblings.
+      await for (final f in dir.list()) {
+        if (f is File &&
+            f.path.contains('nimo_hero_custom') &&
+            f.path != dest.path) {
+          await f.delete();
+        }
+      }
+      await widget.todayStore!.setHeroImagePath(dest.path);
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not use that image: $e')));
+    }
+  }
+
+  /// Back to the shipped default photograph — the custom
+  /// file is deleted and the stored path cleared (D-053).
+  Future<void> _resetHeroImage() async {
+    final stored = await widget.todayStore!.heroImagePath();
+    if (stored != null) {
+      final f = File(stored);
+      if (await f.exists()) await f.delete();
+    }
+    await widget.todayStore!.setHeroImagePath(null);
     await _load();
   }
 
@@ -218,7 +278,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   message:
                       'Choose what your Today page shows: the week '
                       'strip inside the plan card, the Day Close banner, '
-                      'and the spaces you pin under Organise.',
+                      'and the spaces you pin under Organise. You can '
+                      'also change the photo at the top of Today.',
                 ),
               ],
             ),
@@ -229,6 +290,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: Text(e.value),
                 value: _todaySections![e.key] ?? true,
                 onChanged: (v) => _toggleTodaySection(e.key, v),
+              ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.image_outlined),
+              title: const Text('Hero image'),
+              subtitle: Text(
+                _heroPath != null ? 'Your photo' : 'Default photograph',
+              ),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Change image…'),
+              onTap: _changeHeroImage,
+            ),
+            if (_heroPath != null)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.restart_alt_outlined),
+                title: const Text('Reset to default'),
+                onTap: _resetHeroImage,
               ),
             const SizedBox(height: Gap.lg),
           ],

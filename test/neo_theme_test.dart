@@ -29,7 +29,7 @@ void main() {
     test('dark is Green & Black; light is the soft set (D-052)', () {
       final dark = AppTheme.neoDark();
       expect(dark.brightness, Brightness.dark);
-      expect(dark.scaffoldBackgroundColor, const Color(0xFF101010));
+      expect(dark.scaffoldBackgroundColor, const Color(0xFF000000));
       final light = AppTheme.neoLight();
       expect(light.brightness, Brightness.light);
       expect(light.scaffoldBackgroundColor, const Color(0xFFE9EFEB));

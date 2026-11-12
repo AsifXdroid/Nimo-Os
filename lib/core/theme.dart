@@ -384,33 +384,37 @@ abstract final class AppTheme {
           // sage, used only as a tint role.
           tertiary: dark ? const Color(0xFFA7B9AE) : const Color(0xFF718078),
           onTertiary: dark ? const Color(0xFF101410) : Colors.white,
-          surface: dark ? const Color(0xFF101010) : const Color(0xFFE9EFEB),
+          // Redesign B (2026-11-13): the dark canvas, surfaces
+          // and hairline take the Media Immersive tokens (true
+          // black, #0D0D0F / #1C1C1E surfaces, #2C2C2E
+          // hairline). Accent and the light theme are unchanged.
+          surface: dark ? const Color(0xFF000000) : const Color(0xFFE9EFEB),
           onSurface: dark ? const Color(0xFFF2F3F1) : const Color(0xFF213D35),
           onSurfaceVariant: dark
               ? const Color(0xFF9CA39E)
               : const Color(0xFF586B5E),
           surfaceContainerLowest: dark
-              ? const Color(0xFF0A0A0A)
+              ? const Color(0xFF000000)
               : const Color(0xFFDCE5DE),
           surfaceContainerLow: dark
-              ? const Color(0xFF161616)
+              ? const Color(0xFF0D0D0F)
               : const Color(0xFFE3EAE4),
           surfaceContainer: dark
-              ? const Color(0xFF191919)
+              ? const Color(0xFF0D0D0F)
               : const Color(0xFFFFFFFF),
           surfaceContainerHigh: dark
-              ? const Color(0xFF202020)
+              ? const Color(0xFF1C1C1E)
               : const Color(0xFFFFFFFF),
           surfaceContainerHighest: dark
-              ? const Color(0xFF262626)
+              ? const Color(0xFF1C1C1E)
               : const Color(0xFFF4F7F4),
-          outline: dark ? const Color(0xFF2E2E2E) : const Color(0xFFB9C8BE),
+          outline: dark ? const Color(0xFF2C2C2E) : const Color(0xFFB9C8BE),
           outlineVariant: dark
               ? const Color(0xFF1F1F1F)
               : const Color(0xFFCAD6CE),
           error: semanticFor(brightness).error,
         );
-    final scaffold = dark ? const Color(0xFF101010) : const Color(0xFFE9EFEB);
+    final scaffold = dark ? const Color(0xFF000000) : const Color(0xFFE9EFEB);
     final base = ThemeData(
       useMaterial3: true,
       colorScheme: scheme,

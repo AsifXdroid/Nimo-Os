@@ -51,8 +51,10 @@ class FloatingCapsuleBar extends StatelessWidget {
     final dark = theme.brightness == Brightness.dark;
 
     // Surface colors
+    // Redesign B: glass over true black uses the elevated
+    // surface tone at 80%.
     final capsuleBg = dark
-        ? const Color(0xEE141414)
+        ? const Color(0xCC1C1C1E)
         : Colors.white.withValues(alpha: 0.94);
 
     final rimColor = dark
@@ -177,7 +179,11 @@ class _CapsuleItem extends StatelessWidget {
         ? const Color(0xFF9CA39E)
         : const Color(0xFF213D35);
 
-    final activePillBg = dark ? const Color(0xFF262626) : Colors.white;
+    // Redesign B: the selected pill is white at 14% (the
+    // BitChord system); the icon keeps the one green accent.
+    final activePillBg = dark
+        ? Colors.white.withValues(alpha: 0.14)
+        : Colors.white;
 
     final activePillShadow = isSelected
         ? [

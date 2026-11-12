@@ -1,17 +1,21 @@
-/// UX redesign Phase 4 — Organise from Today (Option 1).
+/// UX redesign Phase 4 — Organise from Today (Option 1),
+/// reshaped by the Library merge (owner decision 2026-11-12).
 ///
-/// The 'spaces' shell destination is retired; Organise is
-/// reached from Today instead:
-/// 1. A permanent Organise entry sits at the bottom of
-///    Today and asks the shell to open the Organise screen
-///    (onOpenOrganise) — visible even with nothing pinned.
-/// 2. Pinned workspaces render as rows under it (name +
-///    item count), honouring the stored 'Pinned spaces'
-///    Customize value; a tap opens THAT workspace through
-///    onOpenWorkspace — identity-checked with two pinned
-///    workspaces, so a row that opened the wrong workspace
-///    would fail here.
-/// 3. An unpinned workspace never renders.
+/// Phase 4 retired the 'spaces' shell destination and put a
+/// permanent Organise entry + pinned workspace rows at the
+/// bottom of Today. The merge then moved Organise itself
+/// into the Library destination (as its second tab) and
+/// retired the entry row. What this file pins now:
+/// 1. With nothing pinned, no pinned section renders at
+///    all — and no Organise entry exists on Today.
+/// 2. Pinned workspaces render as rows under a 'Pinned
+///    spaces' caption (name + item count), honouring the
+///    stored 'Pinned spaces on Today' value; a tap opens
+///    THAT workspace through onOpenWorkspace — identity-
+///    checked with two pinned workspaces, so a row that
+///    opened the wrong workspace would fail here.
+/// 3. An unpinned workspace never renders, and the stored
+///    OFF value hides the whole section.
 library;
 
 import 'dart:io';
@@ -59,7 +63,6 @@ void main() {
       TodayStore todayStore,
       Widget today,
       List<Workspace> opened,
-      List<String> calls,
     })
   >
   boot(WidgetTester tester) async {
@@ -73,7 +76,6 @@ void main() {
     final thumbs = ThumbnailService(Directory('${tmp.path}/thumbs'));
     final learn = LearnServices(LearnStore(db), library, db: db);
     final opened = <Workspace>[];
-    final calls = <String>[];
     final today = TodayScreen(
       store: store,
       todayStore: todayStore,
@@ -85,9 +87,6 @@ void main() {
       onOpenWorkspace: (ws) async {
         opened.add(ws);
       },
-      onOpenOrganise: () async {
-        calls.add('organise');
-      },
       onOpenLearn: () {},
       onOpenSettings: () {},
     );
@@ -97,10 +96,8 @@ void main() {
       todayStore: todayStore,
       today: today,
       opened: opened,
-      calls: calls,
     );
   }
-
 
   /// Unmounts and drains real IO before teardown: the tap
   /// handlers reload Home on return, and deleting the temp
@@ -111,32 +108,37 @@ void main() {
     await tester.pump();
   }
 
-  Finder entry() => find.byKey(const ValueKey('organise_entry'));
+  Finder caption() => find.text('Pinned spaces');
   Finder pinnedRow(int id) => find.byKey(ValueKey('pinned_workspace_$id'));
 
-  Future<void> scrollToEntry(WidgetTester tester) async {
-    await until(tester, entry(), 'organise entry');
-    await tester.scrollUntilVisible(entry(), 200);
+  Future<void> scrollToPinned(WidgetTester tester, int id) async {
+    await until(tester, pinnedRow(id), 'pinned row $id');
+    await tester.scrollUntilVisible(pinnedRow(id), 200);
     await tester.pump(const Duration(milliseconds: 120));
   }
 
-  testWidgets('Phase 4: the Organise entry renders with '
-      'nothing pinned and opens Organise via the shell', (tester) async {
+  /// Drags the hub to its foot, so an absence assertion is
+  /// made where the section would render if it existed.
+  Future<void> dragToBottom(WidgetTester tester) async {
+    await until(tester, find.text("Today's plan"), 'plan card');
+    for (var i = 0; i < 10; i++) {
+      await tester.drag(find.byType(ListView), const Offset(0, -300));
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      await tester.pump(const Duration(milliseconds: 80));
+    }
+  }
+
+  testWidgets('Library merge: no pinned section and no '
+      'Organise entry render when nothing is pinned', (tester) async {
     tallSurface(tester);
     await tester.runAsync(() async {
       final h = await boot(tester);
       await tester.pumpWidget(
         MaterialApp(theme: AppTheme.neoDark(), home: h.today),
       );
-      await scrollToEntry(tester);
-      expect(find.text('Organise'), findsWidgets);
-      tester
-          .widget<InkWell>(
-            find.descendant(of: entry(), matching: find.byType(InkWell)),
-          )
-          .onTap!();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(h.calls, ['organise']);
+      await dragToBottom(tester);
+      expect(caption(), findsNothing);
+      expect(find.byKey(const ValueKey('organise_entry')), findsNothing);
       expect(h.opened, isEmpty);
 
       await drain(tester);
@@ -176,8 +178,8 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(theme: AppTheme.neoDark(), home: h.today),
       );
-      await scrollToEntry(tester);
-      await until(tester, pinnedRow(b.id), 'pinned row B');
+      await scrollToPinned(tester, b.id);
+      expect(caption(), findsOneWidget);
       expect(pinnedRow(a.id), findsOneWidget);
       expect(pinnedRow(c.id), findsNothing);
       expect(
@@ -209,7 +211,7 @@ void main() {
   });
 
   testWidgets('Phase 4: the stored Pinned-spaces value is '
-      'honoured — OFF hides the rows, the entry stays', (tester) async {
+      'honoured — OFF hides the whole section', (tester) async {
     tallSurface(tester);
     await tester.runAsync(() async {
       final h = await boot(tester);
@@ -221,12 +223,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(theme: AppTheme.neoDark(), home: h.today),
       );
-      await scrollToEntry(tester);
-      // Give the hub a beat, then: entry yes, pinned row no.
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(entry(), findsOneWidget);
+      await dragToBottom(tester);
+      expect(caption(), findsNothing);
       expect(pinnedRow(a.id), findsNothing);
 
+      await drain(tester);
       await h.tmp.delete(recursive: true);
     });
   });

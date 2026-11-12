@@ -34,7 +34,7 @@ import 'features/items/item_detail_screen.dart';
 import 'features/items/link_card/link_card_service.dart';
 import 'features/items/link_card/thumbnail_service.dart';
 import 'features/learn/capture_service.dart';
-import 'features/learn/learn_screen.dart';
+import 'features/library/library_screen.dart';
 import 'features/learn/learn_services.dart';
 import 'features/learn/learn_store.dart';
 import 'features/learn/library_store.dart';
@@ -61,7 +61,6 @@ import 'features/sync/sync_section.dart';
 import 'features/sync/sync_store.dart';
 import 'features/today/today_screen.dart';
 import 'features/today/today_store.dart';
-import 'features/workspaces/workspaces_screen.dart';
 
 Future<void> main() async {
   await bootstrap();
@@ -440,9 +439,19 @@ class _AppShellState extends State<AppShell> {
   // UX Phase 4: the 'spaces' destination is retired — Organise
   // is a pushed route owned by the shell (see _openOrganise),
   // reached from the Organise section at the bottom of Today.
+  // Library merge (owner decision 2026-11-12): the 'learn'
+  // destination becomes 'library' — LibraryScreen hosts Learn
+  // and Organise as internal tabs (Learn default), and the
+  // pushed _openOrganise route is retired with it. Today's
+  // pinned workspace rows remain as direct shortcuts.
   static const List<_Destination> _destinations = [
     _Destination('today', 'Today', Icons.today_outlined, Icons.today),
-    _Destination('learn', 'Learn', Icons.school_outlined, Icons.school),
+    _Destination(
+      'library',
+      'Library',
+      Icons.menu_book_outlined,
+      Icons.menu_book,
+    ),
     _Destination(
       'direction',
       'Progress',
@@ -631,23 +640,11 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
-  /// UX Phase 4: Organise is a pushed route now, not a shell
-  /// destination. The shell owns both Organise routes: the
-  /// workspace list, and a single workspace's projects (the
-  /// pinned rows on Today). Each future completes when the
-  /// route pops, so Today can refresh on return.
-  Future<void> _openOrganise() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => WorkspacesScreen(
-          store: widget.store,
-          learn: widget.learn,
-          thumbnails: widget.thumbnails,
-        ),
-      ),
-    );
-  }
-
+  /// A single workspace's projects, pushed by the shell for
+  /// Today's pinned rows. The future completes when the route
+  /// pops, so Today can refresh on return. (The workspace
+  /// LIST is no longer a route: it is the Organise tab of the
+  /// Library destination.)
   Future<void> _openWorkspace(Workspace ws) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -760,11 +757,12 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final body = switch (_destId) {
-      'learn' => LearnScreen(
+      'library' => LibraryScreen(
         learn: widget.learn,
         reviewStore: widget.reviewStore,
         store: widget.store,
         onOpenTopics: _openTopics,
+        thumbnails: widget.thumbnails,
       ),
       'direction' => DirectionScreen(
         // Keyed by the one-shot token: a streak-chip request
@@ -785,8 +783,7 @@ class _AppShellState extends State<AppShell> {
         thumbnails: widget.thumbnails,
         onOpenTopics: _openTopics,
         onOpenWorkspace: _openWorkspace,
-        onOpenOrganise: _openOrganise,
-        onOpenLearn: () => _select('learn'),
+        onOpenLearn: () => _select('library'),
         progressStore: _progress,
         onOpenSettings: _openSettings,
         onOpenWeeklySummary: _openWeeklySummary,

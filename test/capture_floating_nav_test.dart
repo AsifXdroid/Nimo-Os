@@ -156,24 +156,30 @@ void main() {
     }
 
     if (openOrganise) {
-      final entry = find.byKey(const ValueKey('organise_entry'));
-      if (entry.evaluate().isNotEmpty) {
-        await tester.scrollUntilVisible(entry, 200);
-        for (var i = 0; i < 10; i++) {
-          await Future<void>.delayed(const Duration(milliseconds: 50));
-          await tester.pump();
-        }
-        await tester.tap(entry);
+      // Library merge (2026-11-12): Organise is the second
+      // tab of the Library destination — open the destination,
+      // then its Organise tab.
+      final libraryDest = find.text('Library');
+      if (libraryDest.evaluate().isNotEmpty) {
+        await tester.tap(libraryDest);
         for (var i = 0; i < 15; i++) {
           await Future<void>.delayed(const Duration(milliseconds: 50));
           await tester.pump();
+        }
+        final organiseTab = find.text('Organise');
+        if (organiseTab.evaluate().isNotEmpty) {
+          await tester.tap(organiseTab);
+          for (var i = 0; i < 15; i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 50));
+            await tester.pump();
+          }
         }
       }
     }
 
     if (tabIndex > 0) {
       // Tap destination
-      final destLabels = ['Today', 'Learn', 'Progress'];
+      final destLabels = ['Today', 'Library', 'Progress'];
       final target = find.text(destLabels[tabIndex]);
       if (target.evaluate().isNotEmpty) {
         await tester.tap(target);
@@ -245,8 +251,8 @@ void main() {
         tabIndex: 1,
       );
 
-      // 4. Spaces (Workspaces/Projects/Notes) — UX Phase 4:
-      // Organise is a pushed screen from Today, not a tab.
+      // 4. Spaces (Workspaces/Projects/Notes) — the Organise
+      // tab of the Library destination (2026-11-12 merge).
       await captureScreen(
         tester,
         themeChoice: AppThemeChoice.dark,

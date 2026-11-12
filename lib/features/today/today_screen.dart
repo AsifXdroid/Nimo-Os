@@ -126,7 +126,6 @@ class TodayScreen extends StatefulWidget {
     required this.onOpenTopics,
     required this.onOpenWorkspace,
     required this.onOpenLearn,
-    this.onOpenOrganise,
     this.progressStore,
     this.onOpenSettings,
     this.onOpenWeeklySummary,
@@ -150,19 +149,12 @@ class TodayScreen extends StatefulWidget {
   final void Function() onOpenTopics;
 
   /// Called when a pinned space is tapped: the shell pushes
-  /// the workspace's Projects screen (UX Phase 4 — Organise is
-  /// a pushed route now, not a shell destination). The future
-  /// completes when that route pops, so Home can refresh.
+  /// the workspace's Projects screen. The future completes
+  /// when that route pops, so Home can refresh.
   final Future<void> Function(Workspace workspace) onOpenWorkspace;
 
-  /// Opens the Organise screen itself (UX Phase 4): the shell
-  /// owns the route, like Topics. Optional so isolated tests
-  /// can mount Home without it; the Organise section renders
-  /// only when it is wired. The future completes when the
-  /// route pops.
-  final Future<void> Function()? onOpenOrganise;
-
-  /// Opens the Learn tab (the shell selects the learn destination).
+  /// Opens the Learn tab (the shell selects the Library
+  /// destination, whose default tab is Learn).
   final void Function() onOpenLearn;
 
   /// PROGRESS (S6): progress read model for the Sunday summary
@@ -416,11 +408,14 @@ class _TodayScreenState extends State<TodayScreen> {
                     const SizedBox(height: Gap.lg),
                     pad(_dayCloseSection(context, data)),
                   ],
-                  // UX Phase 4: the Organise section closes
-                  // the page — a utility destination, kept
-                  // out of the day loop above. It renders
-                  // only when the shell wired onOpenOrganise.
-                  if (widget.onOpenOrganise != null) ...[
+                  // Library merge (2026-11-12): Organise lives
+                  // in the Library destination now. What stays
+                  // on Today is the pinned-workspace shortcuts
+                  // at the foot of the page — rendered only
+                  // when the stored 'Pinned spaces' value is on
+                  // and at least one workspace is pinned.
+                  if ((data.sections[TodayStore.sectionPinned] ?? true) &&
+                      data.pinned.isNotEmpty) ...[
                     const SizedBox(height: Gap.lg),
                     pad(_organiseSection(context, data)),
                   ],
@@ -433,124 +428,87 @@ class _TodayScreenState extends State<TodayScreen> {
     );
   }
 
-  /// UX Phase 4: the Organise section. The entry row opens
-  /// the Organise screen through the shell; below it, one
-  /// row per pinned workspace (the 'Pinned spaces' Customize
-  /// value is honoured — stored OFF hides the rows, never
-  /// the entry). Both routes refresh Home when they pop, so
-  /// pin/unpin and item changes inside Organise show
+  /// The pinned-workspace shortcuts (UX Phase 4, reshaped by
+  /// the Library merge, 2026-11-12). Organise itself lives in
+  /// the Library destination; what remains here is one row
+  /// per pinned workspace — a one-tap deep link to its
+  /// Projects, which no tab can match. The build gates this
+  /// section on the stored 'Pinned spaces' value and a
+  /// non-empty pinned list. A tap refreshes Home when the
+  /// route pops, so item changes inside the workspace show
   /// immediately on return.
   Widget _organiseSection(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final showPinned =
-        (data.sections[TodayStore.sectionPinned] ?? true) &&
-        data.pinned.isNotEmpty;
     return Container(
       decoration: planSurfaceDeco(context),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Semantics(
-            key: const ValueKey('organise_entry'),
-            button: true,
-            label: 'Organise',
-            child: ExcludeSemantics(
-              child: InkWell(
-                onTap: () async {
-                  await widget.onOpenOrganise!();
-                  if (mounted) {
-                    setState(() {
-                      _data = _load();
-                    });
-                  }
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Space.s4,
-                    vertical: Space.s3,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.folder_outlined,
-                        size: 20,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: Space.s3),
-                      Expanded(
-                        child: Text(
-                          'Organise',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      Icon(
-                        Icons.chevron_right,
-                        size: 20,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ],
-                  ),
-                ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Space.s4, Space.s3, Space.s4, 0),
+            child: Text(
+              'Pinned spaces',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
               ),
             ),
           ),
-          if (showPinned)
-            for (final p in data.pinned) ...[
+          for (final (i, p) in data.pinned.indexed) ...[
+            if (i > 0)
               Divider(
                 height: 1,
                 indent: Space.s4,
                 endIndent: Space.s4,
                 color: scheme.outlineVariant,
               ),
-              Semantics(
-                key: ValueKey('pinned_workspace_${p.workspace.id}'),
-                button: true,
-                label:
-                    'Open ${p.workspace.name}, '
-                    '${p.itemCount} ${p.itemCount == 1 ? 'item' : 'items'}',
-                child: ExcludeSemantics(
-                  child: InkWell(
-                    onTap: () async {
-                      await widget.onOpenWorkspace(p.workspace);
-                      if (mounted) {
-                        setState(() {
-                          _data = _load();
-                        });
-                      }
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: Space.s4,
-                        vertical: Space.s3,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.folder, size: 20, color: scheme.primary),
-                          const SizedBox(width: Space.s3),
-                          Expanded(
-                            child: Text(
-                              p.workspace.name,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w500,
-                              ),
+            Semantics(
+              key: ValueKey('pinned_workspace_${p.workspace.id}'),
+              button: true,
+              label:
+                  'Open ${p.workspace.name}, '
+                  '${p.itemCount} ${p.itemCount == 1 ? 'item' : 'items'}',
+              child: ExcludeSemantics(
+                child: InkWell(
+                  onTap: () async {
+                    await widget.onOpenWorkspace(p.workspace);
+                    if (mounted) {
+                      setState(() {
+                        _data = _load();
+                      });
+                    }
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Space.s4,
+                      vertical: Space.s3,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.folder, size: 20, color: scheme.primary),
+                        const SizedBox(width: Space.s3),
+                        Expanded(
+                          child: Text(
+                            p.workspace.name,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          Text(
-                            '${p.itemCount} '
-                            '${p.itemCount == 1 ? 'item' : 'items'}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
+                        ),
+                        Text(
+                          '${p.itemCount} '
+                          '${p.itemCount == 1 ? 'item' : 'items'}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
-            ],
+            ),
+          ],
         ],
       ),
     );

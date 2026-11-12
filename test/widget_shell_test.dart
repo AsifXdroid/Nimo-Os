@@ -9,7 +9,9 @@ import 'package:daily_life_app/core/capsule_nav_bar.dart';
 import 'package:daily_life_app/core/db/app_database.dart';
 import 'package:daily_life_app/features/goals/goals_store.dart';
 import 'package:daily_life_app/features/items/link_card/thumbnail_service.dart';
+import 'package:daily_life_app/features/learn/learn_screen.dart';
 import 'package:daily_life_app/features/learn/learn_services.dart';
+import 'package:daily_life_app/features/library/library_screen.dart';
 import 'package:daily_life_app/features/learn/learn_store.dart';
 import 'package:daily_life_app/features/learn/library_store.dart';
 import 'package:daily_life_app/features/review/review_store.dart';
@@ -96,8 +98,9 @@ void main() {
     });
   });
 
-  testWidgets('Phase 4: capsule offers exactly Today, Learn, '
-      'Progress; Organise opens from Today as a pushed screen', (tester) async {
+  testWidgets('Library merge: capsule offers exactly Today, '
+      'Library, Progress; Organise is the Library host\'s '
+      'second tab', (tester) async {
     await tester.runAsync(() async {
       tester.view.physicalSize = const Size(1170, 2532);
       tester.view.devicePixelRatio = 3.0;
@@ -110,24 +113,33 @@ void main() {
         matching: find.text(label),
       );
       expect(await pollFor(tester, inCapsule('Today')), isTrue);
-      expect(inCapsule('Learn'), findsOneWidget);
+      expect(inCapsule('Library'), findsOneWidget);
       expect(inCapsule('Progress'), findsOneWidget);
+      expect(inCapsule('Learn'), findsNothing);
       expect(inCapsule('Organise'), findsNothing);
 
-      // The Organise entry at the bottom of Today opens the
-      // real Organise screen; Back returns to Today. The
-      // entry sits below Today's fold, so scroll it into
-      // view (the ListView builds it as it approaches).
-      final entry = find.byKey(const ValueKey('organise_entry'));
-      await tester.scrollUntilVisible(entry, 200);
-      await tester.pump(const Duration(milliseconds: 150));
-      await tester.tap(entry);
-      expect(await pollFor(tester, find.byType(WorkspacesScreen)), isTrue);
+      // The Library destination opens on its Learn tab…
+      await tester.tap(inCapsule('Library'));
+      expect(await pollFor(tester, find.byType(LibraryScreen)), isTrue);
+      expect(
+        find.byType(LearnScreen).hitTestable(),
+        findsOneWidget,
+      );
+      // …and its Organise tab shows the real Organise screen.
+      await tester.tap(find.text('Organise'));
+      expect(
+        await pollFor(
+          tester,
+          find.byType(WorkspacesScreen).hitTestable(),
+        ),
+        isTrue,
+      );
       expect(
         await pollFor(tester, find.byKey(const ValueKey('spaces_inbox_card'))),
         isTrue,
       );
-      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      // Leaving the destination unmounts the host entirely.
+      await tester.tap(inCapsule('Today'));
       for (var i = 0; i < 30; i++) {
         await Future<void>.delayed(const Duration(milliseconds: 100));
         await tester.pump();

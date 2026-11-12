@@ -89,22 +89,18 @@ void main() {
         }
         expect(find.text("Today's plan"), findsOneWidget);
 
-        // The Organise entry sits at the bottom of the
-        // scrolling hub (UX Phase 4/5; Customize Home used to
-        // be the bottom marker before it retired): drag up
-        // until it is built, then it must exist exactly once.
+        // The old Organise entry row at the bottom of the
+        // hub retired in the Library merge (2026-11-12) —
+        // Organise is a tab of the Library destination now,
+        // and this app has nothing pinned, so no pinned
+        // section renders either. Drag to the bottom and
+        // confirm the entry is not hiding anywhere.
         for (var i = 0; i < 12; i++) {
-          if (find
-              .byKey(const ValueKey('organise_entry'))
-              .evaluate()
-              .isNotEmpty) {
-            break;
-          }
           await tester.drag(find.byType(ListView), const Offset(0, -300));
           await Future<void>.delayed(const Duration(milliseconds: 100));
           await tester.pump();
         }
-        expect(find.byKey(const ValueKey('organise_entry')), findsOneWidget);
+        expect(find.byKey(const ValueKey('organise_entry')), findsNothing);
 
         // Phase 1: the bottom bar's destinations; Progress
         // is the visible 4th destination and opens on Progress by default.
@@ -133,29 +129,19 @@ void main() {
         expect(await pollFor(find.text("Today's plan")), isTrue);
         final learnDest = find.descendant(
           of: find.byType(FloatingCapsuleBar),
-          matching: find.text('Learn'),
+          matching: find.text('Library'),
         );
         expect(await pollFor(learnDest), isTrue);
 
-        // Tapping Learn shows the LearnScreen landing.
+        // Tapping Library shows the LearnScreen landing (the
+        // host's default tab is Learn).
         await tester.tap(learnDest);
         expect(await pollFor(find.text('Your topics')), isTrue);
         expect(await pollFor(find.text('Your packs')), isTrue);
 
-        // Open Organise (UX Phase 4: a pushed screen from
-        // Today, no longer a tab): return to Today first,
-        // drag its entry into view at the bottom of the
-        // list, then tap it.
-        await tester.tap(find.text('Today'));
-        expect(await pollFor(find.text("Today's plan")), isTrue);
-        final organiseEntry = find.byKey(const ValueKey('organise_entry'));
-        for (var i = 0; i < 12; i++) {
-          if (organiseEntry.evaluate().isNotEmpty) break;
-          await tester.drag(find.byType(ListView), const Offset(0, -300));
-          await Future<void>.delayed(const Duration(milliseconds: 100));
-          await tester.pump();
-        }
-        await tester.tap(organiseEntry);
+        // Open Organise (Library merge, 2026-11-12): the
+        // host's second tab, in place — no route push.
+        await tester.tap(find.text('Organise'));
         expect(await pollFor(find.text('Everything has a place.')), isTrue);
         expect(await pollFor(find.textContaining('No workspaces yet')), isTrue);
       });

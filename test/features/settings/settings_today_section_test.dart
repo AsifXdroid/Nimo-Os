@@ -144,7 +144,7 @@ void main() {
         isTrue,
       );
       expect(
-        tester.widget<SwitchListTile>(tile('Pinned spaces')).value,
+        tester.widget<SwitchListTile>(tile('Pinned spaces on Today')).value,
         isFalse,
       );
       await tester.pumpWidget(const SizedBox.shrink());
@@ -171,11 +171,11 @@ void main() {
         isFalse,
       );
 
-      await tester.ensureVisible(tile('Pinned spaces'));
+      await tester.ensureVisible(tile('Pinned spaces on Today'));
       await tester.pump(const Duration(milliseconds: 150));
       await tester.tap(
         find.descendant(
-          of: tile('Pinned spaces'),
+          of: tile('Pinned spaces on Today'),
           matching: find.byType(Switch),
         ),
       );

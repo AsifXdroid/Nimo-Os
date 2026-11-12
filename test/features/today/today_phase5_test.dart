@@ -86,7 +86,6 @@ void main() {
           thumbnails: thumbs,
           onOpenTopics: () {},
           onOpenWorkspace: (ws) async {},
-          onOpenOrganise: () async {},
           onOpenLearn: () {},
           onOpenSettings: () => calls.add('settings'),
           onOpenProgress: () => calls.add('progress'),
@@ -307,10 +306,13 @@ void main() {
         expect(find.text('Goal'), findsNothing);
         expect(find.text('Note'), findsNothing);
         expect(find.text('Checklist'), findsNothing);
-        // The Organise utility section survived the redesign.
+        // The old Organise entry row is gone — Organise moved
+        // into the Library destination in the 2026-11-12 merge;
+        // Today's pinned-workspace rows are what remain (the
+        // Phase 4 test file pins those).
         expect(
           find.byKey(const ValueKey('organise_entry')),
-          findsOneWidget,
+          findsNothing,
         );
 
         await drain(tester);

@@ -79,7 +79,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   static const _todaySectionLabels = <String, String>{
     TodayStore.sectionWeekStrip: 'Week strip',
     TodayStore.sectionDayClose: 'Day Close banner',
-    TodayStore.sectionPinned: 'Pinned spaces',
+    TodayStore.sectionPinned: 'Pinned spaces on Today',
   };
 
   @override
@@ -278,8 +278,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   message:
                       'Choose what your Today page shows: the week '
                       'strip inside the plan card, the Day Close banner, '
-                      'and the spaces you pin under Organise. You can '
-                      'also change the photo at the top of Today.',
+                      'and your pinned spaces. You can also change '
+                      'the photo at the top of Today.',
                 ),
               ],
             ),

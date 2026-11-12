@@ -167,12 +167,13 @@ class ReviewStore {
     return (done: items.where((i) => i.done).length, total: items.length);
   }
 
-  /// The day Day Close should target (§R5.1 rule 6): yesterday stays
-  /// closable until today's plan "opens" — defined as: today not yet
-  /// closed AND no item on today's (existing) plan ticked yet. Uses
-  /// [TodayStore.existingPlanItems], so merely opening the app
-  /// (which generates today's plan, all unticked) does not slam the
-  /// window shut; the first tick of the new day does.
+  /// The day Day Close should target: yesterday stays closable
+  /// until one of the two days is closed. Ticking today's items
+  /// does NOT shut the window: the earlier rule did, silently, so
+  /// a missed day could become permanently unclosable through
+  /// ordinary morning use (baseline defect B-01, owner decision
+  /// 2026-11-12). The Today panel offers "Close today instead",
+  /// so closing today first is a deliberate choice, never a trap.
   Future<CloseTarget> closableDate({DateTime? now}) async {
     final today = TodayStore.dayOnly(now ?? DateTime.now());
     final yesterday = DateTime(today.year, today.month, today.day - 1);
@@ -180,10 +181,7 @@ class ReviewStore {
     final todayReview = await reviewFor(today);
     if ((yesterdayReview == null || !yesterdayReview.isClosed) &&
         (todayReview == null || !todayReview.isClosed)) {
-      final todaysItems = await _today.existingPlanItems(today);
-      if (!todaysItems.any((i) => i.done)) {
-        return CloseTarget(yesterday, isLate: true);
-      }
+      return CloseTarget(yesterday, isLate: true);
     }
     return CloseTarget(today, isLate: false);
   }

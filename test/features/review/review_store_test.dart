@@ -216,14 +216,15 @@ void main() {
       expect(target.isLate, isFalse);
     });
 
-    test('first tick of the new day shuts the late window', () async {
+    test('ticking today\'s items does NOT shut the late window (B-01)',
+        () async {
       await today.addTemplate('Read');
       final items = await today.planItems(DateTime(2026, 2, 10));
       await today.toggleItem(items.single);
       final target =
           await review.closableDate(now: DateTime(2026, 2, 10, 0, 40));
-      expect(target.date, DateTime(2026, 2, 10));
-      expect(target.isLate, isFalse);
+      expect(target.date, DateTime(2026, 2, 9));
+      expect(target.isLate, isTrue);
     });
 
     test('merely generating today\'s plan does NOT shut the window',

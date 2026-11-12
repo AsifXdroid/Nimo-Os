@@ -147,7 +147,12 @@ class _DailyTodoScreenState extends State<DailyTodoScreen>
 
   Future<_DailyTodoData> _load() async {
     final now = _day;
-    final items = await widget.todayStore.planItems(now);
+    // A past day is history: read its stored rows only. Generating
+    // here would fabricate a plan from today's routines for a day
+    // that never had one (baseline defect B-02).
+    final items = now.isBefore(TodayStore.dayOnly(DateTime.now()))
+        ? await widget.todayStore.existingPlanItems(now)
+        : await widget.todayStore.planItems(now);
     final linkedItems = <int, Item>{};
     for (final it in items) {
       final id = it.itemId;

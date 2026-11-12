@@ -427,6 +427,9 @@ class TodayStore {
   }
 
   /// The day's plan items (generating the plan first if needed).
+  /// Callers showing a PAST day for reading must use
+  /// [existingPlanItems] instead: generating for a past date
+  /// fabricates a plan that never existed (baseline defect B-02).
   Future<List<DayPlanItem>> planItems(DateTime date) async {
     final planId = await ensurePlanFor(date);
     final rows = await _db.query(

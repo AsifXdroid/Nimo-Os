@@ -170,7 +170,7 @@ void main() {
           await Future<void>.delayed(const Duration(milliseconds: 100));
           await tester.pump();
           if (find.byType(DailyTodoScreen).evaluate().isNotEmpty &&
-              find.text('DAILY TO-DO').evaluate().isNotEmpty) {
+              find.text('ROUTINES').evaluate().isNotEmpty) {
             break;
           }
         }

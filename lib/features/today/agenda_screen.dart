@@ -644,7 +644,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
       child: FilledButton.icon(
         onPressed: _openDailyTodo,
         icon: const Icon(Icons.open_in_new, size: 20),
-        label: const Text('Open in Daily To-do'),
+        label: const Text('Open Full Plan'),
       ),
     );
   }
@@ -778,6 +778,30 @@ class _AgendaScreenState extends State<AgendaScreen> {
       body: FutureBuilder<_AgendaData>(
         future: _data,
         builder: (context, snap) {
+          if (snap.hasError) {
+            // B-11: a failed load is an error state with a
+            // retry, never an endless spinner.
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(Gap.md),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Agenda could not be loaded. '
+                      'Your records are unchanged.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: Gap.md),
+                    FilledButton(
+                      onPressed: _reload,
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
           final data = snap.data;
           if (data == null) {
             return const Center(child: CircularProgressIndicator());

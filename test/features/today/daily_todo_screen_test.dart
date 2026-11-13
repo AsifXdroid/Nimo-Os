@@ -154,10 +154,10 @@ void main() {
     tallSurface(tester);
     await tester.runAsync(() async {
       final h = await boot(tester);
-      await until(tester, row('DAILY TO-DO'), 'group heads');
+      await until(tester, row('ROUTINES'), 'group heads');
 
-      expect(find.text('DAILY TO-DO'), findsOneWidget);
-      expect(find.text('TODAY'), findsOneWidget);
+      expect(find.text('ROUTINES'), findsOneWidget);
+      expect(find.text('ONE-OFFS'), findsOneWidget);
       expect(find.text('COMPLETED'), findsNothing);
       // Group order: routines above one-offs above (none) completed.
       expect(
@@ -305,7 +305,7 @@ void main() {
       await tester.ensureVisible(entry);
       await tester.pump(const Duration(milliseconds: 300));
       await tester.tap(entry);
-      await until(tester, find.text('DAILY TO-DO'), 'daily to-do screen');
+      await until(tester, find.text('ROUTINES'), 'daily to-do screen');
       expect(find.byType(DailyTodoScreen), findsOneWidget);
 
       // Complete Morning pages here.
@@ -396,7 +396,7 @@ void main() {
           ),
         ),
       );
-      await until(tester, row('TODAY'), 'past-date screen loaded');
+      await until(tester, row('ONE-OFFS'), 'past-date screen loaded');
       expect(find.text('Thursday · 2026-11-05'), findsOneWidget);
       expect(find.text('1 of 2 done'), findsOneWidget);
       expect(find.text('COMPLETED'), findsOneWidget);

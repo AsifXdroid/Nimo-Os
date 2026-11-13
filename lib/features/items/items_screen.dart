@@ -349,7 +349,11 @@ class _ItemsScreenState extends State<ItemsScreen> {
   Future<void> _deleteSelectedItems(List<Item> items) async {
     final count = _selectedItemIds.length;
     if (count == 0) return;
-    if (!await confirmDelete(context, '$count item${count > 1 ? 's' : ''}')) {
+    if (!await confirmDelete(
+      context,
+      '$count item${count > 1 ? 's' : ''}',
+      scope: 'Their checklist entries and files go with them.',
+    )) {
       return;
     }
     final byId = {for (final it in items) it.id: it};

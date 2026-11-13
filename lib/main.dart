@@ -692,11 +692,8 @@ class _AppShellState extends State<AppShell> {
     Navigator.of(context)
         .push(
           MaterialPageRoute(
-            builder: (_) => TopicsScreen(
-              store: widget.store,
-              learn: widget.learn,
-              backupSection: _backupSection(),
-            ),
+            builder: (_) =>
+                TopicsScreen(store: widget.store, learn: widget.learn),
           ),
         )
         .then((_) {

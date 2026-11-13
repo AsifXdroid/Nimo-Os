@@ -172,7 +172,7 @@ void main() {
       await _pump(tester, h);
 
       // Mission 03 Phase 2: no group heads in the preview.
-      expect(find.text('DAILY TO-DO'), findsNothing);
+      expect(find.text('ROUTINES'), findsNothing);
       expect(find.text('TODAY'), findsNothing);
       final routineY = tester.getTopLeft(_rowText('Morning pages')).dy;
       final oneOffY = tester.getTopLeft(_rowText('Call the bank')).dy;

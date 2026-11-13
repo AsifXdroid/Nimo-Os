@@ -448,8 +448,8 @@ class PlanList extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
               child: Text(
                 item.isRoutine
-                    ? (item.countsCore ? 'Daily to-do · Core' : 'Daily to-do')
-                    : 'Today',
+                    ? (item.countsCore ? 'Routine · Core' : 'Routine')
+                    : 'One-off',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

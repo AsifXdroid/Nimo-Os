@@ -16,7 +16,7 @@
 ///    the month heading opens the monthly overlay (which has
 ///    NO Today button), and the old Previous/Next day
 ///    steppers and Today button are gone.
-/// 5. Cross-screen: Open in Daily To-do shows the same date;
+/// 5. Cross-screen: Open Full Plan shows the same date;
 ///    completing a row there reflects back in Agenda.
 /// 6. Reachable from Today via the calendar (D9; the door
 ///    moved from the plan card to the header, and in
@@ -209,7 +209,7 @@ void main() {
       await selectStripDay(tester, doneDay);
       await until(tester, find.text('Finished early task'), 'day rows');
       expect(find.text('1 of 1 done'), findsOneWidget);
-      expect(find.text('Open in Daily To-do'), findsOneWidget);
+      expect(find.text('Open Full Plan'), findsOneWidget);
 
       // Select the empty-plan day: honest state + Open Plan
       // (UX Phase 3: the button exists in every state).
@@ -219,12 +219,12 @@ void main() {
         find.text('This day has a plan, but it is empty.'),
         'empty plan state',
       );
-      expect(find.text('Open in Daily To-do'), findsOneWidget);
+      expect(find.text('Open Full Plan'), findsOneWidget);
 
       // Select a no-plan day: honest state + Open Plan.
       await selectStripDay(tester, noPlanDay);
       await until(tester, find.text('No plan for this day.'), 'no plan state');
-      expect(find.text('Open in Daily To-do'), findsOneWidget);
+      expect(find.text('Open Full Plan'), findsOneWidget);
 
       await h.tmp.delete(recursive: true);
     });
@@ -497,7 +497,7 @@ void main() {
     });
   });
 
-  testWidgets('Phase 6: Open in Daily To-do shows the same date; '
+  testWidgets('Phase 6: Open Full Plan shows the same date; '
       'an edit there reflects back in Agenda', (tester) async {
     tallSurface(tester);
     await tester.runAsync(() async {
@@ -519,7 +519,7 @@ void main() {
       await until(tester, find.text('File the invoice'), 'agenda rows');
       expect(find.text('0 of 1 done'), findsOneWidget);
 
-      await tester.tap(find.text('Open in Daily To-do'));
+      await tester.tap(find.text('Open Full Plan'));
       await until(tester, find.byType(DailyTodoScreen), 'daily to-do');
       final isTodayTarget = keyOf(target) == keyOf(DateTime.now());
       await until(

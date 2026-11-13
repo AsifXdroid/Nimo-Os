@@ -248,7 +248,15 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
   /// the audio missing-file state's Remove action). Confirms,
   /// deletes with the guarded file cleanup, and pops.
   Future<void> _removeThisItem() async {
-    if (!await confirmDelete(context, 'this item')) return;
+    if (!await confirmDelete(
+      context,
+      'this item',
+      scope:
+          'Its checklist entries and file (if it has one) '
+          'go with it.',
+    )) {
+      return;
+    }
     await deleteItemWithFileCleanup(
       store: widget.store,
       library: widget.learn?.library,

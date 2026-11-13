@@ -90,7 +90,15 @@ class _RoutineScreenState extends State<RoutineScreen> {
   }
 
   Future<void> _delete(PlanTemplate t) async {
-    if (!await confirmDelete(context, 'routine item')) return;
+    if (!await confirmDelete(
+      context,
+      'routine item',
+      scope:
+          'Days already planned keep their copies. '
+          'The routine just stops repeating.',
+    )) {
+      return;
+    }
     await widget.todayStore.deleteTemplate(t.id);
     setState(_reload);
   }
@@ -420,7 +428,7 @@ class _RoutineScreenState extends State<RoutineScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Routine template')),
+      appBar: AppBar(title: const Text('Routines')),
       floatingActionButton: FloatingActionButton(
         onPressed: _add,
         child: const Icon(Icons.add),

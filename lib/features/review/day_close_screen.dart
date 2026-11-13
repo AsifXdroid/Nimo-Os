@@ -86,6 +86,7 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
   final _majorController = TextEditingController();
   final _whyController = TextEditingController();
   bool _loaded = false;
+  bool _loadFailed = false;
 
   @override
   void initState() {
@@ -101,23 +102,31 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
   }
 
   Future<void> _load() async {
-    final items = await widget.todayStore.existingPlanItems(widget.date);
-    final existing = await widget.reviewStore.reviewFor(widget.date);
-    final topics = widget.learnStore == null
-        ? const <Topic>[]
-        : await widget.learnStore!.allTopics();
-    if (!mounted) return;
-    setState(() {
-      _items = items;
-      _topics = topics;
-      if (existing != null && existing.isClosed) {
-        _majorController.text = existing.majorPoint ?? '';
-        _whyController.text = existing.selfNote ?? '';
-        _selfScore = existing.selfScore;
-        _topicId = existing.majorPointTopicId;
-      }
-      _loaded = true;
-    });
+    try {
+      final items = await widget.todayStore.existingPlanItems(widget.date);
+      final existing = await widget.reviewStore.reviewFor(widget.date);
+      final topics = widget.learnStore == null
+          ? const <Topic>[]
+          : await widget.learnStore!.allTopics();
+      if (!mounted) return;
+      setState(() {
+        _items = items;
+        _topics = topics;
+        if (existing != null && existing.isClosed) {
+          _majorController.text = existing.majorPoint ?? '';
+          _whyController.text = existing.selfNote ?? '';
+          _selfScore = existing.selfScore;
+          _topicId = existing.majorPointTopicId;
+        }
+        _loaded = true;
+        _loadFailed = false;
+      });
+    } catch (_) {
+      // B-11: a failed load is an error state with a retry,
+      // never an endless spinner.
+      if (!mounted) return;
+      setState(() => _loadFailed = true);
+    }
   }
 
   Future<void> _toggle(DayPlanItem item) async {
@@ -175,7 +184,31 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
           ],
         ),
       ),
-      body: !_loaded
+      body: _loadFailed && !_loaded
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(Gap.md),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Day Close could not be loaded. '
+                      'Your records are unchanged.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: Gap.md),
+                    FilledButton(
+                      onPressed: () {
+                        setState(() => _loadFailed = false);
+                        _load();
+                      },
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : !_loaded
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [

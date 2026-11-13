@@ -24,16 +24,10 @@ import 'reading_screen.dart';
 import 'topic_detail_screen.dart';
 
 class TopicsScreen extends StatefulWidget {
-  const TopicsScreen({
-    super.key,
-    required this.store,
-    required this.learn,
-    this.backupSection,
-  });
+  const TopicsScreen({super.key, required this.store, required this.learn});
 
   final Store store;
   final LearnServices learn;
-  final Widget? backupSection;
 
   @override
   State<TopicsScreen> createState() => _TopicsScreenState();

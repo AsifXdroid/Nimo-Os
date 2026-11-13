@@ -212,7 +212,7 @@ void main() {
             await tester.pump(const Duration(milliseconds: 100));
             opened =
                 find.byType(DailyTodoScreen).evaluate().isNotEmpty &&
-                find.text('TODAY').evaluate().isNotEmpty;
+                find.text('ONE-OFFS').evaluate().isNotEmpty;
           }
           expect(opened, isTrue, reason: 'Daily To-do opened');
           final lastTask = find.text('Task #29');

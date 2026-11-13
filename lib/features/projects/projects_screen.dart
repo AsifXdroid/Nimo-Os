@@ -73,8 +73,12 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   Future<void> _renameSelectedProject(List<Project> list) async {
     if (_selectedProjectIds.length != 1) return;
     final prj = list.firstWhere((p) => p.id == _selectedProjectIds.first);
-    final name = await promptText(context,
-        title: 'Rename project', initial: prj.name, label: 'Name');
+    final name = await promptText(
+      context,
+      title: 'Rename project',
+      initial: prj.name,
+      label: 'Name',
+    );
     if (name == null || name.isEmpty) return;
     await widget.store.renameProject(prj.id, name);
     _exitSelectionMode();
@@ -84,7 +88,11 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   Future<void> _deleteSelectedProjects(List<Project> list) async {
     final count = _selectedProjectIds.length;
     if (count == 0) return;
-    if (!await confirmDelete(context, '$count project${count > 1 ? 's' : ''}')) {
+    if (!await confirmDelete(
+      context,
+      '$count project${count > 1 ? 's' : ''}',
+      scope: 'Everything inside them is deleted too.',
+    )) {
       return;
     }
     for (final id in _selectedProjectIds) {
@@ -99,8 +107,10 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     if (list.isNotEmpty) {
       targetProject = list.first;
     } else {
-      targetProject =
-          await widget.store.createProject(widget.workspace.id, 'General');
+      targetProject = await widget.store.createProject(
+        widget.workspace.id,
+        'General',
+      );
     }
     final item = await widget.store.createItem(
       targetProject.id,
@@ -223,56 +233,62 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
             body: !snapshot.hasData
                 ? const Center(child: CircularProgressIndicator())
                 : list.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'A clear starting point.\nNo projects yet — '
-                          'tap + to create one.',
-                          textAlign: TextAlign.center,
-                        ),
-                      )
-                    : ListView(
-                        padding: const EdgeInsets.fromLTRB(
-                            Space.page, Gap.md, Space.page, Gap.lg),
+                ? const Center(
+                    child: Text(
+                      'A clear starting point.\nNo projects yet — '
+                      'tap + to create one.',
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                : ListView(
+                    padding: const EdgeInsets.fromLTRB(
+                      Space.page,
+                      Gap.md,
+                      Space.page,
+                      Gap.lg,
+                    ),
+                    children: [
+                      Column(
                         children: [
-                          Column(
-                            children: [
-                              for (final prj in list)
-                                NeoListRow(
-                                  leading: isSelecting
-                                      ? NeoCheck(
-                                          done: _selectedProjectIds
-                                              .contains(prj.id))
-                                      : null,
-                                  icon: isSelecting
-                                      ? null
-                                      : Icons.folder_open_outlined,
-                                  title: prj.name,
-                                  last: prj == list.last,
-                                  onTap: () {
-                                    if (isSelecting) {
-                                      _toggleProjectSelection(prj.id);
-                                    } else {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => ItemsScreen(
-                                            store: widget.store,
-                                            project: prj,
-                                            learn: widget.learn,
-                                            thumbnails: widget.thumbnails,
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  },
-                                  onLongPress: () {
-                                    _toggleProjectSelection(prj.id);
-                                  },
-                                ),
-                            ],
-                          ),
+                          for (final prj in list)
+                            NeoListRow(
+                              leading: isSelecting
+                                  ? NeoCheck(
+                                      done: _selectedProjectIds.contains(
+                                        prj.id,
+                                      ),
+                                    )
+                                  : null,
+                              icon: isSelecting
+                                  ? null
+                                  : Icons.folder_open_outlined,
+                              title: prj.name,
+                              last: prj == list.last,
+                              onTap: () {
+                                if (isSelecting) {
+                                  _toggleProjectSelection(prj.id);
+                                } else {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ItemsScreen(
+                                        store: widget.store,
+                                        project: prj,
+                                        learn: widget.learn,
+                                        thumbnails: widget.thumbnails,
+                                      ),
+                                    ),
+                                  );
+                                }
+                              },
+                              onLongPress: () {
+                                _toggleProjectSelection(prj.id);
+                              },
+                            ),
                         ],
                       ),
+                    ],
+                  ),
           ),
         );
       },

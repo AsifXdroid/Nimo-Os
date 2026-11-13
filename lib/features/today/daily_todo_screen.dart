@@ -306,17 +306,17 @@ class _DailyTodoScreenState extends State<DailyTodoScreen>
             padding: const EdgeInsets.symmetric(vertical: Space.s4),
             child: Text(
               'Nothing planned yet. Add a task below, or '
-              'build your routine template.',
+              'build your routines.',
               style: theme.textTheme.bodyMedium,
             ),
           )
         else ...[
           if (routines.isNotEmpty) ...[
-            _group(data, 'Daily To-do', routines),
+            _group(data, 'Routines', routines),
             const SizedBox(height: Space.s5),
           ],
           if (oneOffs.isNotEmpty) ...[
-            _group(data, 'Today', oneOffs),
+            _group(data, 'One-offs', oneOffs),
             const SizedBox(height: Space.s5),
           ],
           if (completed.isNotEmpty) _group(data, 'Completed', completed),

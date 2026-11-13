@@ -275,7 +275,7 @@ void main() {
 
       // Opening the plan is the explicit editable action: it
       // materialises the date through Daily To-do's own load.
-      await tester.tap(find.text('Open in Daily To-do'));
+      await tester.tap(find.text('Open Full Plan'));
       await until(tester, find.byType(DailyTodoScreen), 'daily to-do');
       expect((await h.todayStore.planDaySummaries()).containsKey(key), isTrue);
       expect(

@@ -340,7 +340,11 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
   Future<void> _deleteSelectedSources() async {
     final count = _selectedSourceIds.length;
     if (count == 0) return;
-    if (!await confirmDelete(context, '$count source${count > 1 ? 's' : ''}')) {
+    if (!await confirmDelete(
+      context,
+      '$count source${count > 1 ? 's' : ''}',
+      scope: 'Their files are deleted too.',
+    )) {
       return;
     }
     final toDelete = _sources
@@ -363,6 +367,7 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
     if (!await confirmDelete(
       context,
       '$count marked point${count > 1 ? 's' : ''}',
+      scope: 'Cards already made from them stay.',
     )) {
       return;
     }

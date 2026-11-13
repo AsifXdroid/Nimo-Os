@@ -216,7 +216,7 @@ void main() {
       // poll for the group head too (in-batch load timing
       // made a bare expect flaky — Phase 5 hardening).
       expect(
-        await pollFor(tester, find.text('DAILY TO-DO')),
+        await pollFor(tester, find.text('ROUTINES')),
         isTrue,
         reason: 'Daily To-do groups loaded',
       );
@@ -357,7 +357,7 @@ void main() {
       reason: 'Daily To-do opened',
     );
     expect(
-      await pollFor(tester, find.text('DAILY TO-DO')),
+      await pollFor(tester, find.text('ROUTINES')),
       isTrue,
       reason: 'groups rendered',
     );

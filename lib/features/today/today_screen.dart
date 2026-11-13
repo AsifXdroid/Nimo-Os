@@ -323,6 +323,30 @@ class _TodayScreenState extends State<TodayScreen> {
       body: FutureBuilder<_HubData>(
         future: _data,
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            // B-11: a failed load is an error state with a
+            // retry, never an endless skeleton.
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(Gap.md),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Today could not be loaded. '
+                      'Your records are unchanged.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: Gap.md),
+                    FilledButton(
+                      onPressed: () => setState(_reloadPlan),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
           if (!snapshot.hasData) {
             // Skeleton after 150ms (spec §6) — local reads
             // usually land first and show nothing.

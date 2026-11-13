@@ -860,40 +860,6 @@ class TodayStore {
     );
   }
 
-  // ------------------------------------------------------- hero image
-
-  /// D-053: the owner's custom Today hero image — a file path
-  /// inside app storage, stored in `app_settings`. Null means
-  /// the shipped default photograph is used. The file itself
-  /// is managed by the Today screen (copy in / delete); this
-  /// store only remembers where it lives.
-  Future<String?> heroImagePath() async {
-    final rows = await _db.query(
-      'app_settings',
-      where: 'key = ?',
-      whereArgs: ['home_hero_image_path'],
-      limit: 1,
-    );
-    if (rows.isEmpty) return null;
-    final value = rows.single['value'] as String;
-    return value.isEmpty ? null : value;
-  }
-
-  Future<void> setHeroImagePath(String? path) async {
-    if (path == null) {
-      await _db.delete(
-        'app_settings',
-        where: 'key = ?',
-        whereArgs: ['home_hero_image_path'],
-      );
-      return;
-    }
-    await _db.insert('app_settings', {
-      'key': 'home_hero_image_path',
-      'value': path,
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
-  }
-
   Future<int> _maxPosition(
     String table, {
     String? where,

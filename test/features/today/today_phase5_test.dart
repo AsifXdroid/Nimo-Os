@@ -47,12 +47,7 @@ void main() {
   }
 
   Future<
-    ({
-      Directory tmp,
-      Store store,
-      TodayStore todayStore,
-      List<String> calls,
-    })
+    ({Directory tmp, Store store, TodayStore todayStore, List<String> calls})
   >
   boot(
     WidgetTester tester, {
@@ -95,43 +90,51 @@ void main() {
     return (tmp: tmp, store: store, todayStore: todayStore, calls: calls);
   }
 
-  testWidgets(
-    'Phase 5: the hero brand row — photo, brand, streak '
-    'chip, calendar and settings; no greeting',
-    (tester) async {
-      await tester.runAsync(() async {
-        final h = await boot(tester);
-        expect(await until(tester, find.text("Today's plan")), isTrue);
+  /// Redesign R2: Today's agenda and settings actions live
+  /// in the pinned bar now — scroll the page to reveal it
+  /// before tapping them.
+  Future<void> revealPinnedBar(WidgetTester tester) async {
+    for (var i = 0; i < 6; i++) {
+      await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+      await tester.pump(const Duration(milliseconds: 120));
+    }
+  }
 
-        expect(find.text('Nimo'), findsOneWidget);
-        // The calendar is a first-class control: tooltip
-        // 'Agenda', semantics label carrying 'Open agenda'.
-        expect(find.byTooltip('Agenda'), findsOneWidget);
-        expect(
-          tester.getSemantics(find.byTooltip('Agenda')).label,
-          contains('Open agenda'),
-        );
-        expect(find.byTooltip('Settings'), findsOneWidget);
-        // The streak chip lives in the hero brand row.
-        expect(find.bySemanticsLabel(RegExp('Current streak')), findsOneWidget);
-        // The photo hero is restored (owner update), but the
-        // greeting and editorial lines stay retired.
-        expect(find.byType(Image), findsOneWidget);
-        expect(find.text('A LITTLE INTENTION GOES A LONG WAY'), findsNothing);
-        expect(find.textContaining('Good '), findsNothing);
-
-        await drain(tester);
-        await h.tmp.delete(recursive: true);
-      });
-    },
-  );
-
-  testWidgets('Phase 5: the hero calendar opens Agenda', (tester) async {
+  testWidgets('Phase 5 (R2): the status zone — date and streak chip; '
+      'no photo, no wordmark, no greeting', (tester) async {
     await tester.runAsync(() async {
       final h = await boot(tester);
       expect(await until(tester, find.text("Today's plan")), isTrue);
 
-      await tester.tap(find.byTooltip('Agenda'));
+      // The date is the zone's promoted content.
+      expect(find.text(weekdayName(DateTime.now())), findsOneWidget);
+      expect(find.text('Nimo'), findsNothing);
+      // The agenda and settings doors exist twice: in
+      // the status zone at rest, and in the pinned bar
+      // that takes over on scroll.
+      expect(find.byTooltip('Agenda'), findsNWidgets(2));
+      expect(find.byTooltip('Settings'), findsNWidgets(2));
+      // The streak chip lives in the status zone (the
+      // pinned bar's copy is semantics-excluded at rest).
+      expect(find.bySemanticsLabel(RegExp('Current streak')), findsOneWidget);
+      // No photograph anywhere, and the greeting and
+      // editorial lines stay retired.
+      expect(find.byType(Image), findsNothing);
+      expect(find.text('A LITTLE INTENTION GOES A LONG WAY'), findsNothing);
+      expect(find.textContaining('Good '), findsNothing);
+
+      await drain(tester);
+      await h.tmp.delete(recursive: true);
+    });
+  });
+
+  testWidgets('Phase 5: the calendar opens Agenda', (tester) async {
+    await tester.runAsync(() async {
+      final h = await boot(tester);
+      expect(await until(tester, find.text("Today's plan")), isTrue);
+
+      // The status zone's copy, tappable at rest.
+      await tester.tap(find.byTooltip('Agenda').first);
       expect(await until(tester, find.byType(AgendaScreen)), isTrue);
 
       await drain(tester);
@@ -139,233 +142,209 @@ void main() {
     });
   });
 
-  testWidgets(
-    'Phase 5: settings gear and streak chip reach the shell '
-    'callbacks',
-    (tester) async {
-      await tester.runAsync(() async {
-        final h = await boot(tester);
-        expect(await until(tester, find.text("Today's plan")), isTrue);
+  testWidgets('Phase 5: settings gear and streak chip reach the shell '
+      'callbacks', (tester) async {
+    await tester.runAsync(() async {
+      final h = await boot(tester);
+      expect(await until(tester, find.text("Today's plan")), isTrue);
 
-        await tester.tap(find.byTooltip('Settings'));
-        await tester.pump();
-        expect(h.calls, ['settings']);
+      // The zone's streak chip is tappable at rest.
+      await tester.tap(find.bySemanticsLabel(RegExp('Current streak')));
+      await tester.pump();
+      expect(h.calls, ['progress']);
 
-        await tester.tap(find.bySemanticsLabel(RegExp('Current streak')));
-        await tester.pump();
-        expect(h.calls, ['settings', 'progress']);
+      // The zone's settings door, also at rest.
+      await tester.tap(find.byTooltip('Settings').first);
+      await tester.pump();
+      expect(h.calls, ['progress', 'settings']);
 
-        await drain(tester);
-        await h.tmp.delete(recursive: true);
-      });
-    },
-  );
+      // And the pinned bar's copy once scrolled.
+      await revealPinnedBar(tester);
+      await tester.tap(find.byTooltip('Settings').last);
+      await tester.pump();
+      expect(h.calls, ['progress', 'settings', 'settings']);
 
-  testWidgets(
-    'Phase 5: the if–then row sits in the hero and opens '
-    'its editor',
-    (tester) async {
-      await tester.runAsync(() async {
+      await drain(tester);
+      await h.tmp.delete(recursive: true);
+    });
+  });
+
+  testWidgets('Phase 5: the if–then row sits in the hero and opens '
+      'its editor', (tester) async {
+    await tester.runAsync(() async {
+      final h = await boot(
+        tester,
+        seed: (store, s) => s.setIfThenLine('If it is 7am, then I will read.'),
+      );
+      expect(await until(tester, find.text("Today's plan")), isTrue);
+
+      final line = find.text('If it is 7am, then I will read.');
+      expect(await until(tester, line), isTrue);
+      // Under the header means above the plan card.
+      expect(
+        tester.getTopLeft(line).dy,
+        lessThan(tester.getTopLeft(find.text("Today's plan")).dy),
+      );
+      await tester.tap(line);
+      expect(await until(tester, find.text('Your if–then line')), isTrue);
+      await tester.tap(find.text('Cancel'));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      await drain(tester);
+      await h.tmp.delete(recursive: true);
+    });
+  });
+
+  testWidgets('Phase 5: hero at 360 wide — no overflow, both '
+      'themes', (tester) async {
+    await tester.runAsync(() async {
+      for (final theme in [AppTheme.neoDark(), AppTheme.neoLight()]) {
         final h = await boot(
           tester,
-          seed: (store, s) =>
-              s.setIfThenLine('If it is 7am, then I will read.'),
+          surface: const Size(360, 800),
+          theme: theme,
         );
         expect(await until(tester, find.text("Today's plan")), isTrue);
-
-        final line = find.text('If it is 7am, then I will read.');
-        expect(await until(tester, line), isTrue);
-        // Under the header means above the plan card.
-        expect(
-          tester.getTopLeft(line).dy,
-          lessThan(tester.getTopLeft(find.text("Today's plan")).dy),
-        );
-        await tester.tap(line);
-        expect(await until(tester, find.text('Your if–then line')), isTrue);
-        await tester.tap(find.text('Cancel'));
-        await tester.pump(const Duration(milliseconds: 300));
-
-        await drain(tester);
-        await h.tmp.delete(recursive: true);
-      });
-    },
-  );
-
-  testWidgets(
-    'Phase 5: hero at 360 wide — no overflow, both '
-    'themes',
-    (tester) async {
-      await tester.runAsync(() async {
-        for (final theme in [AppTheme.neoDark(), AppTheme.neoLight()]) {
-          final h = await boot(
-            tester,
-            surface: const Size(360, 800),
-            theme: theme,
-          );
-          expect(await until(tester, find.text("Today's plan")), isTrue);
-          expect(find.byTooltip('Agenda'), findsOneWidget);
-          expect(find.byTooltip('Settings'), findsOneWidget);
-          expect(tester.takeException(), isNull);
-          await drain(tester);
-          await h.tmp.delete(recursive: true);
-        }
-      });
-    },
-  );
-
-  Finder fullPlanEntry() =>
-      find.byKey(const ValueKey('view_full_plan_entry'));
-
-  testWidgets(
-    'Phase 5: View Full Plan entry is present with an empty '
-    'plan and opens the Full Plan',
-    (tester) async {
-      await tester.runAsync(() async {
-        final h = await boot(tester);
-        expect(await until(tester, find.text("Today's plan")), isTrue);
-
-        expect(await until(tester, fullPlanEntry()), isTrue);
-        expect(find.text('View Full Plan'), findsOneWidget);
-        await tester.ensureVisible(fullPlanEntry());
-        await tester.pump(const Duration(milliseconds: 150));
-        await tester.tap(fullPlanEntry());
-        expect(await until(tester, find.byType(DailyTodoScreen)), isTrue);
-
-        await drain(tester);
-        await h.tmp.delete(recursive: true);
-      });
-    },
-  );
-
-  testWidgets(
-    'Phase 5: View Full Plan entry stays when everything is '
-    'done',
-    (tester) async {
-      await tester.runAsync(() async {
-        final now = DateTime.now();
-        final h = await boot(
-          tester,
-          seed: (store, s) async {
-            await s.ensurePlanFor(now);
-            final item = await s.addOneOff(now, 'The only task');
-            await s.toggleItem(item);
-          },
-        );
-        expect(await until(tester, find.text("Today's plan")), isTrue);
-        expect(
-          await until(tester, find.text('Everything is done for today.')),
-          isTrue,
-        );
-        expect(fullPlanEntry(), findsOneWidget);
-
-        await drain(tester);
-        await h.tmp.delete(recursive: true);
-      });
-    },
-  );
-
-  testWidgets(
-    'Phase 5: the plan card counts what the preview cannot '
-    'show (+N more)',
-    (tester) async {
-      await tester.runAsync(() async {
-        final now = DateTime.now();
-        final h = await boot(
-          tester,
-          seed: (store, s) async {
-            await s.ensurePlanFor(now);
-            for (var i = 1; i <= 5; i++) {
-              await s.addOneOff(now, 'Task $i');
-            }
-          },
-        );
-        expect(await until(tester, find.text("Today's plan")), isTrue);
-        expect(await until(tester, find.text('+1 more task')), isTrue);
-        expect(fullPlanEntry(), findsOneWidget);
-        // The old conditional doors are gone.
-        expect(find.text('See all'), findsNothing);
-        expect(find.widgetWithText(TextButton, 'Tasks'), findsNothing);
-        expect(find.widgetWithText(TextButton, 'Agenda'), findsNothing);
-
-        await drain(tester);
-        await h.tmp.delete(recursive: true);
-      });
-    },
-  );
-
-  testWidgets(
-    'Phase 5: the duplicate quick-action tiles are gone; the '
-    'plan and the global + contract are untouched',
-    (tester) async {
-      await tester.runAsync(() async {
-        final h = await boot(tester);
-        expect(await until(tester, find.text("Today's plan")), isTrue);
-
-        // The four tiles duplicated the global + captures.
-        expect(find.text('Task'), findsNothing);
-        expect(find.text('Goal'), findsNothing);
-        expect(find.text('Note'), findsNothing);
-        expect(find.text('Checklist'), findsNothing);
-        // The old Organise entry row is gone — Organise moved
-        // into the Library destination in the 2026-11-12 merge;
-        // Today's pinned-workspace rows are what remain (the
-        // Phase 4 test file pins those).
-        expect(
-          find.byKey(const ValueKey('organise_entry')),
-          findsNothing,
-        );
-
-        await drain(tester);
-        await h.tmp.delete(recursive: true);
-      });
-    },
-  );
-
-  testWidgets(
-    'Phase 5: Today honours the stored Day Close switch '
-    '(now set from Settings) and Customize Home is gone',
-    (tester) async {
-      await tester.runAsync(() async {
-        final h = await boot(
-          tester,
-          seed: (store, s) =>
-              s.setHomeSectionVisible(TodayStore.sectionDayClose, false),
-        );
-        expect(await until(tester, find.text("Today's plan")), isTrue);
-        // The Day Close banner is hidden by the stored value.
-        expect(find.text('Close your day'), findsNothing);
-        // The Customize Home dialog and its button retired.
-        expect(find.text('Customize Home'), findsNothing);
-
-        await drain(tester);
-        await h.tmp.delete(recursive: true);
-      });
-    },
-  );
-
-  testWidgets(
-    'Phase 5: the Dua Library entry is a compact row that '
-    'opens the library, at 360 wide too',
-    (tester) async {
-      await tester.runAsync(() async {
-        final h = await boot(tester, surface: const Size(360, 800));
-        expect(await until(tester, find.text("Today's plan")), isTrue);
-
-        final entry = find.byKey(const ValueKey('dua_library_entry'));
-        expect(await until(tester, entry), isTrue);
-        expect(find.text('Dua Library'), findsOneWidget);
-        expect(find.text('Your Spiritual Space'), findsOneWidget);
-        expect(find.byKey(const ValueKey('dua_library_tile')), findsNothing);
+        expect(find.byTooltip('Agenda'), findsNWidgets(2));
+        expect(find.byTooltip('Settings'), findsNWidgets(2));
         expect(tester.takeException(), isNull);
-
-        await tester.ensureVisible(entry);
-        await tester.pump(const Duration(milliseconds: 150));
-        await tester.tap(entry);
-        expect(await until(tester, find.byType(DuaLibraryScreen)), isTrue);
-
         await drain(tester);
         await h.tmp.delete(recursive: true);
-      });
-    },
-  );
+      }
+    });
+  });
+
+  Finder fullPlanEntry() => find.byKey(const ValueKey('view_full_plan_entry'));
+
+  testWidgets('Phase 5: View Full Plan entry is present with an empty '
+      'plan and opens the Full Plan', (tester) async {
+    await tester.runAsync(() async {
+      final h = await boot(tester);
+      expect(await until(tester, find.text("Today's plan")), isTrue);
+
+      expect(await until(tester, fullPlanEntry()), isTrue);
+      expect(find.text('View Full Plan'), findsOneWidget);
+      await tester.ensureVisible(fullPlanEntry());
+      await tester.pump(const Duration(milliseconds: 150));
+      await tester.tap(fullPlanEntry());
+      expect(await until(tester, find.byType(DailyTodoScreen)), isTrue);
+
+      await drain(tester);
+      await h.tmp.delete(recursive: true);
+    });
+  });
+
+  testWidgets('Phase 5: View Full Plan entry stays when everything is '
+      'done', (tester) async {
+    await tester.runAsync(() async {
+      final now = DateTime.now();
+      final h = await boot(
+        tester,
+        seed: (store, s) async {
+          await s.ensurePlanFor(now);
+          final item = await s.addOneOff(now, 'The only task');
+          await s.toggleItem(item);
+        },
+      );
+      expect(await until(tester, find.text("Today's plan")), isTrue);
+      expect(
+        await until(tester, find.text('Everything is done for today.')),
+        isTrue,
+      );
+      expect(fullPlanEntry(), findsOneWidget);
+
+      await drain(tester);
+      await h.tmp.delete(recursive: true);
+    });
+  });
+
+  testWidgets('Phase 5: the plan card counts what the preview cannot '
+      'show (+N more)', (tester) async {
+    await tester.runAsync(() async {
+      final now = DateTime.now();
+      final h = await boot(
+        tester,
+        seed: (store, s) async {
+          await s.ensurePlanFor(now);
+          for (var i = 1; i <= 5; i++) {
+            await s.addOneOff(now, 'Task $i');
+          }
+        },
+      );
+      expect(await until(tester, find.text("Today's plan")), isTrue);
+      expect(await until(tester, find.text('+1 more task')), isTrue);
+      expect(fullPlanEntry(), findsOneWidget);
+      // The old conditional doors are gone.
+      expect(find.text('See all'), findsNothing);
+      expect(find.widgetWithText(TextButton, 'Tasks'), findsNothing);
+      expect(find.widgetWithText(TextButton, 'Agenda'), findsNothing);
+
+      await drain(tester);
+      await h.tmp.delete(recursive: true);
+    });
+  });
+
+  testWidgets('Phase 5: the duplicate quick-action tiles are gone; the '
+      'plan and the global + contract are untouched', (tester) async {
+    await tester.runAsync(() async {
+      final h = await boot(tester);
+      expect(await until(tester, find.text("Today's plan")), isTrue);
+
+      // The four tiles duplicated the global + captures.
+      expect(find.text('Task'), findsNothing);
+      expect(find.text('Goal'), findsNothing);
+      expect(find.text('Note'), findsNothing);
+      expect(find.text('Checklist'), findsNothing);
+      // The old Organise entry row is gone — Organise moved
+      // into the Library destination in the 2026-11-12 merge;
+      // Today's pinned-workspace rows are what remain (the
+      // Phase 4 test file pins those).
+      expect(find.byKey(const ValueKey('organise_entry')), findsNothing);
+
+      await drain(tester);
+      await h.tmp.delete(recursive: true);
+    });
+  });
+
+  testWidgets('Phase 5: Today honours the stored Day Close switch '
+      '(now set from Settings) and Customize Home is gone', (tester) async {
+    await tester.runAsync(() async {
+      final h = await boot(
+        tester,
+        seed: (store, s) =>
+            s.setHomeSectionVisible(TodayStore.sectionDayClose, false),
+      );
+      expect(await until(tester, find.text("Today's plan")), isTrue);
+      // The Day Close banner is hidden by the stored value.
+      expect(find.text('Close your day'), findsNothing);
+      // The Customize Home dialog and its button retired.
+      expect(find.text('Customize Home'), findsNothing);
+
+      await drain(tester);
+      await h.tmp.delete(recursive: true);
+    });
+  });
+
+  testWidgets('Phase 5: the Dua Library entry is a compact row that '
+      'opens the library, at 360 wide too', (tester) async {
+    await tester.runAsync(() async {
+      final h = await boot(tester, surface: const Size(360, 800));
+      expect(await until(tester, find.text("Today's plan")), isTrue);
+
+      final entry = find.byKey(const ValueKey('dua_library_entry'));
+      expect(await until(tester, entry), isTrue);
+      expect(find.text('Dua Library'), findsOneWidget);
+      expect(find.text('Your Spiritual Space'), findsOneWidget);
+      expect(find.byKey(const ValueKey('dua_library_tile')), findsNothing);
+      expect(tester.takeException(), isNull);
+
+      await tester.ensureVisible(entry);
+      await tester.pump(const Duration(milliseconds: 150));
+      await tester.tap(entry);
+      expect(await until(tester, find.byType(DuaLibraryScreen)), isTrue);
+
+      await drain(tester);
+      await h.tmp.delete(recursive: true);
+    });
+  });
 }

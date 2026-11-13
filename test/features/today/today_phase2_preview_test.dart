@@ -200,6 +200,12 @@ void main() {
       }
       await tester.ensureVisible(entry);
       await tester.pump(const Duration(milliseconds: 300));
+      // Redesign R2: ensureVisible parks the entry at the
+      // top edge, under the pinned bar — nudge it clear.
+      if (tester.getTopLeft(entry).dy < 120) {
+        await tester.drag(find.byType(ListView), const Offset(0, 100));
+        await tester.pump(const Duration(milliseconds: 300));
+      }
       await tester.tap(entry);
       expect(
         await pollFor(tester, find.byType(DailyTodoScreen)),
@@ -336,6 +342,14 @@ void main() {
     }
     await tester.ensureVisible(entry);
     await tester.pump(const Duration(milliseconds: 300));
+    // Redesign R2: once the page is scrolled, the pinned
+    // bar overlays the top of the viewport; if the entry
+    // rests under it, nudge the list down so the tap lands
+    // on the entry, not the bar.
+    if (tester.getTopLeft(entry).dy < 120) {
+      await tester.drag(find.byType(ListView).first, const Offset(0, 100));
+      await tester.pump(const Duration(milliseconds: 300));
+    }
     await tester.tap(entry);
     expect(
       await pollFor(tester, find.byType(DailyTodoScreen)),

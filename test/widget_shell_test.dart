@@ -121,17 +121,11 @@ void main() {
       // The Library destination opens on its Learn tab…
       await tester.tap(inCapsule('Library'));
       expect(await pollFor(tester, find.byType(LibraryScreen)), isTrue);
-      expect(
-        find.byType(LearnScreen).hitTestable(),
-        findsOneWidget,
-      );
+      expect(find.byType(LearnScreen).hitTestable(), findsOneWidget);
       // …and its Organise tab shows the real Organise screen.
       await tester.tap(find.text('Organise'));
       expect(
-        await pollFor(
-          tester,
-          find.byType(WorkspacesScreen).hitTestable(),
-        ),
+        await pollFor(tester, find.byType(WorkspacesScreen).hitTestable()),
         isTrue,
       );
       expect(
@@ -159,7 +153,9 @@ void main() {
       addTearDown(tester.view.reset);
 
       await pumpApp(tester);
-      final chip = find.byIcon(Icons.local_fire_department_outlined);
+      // Redesign R2: the streak chip exists twice (status
+      // zone + pinned bar); the zone's is the at-rest one.
+      final chip = find.byIcon(Icons.local_fire_department_outlined).first;
       expect(await pollFor(tester, chip), isTrue);
       await tester.tap(chip);
       expect(await pollFor(tester, find.text('Your journey path')), isTrue);

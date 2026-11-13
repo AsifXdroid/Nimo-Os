@@ -32,6 +32,7 @@ import 'package:daily_life_app/features/settings/backup_section.dart';
 import 'package:daily_life_app/features/settings/reminders.dart';
 import 'package:daily_life_app/features/settings/settings_screen.dart';
 import 'package:daily_life_app/features/store.dart';
+import 'package:daily_life_app/features/today/daily_todo_screen.dart';
 import 'package:daily_life_app/features/today/today_screen.dart';
 import 'package:daily_life_app/features/today/today_store.dart';
 import 'package:daily_life_app/features/workspaces/workspaces_screen.dart';
@@ -40,8 +41,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class _Stores {
-  _Stores(this.db, this.store, this.today, this.goals, this.review,
-      this.learn, this.thumbs);
+  _Stores(
+    this.db,
+    this.store,
+    this.today,
+    this.goals,
+    this.review,
+    this.learn,
+    this.thumbs,
+  );
   final Database db;
   final Store store;
   final TodayStore today;
@@ -102,8 +110,7 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
-  testWidgets('PageTop consumes the inset exactly once',
-      (tester) async {
+  testWidgets('PageTop consumes the inset exactly once', (tester) async {
     _inset(tester, 47);
     double? innerPaddingTop;
     await tester.pumpWidget(
@@ -152,8 +159,7 @@ void main() {
     expect(innerPaddingTop, 47);
   });
 
-  testWidgets('all five destinations clear the status bar',
-      (tester) async {
+  testWidgets('all five destinations clear the status bar', (tester) async {
     await tester.runAsync(() async {
       _inset(tester, 47);
       final s = await _stores();
@@ -174,9 +180,14 @@ void main() {
           onOpenSettings: () {},
         ),
       );
-      await _pumpUntil(tester, find.text('Nimo'));
-      expect(tester.getTopLeft(find.text('Nimo')).dy,
-          greaterThanOrEqualTo(47));
+      // Today — the status zone is the control case
+      // (redesign R2: no wordmark; the date is the top
+      // content and it must clear the status bar).
+      await _pumpUntil(tester, find.text(weekdayName(DateTime.now())));
+      expect(
+        tester.getTopLeft(find.text(weekdayName(DateTime.now()))).dy,
+        greaterThanOrEqualTo(47),
+      );
 
       // Learn — custom header, PageTop.
       await tester.pumpWidget(const SizedBox());
@@ -191,17 +202,22 @@ void main() {
       );
       await _pumpUntil(tester, find.text('Follow your curiosity.'));
       expect(
-          tester.getTopLeft(find.text('Follow your curiosity.')).dy,
-          greaterThanOrEqualTo(47));
+        tester.getTopLeft(find.text('Follow your curiosity.')).dy,
+        greaterThanOrEqualTo(47),
+      );
       // The scroll viewport itself starts below the inset:
       // nothing can scroll under the status indicators.
-      expect(tester.getTopLeft(find.byType(ListView)).dy,
-          greaterThanOrEqualTo(47));
+      expect(
+        tester.getTopLeft(find.byType(ListView)).dy,
+        greaterThanOrEqualTo(47),
+      );
       // …and stays there after scrolling.
       await tester.drag(find.byType(ListView), const Offset(0, -400));
       await tester.pump();
-      expect(tester.getTopLeft(find.byType(ListView)).dy,
-          greaterThanOrEqualTo(47));
+      expect(
+        tester.getTopLeft(find.byType(ListView)).dy,
+        greaterThanOrEqualTo(47),
+      );
 
       // Progress — custom header, PageTop.
       await tester.pumpWidget(const SizedBox());
@@ -214,44 +230,46 @@ void main() {
         ),
       );
       await _pumpUntil(tester, find.text('YOUR JOURNEY'));
-      expect(tester.getTopLeft(find.text('YOUR JOURNEY')).dy,
-          greaterThanOrEqualTo(47));
+      expect(
+        tester.getTopLeft(find.text('YOUR JOURNEY')).dy,
+        greaterThanOrEqualTo(47),
+      );
 
       // Spaces — custom header, PageTop.
       await tester.pumpWidget(const SizedBox());
       await _pumpScreen(
         tester,
-        WorkspacesScreen(
-          store: s.store,
-          learn: s.learn,
-          thumbnails: s.thumbs,
-        ),
+        WorkspacesScreen(store: s.store, learn: s.learn, thumbnails: s.thumbs),
       );
       await _pumpUntil(tester, find.text('Everything has a place.'));
       expect(
-          tester.getTopLeft(find.text('Everything has a place.')).dy,
-          greaterThanOrEqualTo(47));
+        tester.getTopLeft(find.text('Everything has a place.')).dy,
+        greaterThanOrEqualTo(47),
+      );
 
       // Goals — custom header, PageTop.
       await tester.pumpWidget(const SizedBox());
       await _pumpScreen(tester, GoalsScreen(goalsStore: s.goals));
       await _pumpUntil(tester, find.text('A DIRECTION, NOT A DEADLINE'));
       expect(
-          tester.getTopLeft(find.text('A DIRECTION, NOT A DEADLINE')).dy,
-          greaterThanOrEqualTo(47));
+        tester.getTopLeft(find.text('A DIRECTION, NOT A DEADLINE')).dy,
+        greaterThanOrEqualTo(47),
+      );
       expect(tester.takeException(), isNull);
     });
   });
 
-  testWidgets('the header tracks the system inset (not a fixed pad)',
-      (tester) async {
+  testWidgets('the header tracks the system inset (not a fixed pad)', (
+    tester,
+  ) async {
     await tester.runAsync(() async {
       final s = await _stores();
       _inset(tester, 24);
       await _pumpScreen(tester, GoalsScreen(goalsStore: s.goals));
       await _pumpUntil(tester, find.text('A DIRECTION, NOT A DEADLINE'));
-      final dy24 =
-          tester.getTopLeft(find.text('A DIRECTION, NOT A DEADLINE')).dy;
+      final dy24 = tester
+          .getTopLeft(find.text('A DIRECTION, NOT A DEADLINE'))
+          .dy;
       expect(dy24, greaterThanOrEqualTo(24));
       expect(dy24, lessThan(47));
 
@@ -259,14 +277,14 @@ void main() {
       tester.view.padding = const FakeViewPadding(top: 47 * 2);
       await _pumpScreen(tester, GoalsScreen(goalsStore: s.goals));
       await _pumpUntil(tester, find.text('A DIRECTION, NOT A DEADLINE'));
-      final dy47 =
-          tester.getTopLeft(find.text('A DIRECTION, NOT A DEADLINE')).dy;
+      final dy47 = tester
+          .getTopLeft(find.text('A DIRECTION, NOT A DEADLINE'))
+          .dy;
       expect(dy47, greaterThan(dy24));
     });
   });
 
-  testWidgets('Settings (AppBar screen) clears the inset too',
-      (tester) async {
+  testWidgets('Settings (AppBar screen) clears the inset too', (tester) async {
     await tester.runAsync(() async {
       _inset(tester, 47);
       final s = await _stores();
@@ -291,25 +309,23 @@ void main() {
     });
   });
 
-  testWidgets('Spaces: narrow screen, light theme, inset respected',
-      (tester) async {
+  testWidgets('Spaces: narrow screen, light theme, inset respected', (
+    tester,
+  ) async {
     await tester.runAsync(() async {
       _inset(tester, 47);
       tester.view.physicalSize = const Size(640, 1136); // 320dp
       final s = await _stores();
       await _pumpScreen(
         tester,
-        WorkspacesScreen(
-          store: s.store,
-          learn: s.learn,
-          thumbnails: s.thumbs,
-        ),
+        WorkspacesScreen(store: s.store, learn: s.learn, thumbnails: s.thumbs),
         theme: AppTheme.neoLight(),
       );
       await _pumpUntil(tester, find.text('Everything has a place.'));
       expect(
-          tester.getTopLeft(find.text('Everything has a place.')).dy,
-          greaterThanOrEqualTo(47));
+        tester.getTopLeft(find.text('Everything has a place.')).dy,
+        greaterThanOrEqualTo(47),
+      );
       expect(tester.takeException(), isNull);
     });
   });

@@ -18,9 +18,9 @@
 ///    steppers and Today button are gone.
 /// 5. Cross-screen: Open in Daily To-do shows the same date;
 ///    completing a row there reflects back in Agenda.
-/// 6. Reachable from Today via the hero calendar (D9;
-///    UX Phase 5 moved the door from the plan card to the
-///    header).
+/// 6. Reachable from Today via the calendar (D9; the door
+///    moved from the plan card to the header, and in
+///    redesign R2 to the status zone + pinned bar).
 library;
 
 import 'dart:io';
@@ -558,7 +558,7 @@ void main() {
     });
   });
 
-  testWidgets('Phase 6: reachable from Today via the hero '
+  testWidgets('Phase 6: reachable from Today via the '
       'calendar (D9)', (tester) async {
     tallSurface(tester);
     await tester.runAsync(() async {
@@ -569,10 +569,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(theme: AppTheme.neoDark(), home: h.todayScreen),
       );
-      // UX Phase 5: the Agenda door is the hero brand row's
-      // calendar button.
+      // Redesign R2: the Agenda door is the status zone's
+      // calendar button (a second copy lives in the pinned
+      // bar for the scrolled state).
       await until(tester, find.byTooltip('Agenda'), 'calendar button');
-      await tester.tap(find.byTooltip('Agenda'));
+      await tester.tap(find.byTooltip('Agenda').first);
       await until(tester, find.byType(AgendaScreen), 'agenda screen');
       expect(find.text('Agenda'), findsWidgets);
       // The week strip is there.

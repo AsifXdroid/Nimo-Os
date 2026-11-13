@@ -20,6 +20,7 @@ import 'package:daily_life_app/features/learn/learn_store.dart';
 import 'package:daily_life_app/features/learn/library_store.dart';
 import 'package:daily_life_app/features/review/review_store.dart';
 import 'package:daily_life_app/features/store.dart';
+import 'package:daily_life_app/features/today/daily_todo_screen.dart';
 import 'package:daily_life_app/features/today/today_screen.dart';
 import 'package:daily_life_app/features/today/today_store.dart';
 import 'package:flutter/material.dart';
@@ -92,12 +93,10 @@ Future<void> _pump(WidgetTester tester, _Harness h, {ThemeData? theme}) async {
   fail('hub data never landed (chip/body never appeared)');
 }
 
-// D-053: the brand row no longer lives in an AppBar — it
-// sits in the hero. Since the 2026-11-05 refinement the
-// photograph is a fixed backdrop layer and the brand row
-// lives in the scrolling hero CONTENT above it; either way
-// each brand element exists exactly once on the page, so
-// the header assertions run unscoped.
+// Redesign R2: the brand row is gone. The streak chip now
+// lives in TWO places — the status zone and the pinned bar
+// that replaces it on scroll — so header assertions expect
+// the chip twice and tap the first (the zone's).
 Finder inAppBar(Finder inner) => inner;
 
 void main() {
@@ -120,8 +119,8 @@ void main() {
       final streak = await h.reviewStore.streakState();
       expect(streak.currentStreak, 1);
       await _pump(tester, h);
-      expect(inAppBar(find.text('1 day')), findsOneWidget);
-      await tester.tap(inAppBar(find.text('1 day')));
+      expect(inAppBar(find.text('1 day')), findsNWidgets(2));
+      await tester.tap(inAppBar(find.text('1 day')).first);
       await tester.pump();
       expect(opened, isTrue);
     });
@@ -135,20 +134,20 @@ void main() {
       final h = await _makeHarness();
       await _pump(tester, h);
       // Compact form: the number alone, no 'days' label.
-      expect(inAppBar(find.text('0')), findsOneWidget);
+      expect(inAppBar(find.text('0')), findsNWidgets(2));
       expect(inAppBar(find.text('0 days')), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });
 
-  testWidgets('light theme renders the brand row fully', (tester) async {
+  testWidgets('light theme renders the status zone fully', (tester) async {
     await tester.runAsync(() async {
       final h = await _makeHarness();
       await _pump(tester, h, theme: AppTheme.neoLight());
-      expect(inAppBar(find.text('Nimo')), findsOneWidget);
-      expect(inAppBar(find.text('0 days')), findsOneWidget);
-      expect(find.byTooltip('Agenda'), findsOneWidget);
-      expect(find.byTooltip('Settings'), findsOneWidget);
+      expect(inAppBar(find.text(weekdayName(DateTime.now()))), findsOneWidget);
+      expect(inAppBar(find.text('0 days')), findsNWidgets(2));
+      expect(find.byTooltip('Agenda'), findsNWidgets(2));
+      expect(find.byTooltip('Settings'), findsNWidgets(2));
       expect(tester.takeException(), isNull);
     });
   });

@@ -191,6 +191,12 @@ void main() {
   Future<void> pickFocus(WidgetTester tester, String title) async {
     await tester.ensureVisible(find.text('Change'));
     await tester.pump(const Duration(milliseconds: 300));
+    // Redesign R2: ensureVisible parks the button at the
+    // top edge, under the pinned bar — nudge it clear.
+    if (tester.getTopLeft(find.text('Change')).dy < 120) {
+      await tester.drag(find.byType(ListView).first, const Offset(0, 100));
+      await tester.pump(const Duration(milliseconds: 300));
+    }
     await tester.tap(find.text('Change'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
@@ -402,6 +408,12 @@ void main() {
       expect(await pollFor(tester, focusTitle('Read 10 pages')), isTrue);
       await tester.ensureVisible(find.text('Done'));
       await tester.pump(const Duration(milliseconds: 300));
+      // Redesign R2: ensureVisible parks the button at the
+      // top edge, under the pinned bar — nudge it clear.
+      if (tester.getTopLeft(find.text('Done')).dy < 120) {
+        await tester.drag(find.byType(ListView).first, const Offset(0, 100));
+        await tester.pump(const Duration(milliseconds: 300));
+      }
       await tester.tap(find.widgetWithText(FilledButton, 'Done'));
       await tester.pump();
       // Next incomplete in plan order is now focused,
@@ -428,6 +440,12 @@ void main() {
       );
       await tester.ensureVisible(row);
       await tester.pump(const Duration(milliseconds: 300));
+      // Same pinned-bar nudge: the row must clear the top
+      // overlay before the tap.
+      if (tester.getTopLeft(row).dy < 120) {
+        await tester.drag(find.byType(ListView).first, const Offset(0, 100));
+        await tester.pump(const Duration(milliseconds: 300));
+      }
       await tester.tap(row);
       await tester.pump();
       // The toggle reload is real async work; the completed
@@ -506,6 +524,11 @@ void main() {
       expect(await pollFor(tester, focusTitle('Read 10 pages')), isTrue);
       await tester.ensureVisible(find.text('Change'));
       await tester.pump(const Duration(milliseconds: 300));
+      // Same pinned-bar nudge as pickFocus.
+      if (tester.getTopLeft(find.text('Change')).dy < 120) {
+        await tester.drag(find.byType(ListView).first, const Offset(0, 100));
+        await tester.pump(const Duration(milliseconds: 300));
+      }
       await tester.tap(find.text('Change'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));

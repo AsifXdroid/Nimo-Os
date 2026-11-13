@@ -7,12 +7,8 @@
 /// optional sections show is persisted in `app_settings`.
 library;
 
-import 'dart:io';
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
-import '../../core/brand.dart';
 import '../../core/glass_ui.dart';
 import '../../core/motion.dart';
 import '../../core/neo_ui.dart';
@@ -56,7 +52,6 @@ class _HubData {
     this.weekSummary,
     this.linkedItems = const {},
     this.templates = const [],
-    this.heroImagePath,
     this.manualFocus,
   });
 
@@ -96,11 +91,6 @@ class _HubData {
   /// A missing id (deleted resource) simply has no entry —
   /// the FK already nulled it; this is belt-and-braces.
   final Map<int, Item> linkedItems;
-
-  /// D-053: the resolved custom hero image path (null = the
-  /// shipped default photograph). Resolved at load — the file
-  /// must exist, or the default quietly takes over.
-  final String? heroImagePath;
 
   /// D-044: every routine template, so the plan card can
   /// explain routines that are not in today's plan (created
@@ -186,10 +176,29 @@ class _TodayScreenState extends State<TodayScreen> {
   final Map<int, double> _prevGoalFractions = {};
   final Set<int> _justCompleted = {};
 
+  /// Redesign R2: the pinned status bar appears once the
+  /// compact hero zone has scrolled away.
+  final ScrollController _scrollController = ScrollController();
+  bool _pinnedBarVisible = false;
+
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _reloadPlan();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final show = _scrollController.hasClients && _scrollController.offset > 96;
+    if (show != _pinnedBarVisible) {
+      setState(() => _pinnedBarVisible = show);
+    }
   }
 
   /// Reload after today's PLAN changed (complete/uncomplete,
@@ -259,13 +268,6 @@ class _TodayScreenState extends State<TodayScreen> {
     final weekSummary = (widget.progressStore != null && sundaySummaryDue(now))
         ? await widget.progressStore!.weeklySummary(now, now: now)
         : null;
-    // D-053: resolve the custom hero image (a missing file —
-    // e.g. storage cleared — falls back to the default photo).
-    final heroStored = await widget.todayStore.heroImagePath();
-    final heroImagePath =
-        (heroStored != null && await File(heroStored).exists())
-        ? heroStored
-        : null;
     // Mission 03 Phase 3: validate the stored manual focus
     // selection against today's plan. Valid = stored for TODAY
     // and its sync_id names an INCOMPLETE item in today's plan.
@@ -304,7 +306,6 @@ class _TodayScreenState extends State<TodayScreen> {
       linkedItems: linkedItems,
       weekSummary: weekSummary,
       templates: templates,
-      heroImagePath: heroImagePath,
       manualFocus: manualFocus,
     );
   }
@@ -347,29 +348,26 @@ class _TodayScreenState extends State<TodayScreen> {
             padding: const EdgeInsets.symmetric(horizontal: Space.page),
             child: w,
           );
-          // UX Phase 5 (owner update): the photo hero is
-          // restored as the top section — a FIXED backdrop
-          // behind the scroll view, its content (brand row,
-          // if-then) in the list, scrolling away over it.
-          // The compact header elements live in the hero's
-          // brand row; there is no second header and no
-          // greeting block.
-          final heroHeight = _heroHeight(MediaQuery.of(context).size);
+          // Redesign R2: the photo hero is replaced by the
+          // compact status zone (hero research, 2026-11-13):
+          // the date promoted, the streak as a compact data
+          // chip, a pre-rendered dawn tint behind them, and a
+          // pinned bar that takes over on scroll carrying the
+          // agenda and settings actions. No wordmark, no
+          // photograph, no greeting block.
           return Stack(
             children: [
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                height: heroHeight,
-                child: IgnorePointer(
-                  child: RepaintBoundary(child: _heroBackdrop(context, data)),
-                ),
-              ),
               ListView(
+                controller: _scrollController,
                 padding: const EdgeInsets.only(bottom: 110.0),
                 children: [
-                  _heroContent(context, data, height: heroHeight),
+                  _statusZone(context, data),
+                  if (data.streak.shieldsHeld > 0) ...[
+                    const SizedBox(height: Gap.md),
+                    pad(_shieldNote(context, data.streak)),
+                  ],
+                  const SizedBox(height: Gap.md),
+                  pad(_ifThenControl(context, data)),
                   const SizedBox(height: Gap.md),
                   if (data.weekSummary != null) ...[
                     pad(_sundaySummaryCard(context, data.weekSummary!)),
@@ -421,6 +419,7 @@ class _TodayScreenState extends State<TodayScreen> {
                   ],
                 ],
               ),
+              _pinnedBar(context, data),
             ],
           );
         },
@@ -727,83 +726,91 @@ class _TodayScreenState extends State<TodayScreen> {
     double radius = RadiusToken.card,
   }) => planSurfaceDeco(context, radius: radius);
 
-  /// The hero's height: ~40% of the viewport is the TARGET.
-  /// The floor is the measured worst case for the content —
-  /// brand row + full greeting + if–then — and grows on
-  /// narrow screens, where the same text wraps taller; the
-  /// content's Spacer absorbs any slack on taller heroes.
-  /// Shared by the fixed backdrop and the scrolling hero
-  /// content so the two layers align exactly.
-  double _heroHeight(Size viewport) {
-    // Mission 03 Phase 2: the hero is ~25% shorter than the
-    // D-053 original (was 40% of viewport height, floor 336 /
-    // 356 under 340dp wide, cap 440) so the plan enters the
-    // first viewport. The floor is set by content, not by the
-    // percentage: brand row + greeting + if–then + streak
-    // chip must fit without clipping at 360dp wide, where a
-    // two-line if–then is the tallest case (the D-053 note
-    // recorded a ~3px overflow there at the old proportions).
-    // The floor is an ENVELOPE, not a constant: the hero
-    // column insets its content by the status-bar height
-    // (media.padding.top), so the floor grows with that
-    // inset — on a device with a tall status bar the old
-    // fixed floor would squeeze the column and overflow
-    // (page_top_test: 47dp inset, 6px overflow, measured).
-    final inset = MediaQuery.paddingOf(context).top;
-    final floor = (viewport.width < 340 ? 204.0 : 192.0) + inset;
-    return (viewport.height * 0.24 + inset).clamp(floor, 252.0 + inset);
-  }
-
-  /// How far the hug contour's centre dips below its sides —
-  /// a shallow, restrained sag scaled gently off the hero
-  /// height (see [_HugClipper]).
-  static double _hugDip(double heroHeight) =>
-      (heroHeight * 0.035).clamp(10.0, 14.0);
-
-  /// The FIXED hero backdrop (D-053, refined 2026-11-05):
-  /// the background photograph (the owner-approved default,
-  /// or the owner's own image) plus its readability scrim,
-  /// ending in the hug-shaped contour (see [_HugClipper]).
-  /// It lives OUTSIDE the ListView, behind it, so it stays
-  /// stationary while the page scrolls over it.
-  Widget _heroBackdrop(BuildContext context, _HubData data) {
+  /// Redesign R2: the compact status zone that opens Today.
+  /// The hero research (2026-11-13) gives the top of a daily
+  /// app four jobs: orientation (the date, promoted), a
+  /// glanceable status (the streak, as compact data), one or
+  /// two essential actions (they live in the pinned bar, not
+  /// here), and a little tone (a pre-rendered dawn tint —
+  /// gradients only, never a photograph or a live blur). The
+  /// zone is the status-bar inset plus 88dp of content.
+  Widget _statusZone(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
-    final media = MediaQuery.of(context);
-    final ImageProvider image = data.heroImagePath != null
-        ? FileImage(File(data.heroImagePath!))
-        : const AssetImage('assets/images/hero_default.png');
-    return ClipPath(
-      clipper: const _HugClipper(),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image(
-            // Decode near the displayed size, never the
-            // full-resolution photograph.
-            image: ResizeImage(
-              image,
-              width: (media.size.width * media.devicePixelRatio).round(),
-            ),
-            fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
-          ),
-          // Readability scrim: shade at the top (brand row)
-          // and toward the bottom (greeting + if–then),
-          // easing into the page colour at the very edge so
-          // the hug contour shows no seam.
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.42),
-                  Colors.black.withValues(alpha: 0.05),
-                  Colors.black.withValues(alpha: 0.38),
-                  theme.scaffoldBackgroundColor.withValues(alpha: 0.92),
+    final scheme = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
+    final now = DateTime.now();
+    final topInset = MediaQuery.paddingOf(context).top;
+    return Container(
+      height: topInset + 112,
+      padding: EdgeInsets.fromLTRB(
+        Space.page,
+        topInset + Space.s2,
+        Space.page,
+        Space.s2,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: dark
+              ? const [Color(0xFF0C2314), Color(0xFF07170D), Color(0xFF000000)]
+              : [
+                  scheme.surfaceContainerLow,
+                  scheme.surfaceContainerLow,
+                  theme.scaffoldBackgroundColor,
                 ],
-                stops: const [0.0, 0.38, 0.72, 1.0],
-              ),
+          stops: const [0.0, 0.52, 1.0],
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        weekdayName(now),
+                        style: theme.textTheme.headlineLarge,
+                      ),
+                      Text(
+                        '${now.day} ${monthNames[now.month - 1]}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _streakChip(context, data.streak),
+              ],
+            ),
+          ),
+          // The agenda and settings doors live here at
+          // rest, in the zone's top-right corner — a short
+          // day may never scroll far enough to reveal the
+          // pinned bar's copies.
+          Positioned(
+            top: 0,
+            right: 0,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'Agenda',
+                  icon: const Icon(Icons.calendar_month_outlined),
+                  onPressed: _openAgenda,
+                ),
+                IconButton(
+                  tooltip: 'Settings',
+                  icon: const Icon(Icons.settings_outlined),
+                  onPressed: widget.onOpenSettings,
+                ),
+              ],
             ),
           ),
         ],
@@ -811,82 +818,106 @@ class _TodayScreenState extends State<TodayScreen> {
     );
   }
 
-  /// The hero CONTENT (D-053, refined 2026-11-05): the brand
-  /// row, the greeting and the if–then control, rendered
-  /// transparently at the top of the ListView so they sit on
-  /// the fixed photograph at rest and scroll away over it —
-  /// nothing here is pinned.
-  Widget _heroContent(
-    BuildContext context,
-    _HubData data, {
-    required double height,
-  }) {
+  /// Redesign R2: the pinned status bar. It takes over when
+  /// the status zone scrolls away: short date, the streak
+  /// chip, and the two essential actions (agenda, settings)
+  /// the research moved out of the hero. Hidden from
+  /// semantics and touches while invisible.
+  Widget _pinnedBar(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
-    final media = MediaQuery.of(context);
-    return SizedBox(
-      height: height,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          Space.page,
-          media.padding.top + Space.s2,
-          Space.page,
-          _hugDip(height) + Space.s2,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const NimoMark(size: 30),
-                const SizedBox(width: Space.s3),
-                Text(
-                  'Nimo',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.3,
-                    color: GlassTokens.darkOnCharcoal,
-                  ),
+    final scheme = theme.colorScheme;
+    final now = DateTime.now();
+    final topInset = MediaQuery.paddingOf(context).top;
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: ExcludeSemantics(
+        excluding: !_pinnedBarVisible,
+        child: IgnorePointer(
+          ignoring: !_pinnedBarVisible,
+          child: AnimatedOpacity(
+            opacity: _pinnedBarVisible ? 1 : 0,
+            duration: motionDuration(context, Motion.micro),
+            child: Container(
+              height: topInset + 56,
+              padding: EdgeInsets.fromLTRB(Space.page, topInset, Space.s2, 0),
+              decoration: BoxDecoration(
+                color: theme.scaffoldBackgroundColor,
+                border: Border(
+                  bottom: BorderSide(color: scheme.outlineVariant),
                 ),
-                const Spacer(),
-                _streakChip(context, data.streak, onPhoto: true),
-                IconButton(
-                  icon: const Icon(
-                    Icons.calendar_month_outlined,
-                    color: GlassTokens.darkOnCharcoal,
-                    semanticLabel: 'Open agenda',
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    '${weekdayName(now).substring(0, 3)} ${now.day} '
+                    '${monthNames[now.month - 1].substring(0, 3)}',
+                    style: theme.textTheme.labelLarge,
                   ),
-                  tooltip: 'Agenda',
-                  onPressed: _openAgenda,
-                ),
-                IconButton(
-                  icon: const Icon(
-                    Icons.settings_outlined,
-                    color: GlassTokens.darkOnCharcoal,
+                  const SizedBox(width: Space.s3),
+                  _streakChip(context, data.streak),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.calendar_month_outlined),
+                    tooltip: 'Agenda',
+                    onPressed: _openAgenda,
                   ),
-                  tooltip: widget.onOpenSettings == null
-                      ? 'Coming soon'
-                      : 'Settings',
-                  onPressed: widget.onOpenSettings,
-                ),
-              ],
+                  IconButton(
+                    icon: const Icon(Icons.settings_outlined),
+                    tooltip: widget.onOpenSettings == null
+                        ? 'Coming soon'
+                        : 'Settings',
+                    onPressed: widget.onOpenSettings,
+                  ),
+                ],
+              ),
             ),
-            const Spacer(),
-            _ifThenControl(context, data),
-          ],
+          ),
         ),
       ),
     );
   }
 
+  /// Baseline B-03: the shield, explained in words on Today.
+  /// Shown only while the owner actually holds a shield.
+  Widget _shieldNote(BuildContext context, StreakState streak) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final n = streak.shieldsHeld;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.shield_outlined, size: 18, color: scheme.primary),
+        const SizedBox(width: Space.s3),
+        Expanded(
+          child: Text(
+            n == 1
+                ? '1 shield ready. It covers a missed day '
+                      'automatically, so one missed day will not '
+                      'break your streak.'
+                : '$n shields ready. They cover missed days '
+                      'automatically, so a missed day will not '
+                      'break your streak.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _ifThenControl(BuildContext context, _HubData data) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final empty = data.ifThen.isEmpty;
     final radius = BorderRadius.circular(RadiusToken.card + 2);
     return Material(
-      color: GlassTokens.darkCharcoal,
+      color: scheme.surfaceContainerHigh,
       shape: RoundedRectangleBorder(
         borderRadius: radius,
-        side: const BorderSide(color: GlassTokens.darkCharcoalBorder),
+        side: BorderSide(color: scheme.outlineVariant),
       ),
       child: InkWell(
         onTap: () => _editIfThen(data),
@@ -903,11 +934,7 @@ class _TodayScreenState extends State<TodayScreen> {
           ),
           child: Row(
             children: [
-              const Icon(
-                Icons.bolt_outlined,
-                size: 18,
-                color: Color(0xFF1ED760),
-              ),
+              Icon(Icons.bolt_outlined, size: 18, color: scheme.primary),
               const SizedBox(width: Space.s3),
               Expanded(
                 child: Text(
@@ -918,16 +945,14 @@ class _TodayScreenState extends State<TodayScreen> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: empty
-                        ? GlassTokens.darkOnCharcoalSecondary
-                        : GlassTokens.darkOnCharcoal,
+                    color: empty ? scheme.onSurfaceVariant : scheme.onSurface,
                   ),
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.edit_outlined,
                 size: 16,
-                color: GlassTokens.darkOnCharcoalSecondary,
+                color: scheme.onSurfaceVariant,
               ),
             ],
           ),
@@ -937,20 +962,14 @@ class _TodayScreenState extends State<TodayScreen> {
   }
 
   /// The header streak chip (D-040): the streak's one home on
-  /// Today, beside the brand. Fed by the SAME hub load as
-  /// everything else — no second calculation. Compact by
-  /// design (mono micro-label, visually secondary to the
-  /// brand); on narrow screens (< 360dp) it reduces to the
-  /// flame and the number. A full-height tap target, and
-  /// tapping opens Direction on its Progress tab, where the
-  /// streak detail lives, when the shell provides the callback.
-  /// D-053: on the hero photograph the chip sits on a
-  /// translucent charcoal pill so it stays readable.
-  Widget _streakChip(
-    BuildContext context,
-    StreakState streak, {
-    bool onPhoto = false,
-  }) {
+  /// Today, in the status zone and its pinned bar. Fed by the
+  /// SAME hub load as everything else — no second calculation.
+  /// Compact by design (mono micro-label, visually secondary);
+  /// on narrow screens (< 400dp) it reduces to the flame and
+  /// the number. A full-height tap target, and tapping opens
+  /// Direction on its Progress tab, where the streak detail
+  /// lives, when the shell provides the callback.
+  Widget _streakChip(BuildContext context, StreakState streak) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final n = streak.currentStreak;
@@ -973,9 +992,7 @@ class _TodayScreenState extends State<TodayScreen> {
               child: Text(
                 narrow ? '$n' : label,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: onPhoto
-                      ? GlassTokens.darkOnCharcoalSecondary
-                      : scheme.onSurfaceVariant,
+                  color: scheme.onSurfaceVariant,
                 ),
               ),
             ),
@@ -992,16 +1009,7 @@ class _TodayScreenState extends State<TodayScreen> {
       child: InkWell(
         onTap: widget.onOpenProgress,
         borderRadius: BorderRadius.circular(RadiusToken.round),
-        child: onPhoto
-            ? Container(
-                decoration: BoxDecoration(
-                  color: GlassTokens.darkCharcoal,
-                  borderRadius: BorderRadius.circular(RadiusToken.round),
-                  border: Border.all(color: GlassTokens.darkCharcoalBorder),
-                ),
-                child: body,
-              )
-            : body,
+        child: body,
       ),
     );
   }
@@ -1812,49 +1820,4 @@ class _TodayScreenState extends State<TodayScreen> {
     await _afterPlanEdit();
     setState(_reloadPlan);
   }
-}
-
-/// The hero's hug-shaped bottom edge (D-053): both sides
-/// curve gently UP while the centre reaches lowest — a
-/// shallow, symmetrical embrace. Not a U, not a rounded
-/// rectangle: the dip is only [dip] deep across the full
-/// width. Two mirrored cubic segments keep the tangent
-/// smooth through the centre point.
-/// The hero's hug-shaped bottom contour (refined
-/// 2026-11-05): a single broad, shallow cosine bowl — the
-/// sides sit [_TodayScreenState._hugDip] higher than the
-/// centre, the slope is zero at both edges and at the
-/// centre, and there are no joins, inflections sharp enough
-/// to read as a wave, or pointed corners. The profile is a
-/// function of the actual size only, so it stays
-/// proportional on any screen; 48 samples keep it smooth
-/// at any width for a negligible one-off path cost (the
-/// backdrop is outside the scroll view and never repaints
-/// while scrolling).
-class _HugClipper extends CustomClipper<Path> {
-  const _HugClipper();
-
-  @override
-  Path getClip(Size size) {
-    final w = size.width;
-    final h = size.height;
-    final dip = _TodayScreenState._hugDip(h);
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(w, 0)
-      ..lineTo(w, h - dip);
-    const steps = 48;
-    for (var i = 1; i <= steps; i++) {
-      final x = w - w * i / steps;
-      final t = x / w;
-      // Cosine bowl: h - dip at both edges, h at the centre,
-      // easing through the whole width — never a local scoop.
-      final y = h - dip + dip * (0.5 - 0.5 * math.cos(2 * math.pi * t));
-      path.lineTo(x, y);
-    }
-    return path..close();
-  }
-
-  @override
-  bool shouldReclip(_HugClipper oldClipper) => false;
 }

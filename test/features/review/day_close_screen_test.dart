@@ -95,14 +95,22 @@ void main() {
         expect(await pollFor(find.text('Name one thing worth remembering.')),
             isTrue);
         await tester.tap(find.text('Skip'));
-        // Step 3 — Self score.
+        // Step 3 — Self score. B-06: the secondary button
+        // honestly says it closes, and closes WITHOUT a score.
         expect(await pollFor(find.text('How did the day feel?')), isTrue);
-        await tester.tap(find.text('Skip')); // skipping step 3 closes
-        // Step 4 — Reveal: dual scores shown, Done computed, Mine empty.
+        expect(find.text('Skip'), findsNothing);
+        await tester.tap(find.text('Close without a score'));
+        // Step 4 — Reveal: the immersive panel shows both
+        // scores on their true scales, Self empty.
         expect(await pollFor(find.text('Day closed')), isTrue);
-        expect(find.text('Done score · auto'), findsOneWidget);
-        expect(find.text('Self score · yours'), findsOneWidget);
-        expect(find.text('50 / 100'), findsOneWidget); // 1 of 2 done
+        expect(find.text('DONE · AUTO'), findsOneWidget);
+        expect(find.text('SELF · YOURS'), findsOneWidget);
+        expect(find.text('50'), findsOneWidget); // 1 of 2 done
+        expect(find.text(' / 100'), findsOneWidget);
+        expect(find.text('—'), findsOneWidget); // no Self score
+        final savedReview = await reviewStore.reviewFor(today);
+        expect(savedReview?.isClosed, isTrue);
+        expect(savedReview?.selfScore, isNull);
         watch.stop();
         expect(watch.elapsed, lessThan(const Duration(minutes: 2)));
 

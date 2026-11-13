@@ -8,7 +8,7 @@
 ///    side by side, never merged.
 ///
 /// Tap count with everything skipped: open (1) → Skip (2) →
-/// Skip (3) → "Close the day" (4) → Done (5). Closing an
+/// Skip (3) → "Close without a score" (4) → Done (5). Closing an
 /// already-closed day prefills its values and updates them.
 library;
 
@@ -220,18 +220,21 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
           children: [
             if (_step < 3)
               TextButton(
-                // Skipping the last input step closes the day with
-                // whatever is filled in (everything is optional).
+                // Steps 0–1: Skip honestly advances a step.
+                // Step 2 (B-06): the secondary action CLOSES
+                // the day, so it says so — 'Close without a
+                // score' clears any picked score and closes.
                 onPressed: _closing
                     ? null
                     : () {
                         if (_step == 2) {
+                          setState(() => _selfScore = null);
                           _close();
                         } else {
                           setState(() => _step++);
                         }
                       },
-                child: const Text('Skip'),
+                child: Text(_step == 2 ? 'Close without a score' : 'Skip'),
               ),
             const Spacer(),
             if (_step < 2)
@@ -400,45 +403,157 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
 
   Widget _revealStep(BuildContext context) {
     final theme = Theme.of(context);
+    final ed = EditorialColors.of(context);
     final saved = _saved;
     if (saved == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Day closed', style: theme.textTheme.titleMedium),
-        const SizedBox(height: Gap.md),
-        // Tier 2 (spec §3): the reveal surface settles in warm;
-        // the two scores tween separately inside their wells.
-        WarmReveal(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+
+    // The reveal is the day's moment (redesign R5): a
+    // full-width deep-green panel, the two scores large and
+    // side by side on their true scales, never merged.
+    Widget scoreBlock({
+      required String label,
+      required String value,
+      required String suffix,
+      required String sub,
+      double? fraction,
+    }) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: ed.deepMuted,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: Space.s2),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
             children: [
-              Expanded(
-                child: NeoScoreWell(
-                  label: 'Done score · auto',
-                  value: '${saved.doneScore ?? '—'}',
-                  sub: 'Based on your core plan',
-                  suffix: ' / 100',
-                  fraction: saved.doneScore == null
-                      ? null
-                      : saved.doneScore! / 100,
-                ),
+              Text(
+                value,
+                style: AppType.statistic(size: 44).copyWith(color: ed.onDeep),
               ),
-              const SizedBox(width: Space.s5),
-              Expanded(
-                child: NeoScoreWell(
-                  label: 'Self score · yours',
-                  value: saved.selfScore == null ? '—' : '${saved.selfScore}',
-                  sub: 'Your own reflection',
-                  accentValue: true,
-                  fraction: saved.selfScore == null
-                      ? null
-                      : saved.selfScore! / 10,
+              Text(
+                suffix,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: ed.deepMuted,
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: Space.s3),
+          Container(
+            height: 3,
+            decoration: BoxDecoration(
+              color: ed.deepLine,
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: fraction == null
+                ? null
+                : FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: fraction.clamp(0.0, 1.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: ed.deepAccent,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+          ),
+          const SizedBox(height: Space.s2),
+          Text(
+            sub,
+            style: theme.textTheme.bodySmall?.copyWith(color: ed.deepMuted),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(Space.s5),
+          decoration: BoxDecoration(
+            color: ed.deep,
+            borderRadius: BorderRadius.circular(RadiusToken.card),
+          ),
+          child: WarmReveal(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Day closed',
+                  style: theme.textTheme.titleLarge?.copyWith(color: ed.onDeep),
+                ),
+                const SizedBox(height: Gap.md),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: scoreBlock(
+                        label: 'DONE · AUTO',
+                        value: '${saved.doneScore ?? '—'}',
+                        suffix: ' / 100',
+                        sub: 'Based on your core plan',
+                        fraction: saved.doneScore == null
+                            ? null
+                            : saved.doneScore! / 100,
+                      ),
+                    ),
+                    const SizedBox(width: Space.s5),
+                    Expanded(
+                      child: scoreBlock(
+                        label: 'SELF · YOURS',
+                        value: saved.selfScore == null
+                            ? '—'
+                            : '${saved.selfScore}',
+                        suffix: ' / 10',
+                        sub: 'Your own reflection',
+                        fraction: saved.selfScore == null
+                            ? null
+                            : saved.selfScore! / 10,
+                      ),
+                    ),
+                  ],
+                ),
+                if (saved.majorPoint != null) ...[
+                  const SizedBox(height: Gap.md),
+                  Divider(color: ed.deepLine, height: 1),
+                  const SizedBox(height: Gap.md),
+                  Text(
+                    'Major point',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: ed.deepMuted,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: Space.s2),
+                  Text(
+                    saved.majorPoint!,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: ed.onDeep,
+                    ),
+                  ),
+                  if (saved.majorPointTopicId != null)
+                    for (final t in _topics)
+                      if (t.id == saved.majorPointTopicId)
+                        Text(
+                          'Topic: ${t.title}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: ed.deepMuted,
+                          ),
+                        ),
+                ],
+              ],
+            ),
           ),
         ),
         const SizedBox(height: Gap.md),
@@ -446,16 +561,6 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
           'Done Score reflects core plan completion. Self Score '
           'reflects how you feel. They are never averaged.',
         ),
-        if (saved.majorPoint != null) ...[
-          const SizedBox(height: Gap.md),
-          Text('Major point', style: theme.textTheme.titleSmall),
-          const SizedBox(height: 4),
-          Text(saved.majorPoint!, style: theme.textTheme.bodyLarge),
-          if (saved.majorPointTopicId != null)
-            for (final t in _topics)
-              if (t.id == saved.majorPointTopicId)
-                Text('Topic: ${t.title}', style: theme.textTheme.bodySmall),
-        ],
       ],
     );
   }

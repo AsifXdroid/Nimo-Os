@@ -25,8 +25,7 @@ const _formatLabels = {
   'mythfact': 'myth vs fact',
 };
 
-String _fmtDate(DateTime d) =>
-    '${d.day}/${d.month}/${d.year}';
+String _fmtDate(DateTime d) => '${d.day}/${d.month}/${d.year}';
 
 class WeeklySummaryScreen extends StatefulWidget {
   const WeeklySummaryScreen({
@@ -77,8 +76,7 @@ class _WeeklySummaryScreenState extends State<WeeklySummaryScreen> {
                     const SizedBox(height: Gap.md),
                     FilledButton(
                       onPressed: () => setState(() {
-                        _summary =
-                            widget.store.weeklySummary(widget.monday);
+                        _summary = widget.store.weeklySummary(widget.monday);
                       }),
                       child: const Text('Try again'),
                     ),
@@ -113,7 +111,11 @@ class WeeklySummaryView extends StatelessWidget {
     if (s.isEmpty) {
       return ListView(
         padding: const EdgeInsets.fromLTRB(
-            Space.page, Gap.md, Space.page, Gap.lg),
+          Space.page,
+          Gap.md,
+          Space.page,
+          Gap.lg,
+        ),
         children: [
           NeoPageTitle(
             eyebrow: 'Sunday reflection',
@@ -134,22 +136,26 @@ class WeeklySummaryView extends StatelessWidget {
     // canvas — a serif head over a hairline — not stacked
     // panels.
     Widget section(String title, List<Widget> children) => Padding(
-          padding: const EdgeInsets.only(bottom: Gap.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: theme.textTheme.titleMedium),
-              const SizedBox(height: Space.s2),
-              Container(height: 1, color: scheme.outlineVariant),
-              const SizedBox(height: Gap.sm),
-              ...children,
-            ],
-          ),
-        );
+      padding: const EdgeInsets.only(bottom: Gap.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: theme.textTheme.titleMedium),
+          const SizedBox(height: Space.s2),
+          Container(height: 1, color: scheme.outlineVariant),
+          const SizedBox(height: Gap.sm),
+          ...children,
+        ],
+      ),
+    );
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
-          Space.page, Gap.md, Space.page, Gap.lg),
+        Space.page,
+        Gap.md,
+        Space.page,
+        Gap.lg,
+      ),
       children: [
         NeoPageTitle(
           eyebrow: 'Sunday reflection',
@@ -171,7 +177,7 @@ class WeeklySummaryView extends StatelessWidget {
                 s.shieldDays == 1
                     ? '1 shield day — that\'s what they\'re for.'
                     : '${s.shieldDays} shield days — that\'s what '
-                        'they\'re for.',
+                          'they\'re for.',
                 style: theme.textTheme.bodyMedium,
               ),
             ),
@@ -188,31 +194,36 @@ class WeeklySummaryView extends StatelessWidget {
         section('Your scores — two different questions', [
           // Done and Self on separate rows, separate scales,
           // never combined (§R5.2).
-          _scoreRow(context,
-              label: 'Done — what got done',
-              value: s.doneAverage == null
-                  ? '—'
-                  : '${s.doneAverage!.round()} / 100',
-              color: scheme.primary),
-          _scoreRow(context,
-              label: 'Mine — how it felt',
-              value: s.selfAverage == null
-                  ? '—'
-                  : '${_trimNum(s.selfAverage!)} / 10',
-              color: scheme.tertiary),
+          _scoreRow(
+            context,
+            label: 'Done — what got done',
+            value: s.doneAverage == null
+                ? '—'
+                : '${s.doneAverage!.round()} / 100',
+            color: scheme.primary,
+          ),
+          _scoreRow(
+            context,
+            label: 'Self — how it felt',
+            value: s.selfAverage == null
+                ? '—'
+                : '${_trimNum(s.selfAverage!)} / 10',
+            color: scheme.tertiary,
+          ),
           if (s.divergence != null)
             Padding(
               padding: const EdgeInsets.only(top: Gap.sm),
               child: Text(
                 s.divergence == DivergencePattern.grind
                     ? 'The plan got done, but it felt like a grind. '
-                        'Worth easing next week\'s plan, or protecting '
-                        'the parts you enjoy.'
+                          'Worth easing next week\'s plan, or protecting '
+                          'the parts you enjoy.'
                     : 'It felt better than the plan shows — a good '
-                        'week the plan didn\'t capture. Some of the '
-                        'good stuff happened off-plan.',
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(fontStyle: FontStyle.italic),
+                          'week the plan didn\'t capture. Some of the '
+                          'good stuff happened off-plan.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ),
         ]),
@@ -224,8 +235,7 @@ class WeeklySummaryView extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.flag_outlined,
-                        size: 18, color: scheme.tertiary),
+                    Icon(Icons.flag_outlined, size: 18, color: scheme.tertiary),
                     const SizedBox(width: Gap.sm),
                     Expanded(child: Text(p.text)),
                   ],
@@ -299,9 +309,12 @@ class WeeklySummaryView extends StatelessWidget {
           ),
           const SizedBox(width: Gap.sm),
           Expanded(child: Text(label)),
-          Text(value,
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            value,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );
@@ -314,7 +327,11 @@ class WeeklySummaryView extends StatelessWidget {
 /// Small card form of the summary for the Progress screen: this
 /// week's headline + a button into the full view.
 class WeekSummaryCard extends StatelessWidget {
-  const WeekSummaryCard({super.key, required this.summary, required this.onOpen});
+  const WeekSummaryCard({
+    super.key,
+    required this.summary,
+    required this.onOpen,
+  });
 
   final WeeklySummary summary;
   final VoidCallback onOpen;
@@ -323,16 +340,16 @@ class WeekSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = summary;
     return NeoListRow(
-        icon: Icons.calendar_view_week_outlined,
-        title: 'This week',
-        sub: s.isEmpty
-            ? 'Nothing recorded yet this week.'
-            : 'Showed up ${s.daysCounted} of 7 days'
+      icon: Icons.calendar_view_week_outlined,
+      title: 'This week',
+      sub: s.isEmpty
+          ? 'Nothing recorded yet this week.'
+          : 'Showed up ${s.daysCounted} of 7 days'
                 '${s.inProgress ? ' so far' : ''}'
                 '${s.shieldDays > 0 ? ' · ${s.shieldDays} shield day${s.shieldDays == 1 ? '' : 's'}' : ''}'
                 '${s.majorPoints.isNotEmpty ? ' · ${s.majorPoints.length} major point${s.majorPoints.length == 1 ? '' : 's'}' : ''}',
-        last: true,
-        onTap: onOpen,
+      last: true,
+      onTap: onOpen,
     );
   }
 }

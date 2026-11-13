@@ -4,7 +4,7 @@
 /// 1. Recap — tick/untick what actually happened (live plan edit).
 /// 2. Major point — one line: the day's biggest learning or win.
 /// 3. Self Score — 1–10 chips with plain anchors + optional "why".
-/// 4. Reveal — the dual-score card: Done (auto) and Mine (self),
+/// 4. Reveal — the dual-score card: Done (auto) and Self (self-scored),
 ///    side by side, never merged.
 ///
 /// Tap count with everything skipped: open (1) → Skip (2) →
@@ -22,12 +22,27 @@ import '../today/today_store.dart';
 import 'review_store.dart';
 
 const _weekdayNames = [
-  'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
   'Sunday',
 ];
 const _monthNames = [
-  'January', 'February', 'March', 'April', 'May', 'June', 'July',
-  'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 String _formatDate(DateTime d) =>
@@ -137,7 +152,8 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
       setState(() => _closing = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Could not close the day — please try again.')),
+          content: Text('Could not close the day — please try again.'),
+        ),
       );
     }
   }
@@ -165,13 +181,21 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(
-                      Space.page, Gap.sm, Space.page, 0),
+                    Space.page,
+                    Gap.sm,
+                    Space.page,
+                    0,
+                  ),
                   child: NeoTrack(value: (_step + 1) / 4),
                 ),
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(
-                        Space.page, Gap.md, Space.page, Gap.lg),
+                      Space.page,
+                      Gap.md,
+                      Space.page,
+                      Gap.lg,
+                    ),
                     children: [
                       switch (_step) {
                         0 => _recapStep(context),
@@ -239,45 +263,44 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
     // D-039: the recap step reads on the canvas like the
     // other steps — no panel around the checklist.
     return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('What actually happened?',
-              style: theme.textTheme.titleMedium),
-          const SizedBox(height: Gap.sm),
-          Text('Tick what got done — this is the quick review.',
-              style: theme.textTheme.bodySmall),
-          const SizedBox(height: Gap.md),
-          if (_items.isEmpty)
-            Text('No plan items for this day.',
-                style: theme.textTheme.bodyMedium)
-          else
-            for (final item in _items)
-              InkWell(
-                onTap: () => _toggle(item),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: Space.s3),
-                  child: Row(
-                    children: [
-                      NeoCheck(done: item.done),
-                      const SizedBox(width: Space.s4),
-                      Expanded(
-                        child: Text(
-                          item.title,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w500,
-                            decoration: item.done
-                                ? TextDecoration.lineThrough
-                                : null,
-                            color:
-                                item.done ? scheme.onSurfaceVariant : null,
-                          ),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('What actually happened?', style: theme.textTheme.titleMedium),
+        const SizedBox(height: Gap.sm),
+        Text(
+          'Tick what got done — this is the quick review.',
+          style: theme.textTheme.bodySmall,
+        ),
+        const SizedBox(height: Gap.md),
+        if (_items.isEmpty)
+          Text('No plan items for this day.', style: theme.textTheme.bodyMedium)
+        else
+          for (final item in _items)
+            InkWell(
+              onTap: () => _toggle(item),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: Space.s3),
+                child: Row(
+                  children: [
+                    NeoCheck(done: item.done),
+                    const SizedBox(width: Space.s4),
+                    Expanded(
+                      child: Text(
+                        item.title,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                          decoration: item.done
+                              ? TextDecoration.lineThrough
+                              : null,
+                          color: item.done ? scheme.onSurfaceVariant : null,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-        ],
+            ),
+      ],
     );
   }
 
@@ -286,13 +309,16 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Name one thing worth remembering.',
-            style: theme.textTheme.titleMedium),
+        Text(
+          'Name one thing worth remembering.',
+          style: theme.textTheme.titleMedium,
+        ),
         const SizedBox(height: Gap.sm),
         Text(
-            'The day\'s major point — one line: the biggest thing '
-            'you learned or got done today.',
-            style: theme.textTheme.bodySmall),
+          'The day\'s major point — one line: the biggest thing '
+          'you learned or got done today.',
+          style: theme.textTheme.bodySmall,
+        ),
         const SizedBox(height: Gap.md),
         TextField(
           controller: _majorController,
@@ -305,7 +331,9 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
         if (widget.learnStore != null && _topics.isNotEmpty) ...[
           const SizedBox(height: Gap.md),
           DropdownButtonFormField<int?>(
-            initialValue: _topics.any((t) => t.id == _topicId) ? _topicId : null,
+            initialValue: _topics.any((t) => t.id == _topicId)
+                ? _topicId
+                : null,
             decoration: const InputDecoration(
               labelText: 'Topic (optional)',
               border: OutlineInputBorder(),
@@ -336,12 +364,15 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
         Text('How did the day feel?', style: theme.textTheme.titleMedium),
         const SizedBox(height: Gap.sm),
         Text(
-            'Your Self Score belongs to you. It isn\'t calculated '
-            'from your tasks.',
-            style: theme.textTheme.bodySmall),
+          'Your Self Score belongs to you. It isn\'t calculated '
+          'from your tasks.',
+          style: theme.textTheme.bodySmall,
+        ),
         const SizedBox(height: Gap.sm),
-        Text('1 = a lost day · 5 = an okay day · 10 = the best kind of day',
-            style: theme.textTheme.bodySmall),
+        Text(
+          '1 = a lost day · 5 = an okay day · 10 = the best kind of day',
+          style: theme.textTheme.bodySmall,
+        ),
         const SizedBox(height: Gap.md),
         Wrap(
           spacing: Gap.sm,
@@ -351,8 +382,7 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
               ChoiceChip(
                 label: Text('$n'),
                 selected: _selfScore == n,
-                onSelected: (v) =>
-                    setState(() => _selfScore = v ? n : null),
+                onSelected: (v) => setState(() => _selfScore = v ? n : null),
               ),
           ],
         ),
@@ -388,26 +418,26 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
               Expanded(
                 child: NeoScoreWell(
                   label: 'Done score · auto',
-                value: '${saved.doneScore ?? '—'}',
-                sub: 'Based on your core plan',
-                suffix: ' / 100',
-                fraction:
-                    saved.doneScore == null ? null : saved.doneScore! / 100,
+                  value: '${saved.doneScore ?? '—'}',
+                  sub: 'Based on your core plan',
+                  suffix: ' / 100',
+                  fraction: saved.doneScore == null
+                      ? null
+                      : saved.doneScore! / 100,
+                ),
               ),
-            ),
-            const SizedBox(width: Space.s5),
-            Expanded(
-              child: NeoScoreWell(
-                label: 'Self score · yours',
-                value: saved.selfScore == null
-                    ? '—'
-                    : '${saved.selfScore}',
-                sub: 'Your own reflection',
-                accentValue: true,
-                fraction:
-                    saved.selfScore == null ? null : saved.selfScore! / 10,
+              const SizedBox(width: Space.s5),
+              Expanded(
+                child: NeoScoreWell(
+                  label: 'Self score · yours',
+                  value: saved.selfScore == null ? '—' : '${saved.selfScore}',
+                  sub: 'Your own reflection',
+                  accentValue: true,
+                  fraction: saved.selfScore == null
+                      ? null
+                      : saved.selfScore! / 10,
+                ),
               ),
-            ),
             ],
           ),
         ),
@@ -424,8 +454,7 @@ class _DayCloseScreenState extends State<DayCloseScreen> {
           if (saved.majorPointTopicId != null)
             for (final t in _topics)
               if (t.id == saved.majorPointTopicId)
-                Text('Topic: ${t.title}',
-                    style: theme.textTheme.bodySmall),
+                Text('Topic: ${t.title}', style: theme.textTheme.bodySmall),
         ],
       ],
     );

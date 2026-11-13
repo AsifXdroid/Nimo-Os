@@ -32,8 +32,10 @@ class DualScoreChart extends StatelessWidget {
           children: [
             _LegendSwatch(color: scheme.primary, dashed: false),
             const SizedBox(width: 6),
-            Text('Done — what got done (0–100)',
-                style: theme.textTheme.labelMedium),
+            Text(
+              'Done — what got done (0–100)',
+              style: theme.textTheme.labelMedium,
+            ),
           ],
         ),
         const SizedBox(height: 4),
@@ -41,8 +43,10 @@ class DualScoreChart extends StatelessWidget {
           children: [
             _LegendSwatch(color: scheme.tertiary, dashed: true),
             const SizedBox(width: 6),
-            Text('Mine — how it felt (1–10)',
-                style: theme.textTheme.labelMedium),
+            Text(
+              'Self — how it felt (1–10)',
+              style: theme.textTheme.labelMedium,
+            ),
           ],
         ),
         const SizedBox(height: 8),
@@ -55,10 +59,11 @@ class DualScoreChart extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          'Done = what got done. Mine = how it felt. '
+          'Done = what got done. Self = how it felt. '
           'They answer different questions.',
-          style: theme.textTheme.bodySmall
-              ?.copyWith(color: scheme.onSurfaceVariant),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+          ),
         ),
       ],
     );
@@ -97,7 +102,10 @@ class _SwatchPainter extends CustomPainter {
     if (dashed) {
       canvas.drawLine(Offset(0, y), Offset(size.width * 0.4, y), paint);
       canvas.drawLine(
-          Offset(size.width * 0.6, y), Offset(size.width, y), paint);
+        Offset(size.width * 0.6, y),
+        Offset(size.width, y),
+        paint,
+      );
     } else {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
@@ -118,14 +126,19 @@ class _DualScorePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (days.isEmpty) return;
-    const leftPad = 4.0;
-    const rightPad = 4.0;
+    // Room at both edges for the axis numerals (B-05): the
+    // left edge carries Done's native 0–100, the right edge
+    // Self's native 1–10, so the two scales are never read
+    // as one.
+    const leftPad = 30.0;
+    const rightPad = 26.0;
     const topPad = 8.0;
     const bottomPad = 4.0;
     final plotW = size.width - leftPad - rightPad;
     final plotH = size.height - topPad - bottomPad;
     double x(int i) =>
-        leftPad + (days.length == 1 ? plotW / 2 : plotW * i / (days.length - 1));
+        leftPad +
+        (days.length == 1 ? plotW / 2 : plotW * i / (days.length - 1));
     double y(double v) => topPad + plotH * (1 - v / 100);
 
     // Gridlines at 0 / 50 / 100.
@@ -134,8 +147,33 @@ class _DualScorePainter extends CustomPainter {
       ..strokeWidth = 1;
     for (final v in [0.0, 50.0, 100.0]) {
       canvas.drawLine(
-          Offset(leftPad, y(v)), Offset(size.width - rightPad, y(v)), grid);
+        Offset(leftPad, y(v)),
+        Offset(size.width - rightPad, y(v)),
+        grid,
+      );
     }
+
+    // Axis numerals: Done (0–100) on the left at its
+    // gridlines; Self (1–10) on the right at ITS heights
+    // (Self v is drawn at 10v, so 10 and 5 sit on the 100
+    // and 50 lines, and 1 sits just above the floor).
+    void numeral(String text, double cx, double cy, {required bool left}) {
+      final tp = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 10),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(left ? cx - tp.width : cx, cy - tp.height / 2));
+    }
+
+    for (final v in [0.0, 50.0, 100.0]) {
+      numeral('${v.round()}', leftPad - 6, y(v), left: true);
+    }
+    numeral('10', size.width - rightPad + 6, y(100), left: false);
+    numeral('5', size.width - rightPad + 6, y(50), left: false);
+    numeral('1', size.width - rightPad + 6, y(10), left: false);
 
     void series({
       required int? Function(ProgressDay) pick,
@@ -169,12 +207,13 @@ class _DualScorePainter extends CustomPainter {
         }
         if (ring) {
           canvas.drawCircle(
-              point,
-              3.5,
-              Paint()
-                ..color = color
-                ..style = PaintingStyle.stroke
-                ..strokeWidth = 2);
+            point,
+            3.5,
+            Paint()
+              ..color = color
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2,
+          );
         } else {
           canvas.drawCircle(point, 3, Paint()..color = color);
         }
@@ -242,9 +281,8 @@ class EnjoymentChart extends StatelessWidget {
       return Text(
         'No rated sessions yet — finish a Learn session and rate '
         'how it felt, and the trend will grow here.',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
+        style: Theme.of(context).textTheme.bodySmall
+            ?.copyWith(color: scheme.onSurfaceVariant),
       );
     }
     return SizedBox(
@@ -275,7 +313,8 @@ class _EnjoymentPainter extends CustomPainter {
         ? 1
         : points.last.date.difference(first).inDays;
     double x(DateTime d) =>
-        pad + (span == 0 ? plotW / 2 : plotW * d.difference(first).inDays / span);
+        pad +
+        (span == 0 ? plotW / 2 : plotW * d.difference(first).inDays / span);
     double y(double v) => pad + plotH * (1 - (v - 1) / 4); // 1..5
 
     final grid = Paint()

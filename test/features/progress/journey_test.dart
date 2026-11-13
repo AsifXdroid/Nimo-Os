@@ -317,6 +317,36 @@ void main() {
         expect(tester.takeException(), isNull);
       });
     });
+
+    // Redesign R4 (B-05 + IA): the header eyebrow names the
+    // destination (Progress), and the self score is 'Self'
+    // everywhere — the chart legend carries both scales.
+    testWidgets('R4: eyebrow is Progress; the chart legend '
+        'names Self with its 1–10 scale', (tester) async {
+      await tester.runAsync(() async {
+        await today.addTemplate('Read');
+        final yesterday = DateTime.now().subtract(const Duration(days: 1));
+        await closeOn(yesterday, self: 8);
+        await pumpScreen(tester);
+        expect(find.text('PROGRESS'), findsOneWidget);
+        // Scroll the numbers card into the built region.
+        for (var i = 0; i < 12; i++) {
+          if (find
+              .text('Self — how it felt (1–10)')
+              .evaluate()
+              .isNotEmpty) {
+            break;
+          }
+          await tester.drag(find.byType(ListView), const Offset(0, -300));
+          await Future<void>.delayed(const Duration(milliseconds: 60));
+          await tester.pump();
+        }
+        expect(find.text('Done — what got done (0–100)'), findsOneWidget);
+        expect(find.text('Self — how it felt (1–10)'), findsOneWidget);
+        expect(find.textContaining('Mine'), findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+    });
   });
 }
 

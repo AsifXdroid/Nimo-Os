@@ -229,9 +229,9 @@ void main() {
           reviewStore: s.review,
         ),
       );
-      await _pumpUntil(tester, find.text('YOUR JOURNEY'));
+      await _pumpUntil(tester, find.text('PROGRESS'));
       expect(
-        tester.getTopLeft(find.text('YOUR JOURNEY')).dy,
+        tester.getTopLeft(find.text('PROGRESS')).dy,
         greaterThanOrEqualTo(47),
       );
 

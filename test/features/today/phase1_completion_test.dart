@@ -247,6 +247,22 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(theme: AppTheme.neoDark(), home: agendaOf(h)),
       );
+      // The week strip is a PageView and only the visible week
+      // is built. today+3 falls in the NEXT week whenever this
+      // test runs on a Friday, Saturday or Sunday, so its cell
+      // does not exist until the strip is paged there (this is
+      // why the test passed Mon–Thu and failed Fri–Sun). Page
+      // to the target week first, like a user swiping.
+      final weeksAhead =
+          mondayOf(futureDate).difference(mondayOf(DateTime.now())).inDays ~/ 7;
+      if (weeksAhead > 0) {
+        await until(tester, find.byType(PageView), 'week strip');
+        final strip = tester.widget<PageView>(find.byType(PageView));
+        strip.controller!.jumpToPage(
+          strip.controller!.page!.round() + weeksAhead,
+        );
+        await tester.pump(const Duration(milliseconds: 120));
+      }
       // Select the future date via its week-strip cell
       // (UX Phase 3: the strip replaced the month grid; the
       // keyed cell is unique, where the semantics label now

@@ -143,7 +143,7 @@ void main() {
         // host's second tab, in place — no route push.
         await tester.tap(find.text('Organise'));
         expect(await pollFor(find.text('Everything has a place.')), isTrue);
-        expect(await pollFor(find.textContaining('No workspaces yet')), isTrue);
+        expect(await pollFor(find.textContaining('No spaces yet')), isTrue);
       });
     },
   );

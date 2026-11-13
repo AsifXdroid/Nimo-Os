@@ -65,8 +65,7 @@ Future<GoalInput?> promptGoal(BuildContext context) {
           ),
           TextField(
             controller: unit,
-            decoration:
-                const InputDecoration(labelText: 'Unit (optional)'),
+            decoration: const InputDecoration(labelText: 'Unit (optional)'),
           ),
         ],
       ),
@@ -83,10 +82,11 @@ Future<GoalInput?> promptGoal(BuildContext context) {
               Navigator.pop(context);
               return;
             }
-            Navigator.pop(
-              context,
-              (title: t, target: n, unit: unit.text.trim()),
-            );
+            Navigator.pop(context, (
+              title: t,
+              target: n,
+              unit: unit.text.trim(),
+            ));
           },
           child: const Text('Save'),
         ),
@@ -95,12 +95,24 @@ Future<GoalInput?> promptGoal(BuildContext context) {
   );
 }
 
-Future<bool> confirmDelete(BuildContext context, String what) async {
+/// Delete confirmation (B-08 copy rule): the dialog must
+/// state the blast radius — pass [scope] naming what else
+/// will be deleted, so "This cannot be undone" is never the
+/// whole story for a cascading delete.
+Future<bool> confirmDelete(
+  BuildContext context,
+  String what, {
+  String? scope,
+}) async {
   final ok = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
       title: Text('Delete $what?'),
-      content: const Text('This cannot be undone.'),
+      content: Text(
+        scope == null
+            ? 'This cannot be undone.'
+            : '$scope This cannot be undone.',
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),

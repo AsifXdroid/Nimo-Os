@@ -87,11 +87,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  /// The tab strip: two text tabs on a hairline, the selected
-  /// one in ink with a short mint rule beneath it — the
-  /// DirectionScreen strip, unchanged.
+  /// The tab strip (redesign R3, B system): a segmented
+  /// capsule in the nav bar's language — a raised track,
+  /// the selected segment a light pill. Both labels stay
+  /// plain text so the strip reads at a glance.
   Widget _tabStrip(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
     Widget tab(LibraryTab value, String label) {
       final selected = _tab == value;
       return Expanded(
@@ -101,22 +104,23 @@ class _LibraryScreenState extends State<LibraryScreen> {
           label: label,
           child: InkWell(
             onTap: () => setState(() => _tab = value),
+            borderRadius: BorderRadius.circular(RadiusToken.round),
             child: Container(
               constraints: const BoxConstraints(minHeight: Space.touch),
               alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(vertical: Space.s3),
+              padding: const EdgeInsets.symmetric(vertical: Space.s2),
               decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: selected ? scheme.primary : Colors.transparent,
-                    width: 2,
-                  ),
-                ),
+                color: selected
+                    ? (dark
+                          ? Colors.white.withValues(alpha: 0.14)
+                          : scheme.surface)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(RadiusToken.round),
               ),
               child: Text(
                 label,
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                style: theme.textTheme.titleSmall?.copyWith(
                   color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                 ),
@@ -127,15 +131,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
       );
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: scheme.outlineVariant)),
-      ),
-      child: Row(
-        children: [
-          tab(LibraryTab.learn, 'Learn'),
-          tab(LibraryTab.organise, 'Organise'),
-        ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.page, Space.s3, Space.page, 0),
+      child: Container(
+        padding: const EdgeInsets.all(Space.s1),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(RadiusToken.round),
+        ),
+        child: Row(
+          children: [
+            tab(LibraryTab.learn, 'Learn'),
+            tab(LibraryTab.organise, 'Organise'),
+          ],
+        ),
       ),
     );
   }

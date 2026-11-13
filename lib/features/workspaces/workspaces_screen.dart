@@ -187,7 +187,7 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
   }
 
   Future<void> _add() async {
-    final name = await promptText(context, title: 'New workspace');
+    final name = await promptText(context, title: 'New space');
     if (name == null || name.isEmpty) return;
     await widget.store.createWorkspace(name);
     setState(_reload);
@@ -209,8 +209,9 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
             ),
             ListTile(
               leading: Icon(
-                  ws.pinned ? Icons.push_pin : Icons.push_pin_outlined),
-              title: Text(ws.pinned ? 'Unpin from Home' : 'Pin to Home'),
+                ws.pinned ? Icons.push_pin : Icons.push_pin_outlined,
+              ),
+              title: Text(ws.pinned ? 'Unpin from Today' : 'Pin to Today'),
               onTap: () => Navigator.pop(context, 'pin'),
             ),
             ListTile(
@@ -225,14 +226,28 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
     if (!mounted || action == null) return;
     switch (action) {
       case 'rename':
-        final name = await promptText(context,
-            title: 'Rename workspace', initial: ws.name);
+        final name = await promptText(
+          context,
+          title: 'Rename space',
+          initial: ws.name,
+        );
         if (name == null || name.isEmpty) return;
         await widget.store.renameWorkspace(ws.id, name);
       case 'pin':
         await widget.store.setWorkspacePinned(ws.id, !ws.pinned);
       case 'delete':
-        if (!await confirmDelete(context, 'workspace')) return;
+        final count = await widget.store.projects(ws.id).then((p) => p.length);
+        if (!mounted) return;
+        if (!await confirmDelete(
+          context,
+          'space "${ws.name}"',
+          scope: count == 0
+              ? 'The space is empty.'
+              : 'This also deletes its $count '
+                    'project${count == 1 ? '' : 's'} and everything in them.',
+        )) {
+          return;
+        }
         await widget.store.deleteWorkspace(ws.id);
     }
     setState(_reload);
@@ -247,19 +262,51 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
         child: FutureBuilder<_SpacesData>(
           future: _data,
           builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              // B-11: a failed load is an error state with a
+              // retry, never an endless skeleton.
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(Gap.md),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Spaces could not be loaded. '
+                        'Your records are unchanged.',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: Gap.md),
+                      FilledButton(
+                        onPressed: () => setState(_reload),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
             if (!snapshot.hasData) {
               return const Padding(
                 padding: EdgeInsets.fromLTRB(
-                    Space.page, Gap.md, Space.page, Gap.lg),
+                  Space.page,
+                  Gap.md,
+                  Space.page,
+                  Gap.lg,
+                ),
                 child: DelayedSkeleton(skeleton: SkeletonList(panels: 2)),
               );
             }
             final data = snapshot.data!;
             // D-052: solid canvas (glass atmosphere retired).
             return ListView(
-                padding: const EdgeInsets.fromLTRB(
-                    Space.page, Gap.md, Space.page, 110.0),
-                children: [
+              padding: const EdgeInsets.fromLTRB(
+                Space.page,
+                Gap.md,
+                Space.page,
+                110.0,
+              ),
+              children: [
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -287,8 +334,9 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
                           const SizedBox(height: Gap.sm),
                           Text(
                             'Everything has a place.',
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(color: scheme.onSurfaceVariant),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
                           ),
                         ],
                       ),
@@ -314,7 +362,7 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
                 const SizedBox(height: Space.s3),
                 if (data.workspaces.isEmpty)
                   Text(
-                    'No workspaces yet — create one to begin.',
+                    'No spaces yet — create one to begin.',
                     style: theme.textTheme.bodyMedium,
                   )
                 else
@@ -355,13 +403,19 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
   }
 
   /// One space as a quiet row: serif initial square, name,
-  /// project count, and chevron. Tap opens the workspace; long-press manages it.
-  Widget _spaceRow(BuildContext context, Workspace ws,
-      {required bool last, int projectCount = 0}) {
+  /// project count, a visible ⋯ for management, and chevron.
+  /// Tap opens the workspace; the ⋯ (or a long-press) manages it.
+  Widget _spaceRow(
+    BuildContext context,
+    Workspace ws, {
+    required bool last,
+    int projectCount = 0,
+  }) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final projectText =
-        projectCount == 1 ? '1 project' : '$projectCount projects';
+    final projectText = projectCount == 1
+        ? '1 project'
+        : '$projectCount projects';
     return Container(
       decoration: BoxDecoration(
         border: Border(
@@ -420,10 +474,23 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
                 ),
               ),
               if (ws.pinned)
-                Icon(Icons.push_pin_outlined,
-                    size: 16, color: scheme.onSurfaceVariant),
-              Icon(Icons.chevron_right,
-                  size: 20, color: scheme.onSurfaceVariant),
+                Icon(
+                  Icons.push_pin_outlined,
+                  size: 16,
+                  color: scheme.onSurfaceVariant,
+                ),
+              // B-09: management is discoverable — a visible
+              // ⋯ opens the same sheet long-press opens.
+              IconButton(
+                tooltip: 'Space options',
+                icon: const Icon(Icons.more_vert, size: 20),
+                onPressed: () => _workspaceActions(ws),
+              ),
+              Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: scheme.onSurfaceVariant,
+              ),
             ],
           ),
         ),
@@ -453,74 +520,74 @@ class _WorkspacesScreenState extends State<WorkspacesScreen> {
             child: Container(
               padding: const EdgeInsets.all(Space.s4),
               child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: scheme.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(RadiusToken.control),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    Icons.inbox_outlined,
-                    color: scheme.primary,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: Space.s4),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Inbox',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: Space.s1),
-                      Text(
-                        'Quick captures and incoming notes',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Space.s3,
-                    vertical: Space.s1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: count > 0
-                        ? scheme.surfaceContainerHigh
-                        : scheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(RadiusToken.round),
-                  ),
-                  child: Text(
-                    countText,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: count > 0
-                          ? scheme.onSurface
-                          : scheme.onSurfaceVariant,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(RadiusToken.control),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.inbox_outlined,
+                      color: scheme.primary,
+                      size: 22,
                     ),
                   ),
-                ),
-                const SizedBox(width: Space.s2),
-                Icon(
-                  Icons.chevron_right,
-                  size: 20,
-                  color: scheme.onSurfaceVariant,
-                ),
-              ],
+                  const SizedBox(width: Space.s4),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Inbox',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: Space.s1),
+                        Text(
+                          'Quick captures and incoming notes',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Space.s3,
+                      vertical: Space.s1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: count > 0
+                          ? scheme.surfaceContainerHigh
+                          : scheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(RadiusToken.round),
+                    ),
+                    child: Text(
+                      countText,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: count > 0
+                            ? scheme.onSurface
+                            : scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: Space.s2),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 20,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }

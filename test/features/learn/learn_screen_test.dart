@@ -7,6 +7,7 @@ import 'dart:io';
 
 import 'package:daily_life_app/core/db/app_database.dart';
 import 'package:daily_life_app/core/theme.dart';
+import 'package:daily_life_app/features/learn/learn_engine_store.dart';
 import 'package:daily_life_app/features/learn/learn_screen.dart';
 import 'package:daily_life_app/features/learn/learn_services.dart';
 import 'package:daily_life_app/features/learn/learn_store.dart';
@@ -241,6 +242,91 @@ void main() {
         isNotNull,
         reason: 'due count is 5 — the gate opens',
       );
+    });
+  });
+
+  // Redesign R3 (B-04): the Continue surface gathers what is
+  // already in progress — a topic in 'learning' status and a
+  // pack part-way through its cards — at the top of Learn.
+  testWidgets('Continue: learning topic and part-finished pack '
+      'surface; nothing in progress, no section', (tester) async {
+    await tester.runAsync(() async {
+      Future<bool> pollFor(Finder finder) async {
+        for (var i = 0; i < 40; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+          await tester.pump(const Duration(milliseconds: 50));
+          if (finder.evaluate().isNotEmpty) return true;
+        }
+        return false;
+      }
+
+      final db = await AppDatabase.openInMemory();
+      await _wipe(db);
+      final tmp = await Directory.systemTemp.createTemp('nimo-continue-');
+      try {
+        final library = LibraryStore(Directory('${tmp.path}/Library'));
+        await library.ensureLayout();
+        final learnStore = LearnStore(db);
+        final learn = LearnServices(learnStore, library, db: db);
+        final store = Store(db);
+        final ws = await store.createWorkspace('W');
+        final prj = await store.createProject(ws.id, 'P');
+        final idle = await learnStore.createTopic(
+          projectId: prj.id,
+          title: 'Idle topic',
+        );
+        final todayStore = TodayStore(db);
+        Widget screen() => MaterialApp(
+          theme: AppTheme.forPlate(AppPlate.midnight),
+          home: LearnScreen(
+            learn: learn,
+            reviewStore: ReviewStore(db, todayStore),
+            store: store,
+          ),
+        );
+
+        // Nothing in progress: no Continue section.
+        await tester.pumpWidget(screen());
+        expect(await pollFor(find.text('Your topics')), isTrue);
+        expect(find.text('Continue'), findsNothing);
+
+        // A topic enters 'learning'; a pack gets 1 of 4 cards
+        // answered. Both are existing state, no new tracking.
+        await learnStore.updateTopic(idle.id, status: 'learning');
+        await learn.engine.recordPack(
+          packId: 'cont-pack',
+          version: '1.0.0',
+          title: 'Conversation Pack',
+          topicId: idle.id,
+          questionCount: 4,
+        );
+        LearnQuestion? first;
+        for (var i = 0; i < 4; i++) {
+          final q = await learn.engine.insertQuestion(
+            topicId: idle.id,
+            packId: 'cont-pack',
+            packQid: 'cq$i',
+            type: 'mcq',
+            payload: _mcq(i),
+          );
+          first ??= q;
+        }
+        await learn.engine.applyAnswer(
+          first!.id,
+          correct: true,
+          latencyMs: 100,
+          now: DateTime.now(),
+        );
+
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpWidget(screen());
+        expect(await pollFor(find.text('Continue')), isTrue);
+        expect(find.text('Idle topic'), findsWidgets);
+        expect(find.textContaining('In progress'), findsOneWidget);
+        expect(find.text('1 of 4 cards started'), findsOneWidget);
+      } finally {
+        await tmp.delete(recursive: true);
+      }
     });
   });
 }

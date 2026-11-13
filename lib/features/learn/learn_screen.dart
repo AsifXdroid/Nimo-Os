@@ -1,9 +1,10 @@
 /// LEARN — the session-first landing (S5 step C2b, §R2.3).
 ///
 /// Sessions lead, content follows: the Start card (due/new
-/// counts + one tap into a review session), Continue cards for
-/// packs with an episode arc (episode + boss), the pack list,
-/// and the image-target verification queue when it is non-empty.
+/// counts + one tap into a review session), the Continue
+/// surface (arcs, in-progress topics, part-finished packs),
+/// the pack list, and the image-target verification queue
+/// when it is non-empty.
 library;
 
 import 'package:flutter/material.dart';
@@ -59,7 +60,13 @@ class _LearnScreenState extends State<LearnScreen> {
   /// already IS the union — adding newCount on top double-counts
   /// every fresh question and opens the gate early.
   Map<String, int> _packDueCounts = const {};
+
+  /// packId → never-answered count. Started = questionCount
+  /// minus this; the Continue section (B-04) reads it to find
+  /// packs that are part-way through.
+  Map<String, int> _packNewCounts = const {};
   bool _loaded = false;
+  bool _loadFailed = false;
 
   LearnEngineStore get _engine => widget.learn.engine;
 
@@ -70,32 +77,43 @@ class _LearnScreenState extends State<LearnScreen> {
   }
 
   Future<void> _load() async {
-    final due = await _engine.dueCount();
-    final fresh = await _engine.newCount();
-    final packs = await _engine.allPacks();
-    final topics = await widget.learn.store.allTopics();
-    final names = <int, String>{};
-    for (final ws in await widget.store.workspaces()) {
-      for (final prj in await widget.store.projects(ws.id)) {
-        names[prj.id] = prj.name;
+    try {
+      final due = await _engine.dueCount();
+      final fresh = await _engine.newCount();
+      final packs = await _engine.allPacks();
+      final topics = await widget.learn.store.allTopics();
+      final names = <int, String>{};
+      for (final ws in await widget.store.workspaces()) {
+        for (final prj in await widget.store.projects(ws.id)) {
+          names[prj.id] = prj.name;
+        }
       }
+      final pending = await _engine.verifyPendingQuestions();
+      final dueCounts = <String, int>{};
+      final newCounts = <String, int>{};
+      for (final pack in packs) {
+        dueCounts[pack.packId] = await _engine.dueCount(packId: pack.packId);
+        newCounts[pack.packId] = await _engine.newCount(packId: pack.packId);
+      }
+      if (!mounted) return;
+      setState(() {
+        _due = due;
+        _new = fresh;
+        _packs = packs;
+        _topics = topics;
+        _projectNames = names;
+        _verifyPending = pending;
+        _packDueCounts = dueCounts;
+        _packNewCounts = newCounts;
+        _loaded = true;
+        _loadFailed = false;
+      });
+    } catch (_) {
+      // B-11: a failed load is an error state with a retry,
+      // never an endless skeleton (the Progress pattern).
+      if (!mounted) return;
+      setState(() => _loadFailed = true);
     }
-    final pending = await _engine.verifyPendingQuestions();
-    final dueCounts = <String, int>{};
-    for (final pack in packs) {
-      dueCounts[pack.packId] = await _engine.dueCount(packId: pack.packId);
-    }
-    if (!mounted) return;
-    setState(() {
-      _due = due;
-      _new = fresh;
-      _packs = packs;
-      _topics = topics;
-      _projectNames = names;
-      _verifyPending = pending;
-      _packDueCounts = dueCounts;
-      _loaded = true;
-    });
   }
 
   Future<void> _openTopic(Topic topic) async {
@@ -172,6 +190,35 @@ class _LearnScreenState extends State<LearnScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loadFailed && !_loaded) {
+      return Scaffold(
+        body: PageTop(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(Gap.md),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Learn could not be loaded. '
+                    'Your records are unchanged.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: Gap.md),
+                  FilledButton(
+                    onPressed: () {
+                      setState(() => _loadFailed = false);
+                      _load();
+                    },
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     if (!_loaded) {
       return const Scaffold(
         body: PageTop(
@@ -226,12 +273,7 @@ class _LearnScreenState extends State<LearnScreen> {
               const SizedBox(height: Gap.md),
               _compactSessionBar(context, total),
             ],
-            if (arcPacks.isNotEmpty) ...[
-              const SizedBox(height: Gap.lg),
-              const NeoSectionHead(title: 'Continue exploring'),
-              const SizedBox(height: Space.s3),
-              for (final pack in arcPacks) _continueCard(context, pack),
-            ],
+            ..._continueSection(context, arcPacks),
             const SizedBox(height: Gap.lg),
             NeoSectionHead(
               title: 'Your topics',
@@ -396,6 +438,74 @@ class _LearnScreenState extends State<LearnScreen> {
           ),
       ],
     );
+  }
+
+  /// The Continue surface (B-04): everything already in
+  /// progress, in one place at the top of Learn — pack arcs
+  /// (episode + boss), topics in 'learning' status, and
+  /// packs part-way through their cards. It presents only
+  /// state the stores already keep; nothing new is tracked.
+  List<Widget> _continueSection(
+    BuildContext context,
+    List<PackRecord> arcPacks,
+  ) {
+    final learningTopics = [
+      for (final t in _topics)
+        if (t.status == 'learning') t,
+    ];
+    final partialPacks = [
+      for (final p in _packs)
+        if (p.arc == null &&
+            p.questionCount > 0 &&
+            (_packNewCounts[p.packId] ?? p.questionCount) < p.questionCount &&
+            (_packNewCounts[p.packId] ?? 0) > 0)
+          p,
+    ];
+    if (arcPacks.isEmpty && learningTopics.isEmpty && partialPacks.isEmpty) {
+      return const [];
+    }
+    final rows = <Widget>[];
+    var extraRows = 0;
+    for (final t in learningTopics) {
+      if (extraRows >= 3) break;
+      extraRows++;
+      rows.add(
+        NeoListRow(
+          icon: Icons.lightbulb_outline,
+          title: t.title,
+          sub: [
+            'In progress',
+            if (_projectNames[t.projectId] != null) _projectNames[t.projectId]!,
+          ].join(' · '),
+          last: false,
+          onTap: () => _openTopic(t),
+        ),
+      );
+    }
+    for (final p in partialPacks) {
+      if (extraRows >= 3) break;
+      extraRows++;
+      final started = p.questionCount - (_packNewCounts[p.packId] ?? 0);
+      rows.add(
+        NeoListRow(
+          icon: Icons.style_outlined,
+          title: p.title,
+          sub: '$started of ${p.questionCount} cards started',
+          last: false,
+          trailing: OutlinedButton(
+            onPressed: () => _openSession(SessionKind.review, packId: p.packId),
+            child: const Text('Play'),
+          ),
+        ),
+      );
+    }
+    return [
+      const SizedBox(height: Gap.lg),
+      const NeoSectionHead(title: 'Continue'),
+      const SizedBox(height: Space.s3),
+      for (final pack in arcPacks) _continueCard(context, pack),
+      ...rows,
+    ];
   }
 
   Widget _continueCard(BuildContext context, PackRecord pack) {

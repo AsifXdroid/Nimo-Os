@@ -1,10 +1,10 @@
-/// LEARN — Topics & Library (D-050 Redesign): Clean, tabbed navigation
-/// separating Topics management from Source Library browsing.
+/// LEARN — Topics & Sources (D-050; renamed in redesign
+/// R3 per the adopted IA: one name per concept).
 ///
 /// Tab 1: Topics — Filterable by status (All, Inbox, Active, Parked),
 /// with clear tracks and quick action to create a new topic.
 ///
-/// Tab 2: Library — Dedicated overview of all imported materials
+/// Tab 2: Sources — Dedicated overview of all imported materials
 /// (PDFs, text notes, HTML files, links) with file stats and direct opening.
 library;
 
@@ -48,6 +48,7 @@ class _TopicsScreenState extends State<TopicsScreen>
   ({int files, int bytes}) _stats = (files: 0, bytes: 0);
   int _inboxProjectId = 0;
   bool _loaded = false;
+  bool _loadFailed = false;
 
   // Filter state for Topics tab
   String _selectedFilter = 'All'; // 'All', 'Inbox', 'active', 'parked', 'done'
@@ -67,25 +68,33 @@ class _TopicsScreenState extends State<TopicsScreen>
   }
 
   Future<void> _load() async {
-    final inboxId = await widget.learn.store.inboxProjectId();
-    final all = await widget.learn.store.allTopics();
-    final sources = await widget.learn.store.allSources();
-    final names = <int, String>{};
-    for (final ws in await widget.store.workspaces()) {
-      for (final prj in await widget.store.projects(ws.id)) {
-        names[prj.id] = prj.name;
+    try {
+      final inboxId = await widget.learn.store.inboxProjectId();
+      final all = await widget.learn.store.allTopics();
+      final sources = await widget.learn.store.allSources();
+      final names = <int, String>{};
+      for (final ws in await widget.store.workspaces()) {
+        for (final prj in await widget.store.projects(ws.id)) {
+          names[prj.id] = prj.name;
+        }
       }
+      final stats = await widget.learn.library.stats();
+      if (!mounted) return;
+      setState(() {
+        _inboxProjectId = inboxId;
+        _allTopics = all;
+        _allSources = sources;
+        _projectNames = names;
+        _stats = stats;
+        _loaded = true;
+        _loadFailed = false;
+      });
+    } catch (_) {
+      // B-11: a failed load is an error state with a retry,
+      // never an endless skeleton (the Progress pattern).
+      if (!mounted) return;
+      setState(() => _loadFailed = true);
     }
-    final stats = await widget.learn.library.stats();
-    if (!mounted) return;
-    setState(() {
-      _inboxProjectId = inboxId;
-      _allTopics = all;
-      _allSources = sources;
-      _projectNames = names;
-      _stats = stats;
-      _loaded = true;
-    });
   }
 
   Future<void> _openTopic(Topic topic) async {
@@ -103,8 +112,7 @@ class _TopicsScreenState extends State<TopicsScreen>
   }
 
   Future<void> _newTopic() async {
-    final title =
-        await promptText(context, title: 'New topic', label: 'Title');
+    final title = await promptText(context, title: 'New topic', label: 'Title');
     if (title == null || title.isEmpty) return;
     final topic = await widget.learn.store.createTopic(
       projectId: _inboxProjectId,
@@ -128,8 +136,7 @@ class _TopicsScreenState extends State<TopicsScreen>
         await Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) =>
-                ReadingScreen(learn: widget.learn, source: source),
+            builder: (_) => ReadingScreen(learn: widget.learn, source: source),
           ),
         );
       case SourceKind.link:
@@ -151,7 +158,9 @@ class _TopicsScreenState extends State<TopicsScreen>
     final picked = await openFile(
       acceptedTypeGroups: const [
         XTypeGroup(
-            label: 'Documents', extensions: ['pdf', 'txt', 'md', 'html']),
+          label: 'Documents',
+          extensions: ['pdf', 'txt', 'md', 'html'],
+        ),
         XTypeGroup(label: 'All files'),
       ],
     );
@@ -168,15 +177,13 @@ class _TopicsScreenState extends State<TopicsScreen>
             ListTile(
               leading: const Icon(Icons.add),
               title: const Text('New topic (Inbox)'),
-              onTap: () =>
-                  Navigator.pop(context, (isNew: true, topic: null)),
+              onTap: () => Navigator.pop(context, (isNew: true, topic: null)),
             ),
             for (final t in topics)
               ListTile(
                 leading: const Icon(Icons.lightbulb_outline),
                 title: Text(t.title),
-                onTap: () =>
-                    Navigator.pop(context, (isNew: false, topic: t)),
+                onTap: () => Navigator.pop(context, (isNew: false, topic: t)),
               ),
           ],
         ),
@@ -196,12 +203,15 @@ class _TopicsScreenState extends State<TopicsScreen>
         originalName: picked.name,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(source.kind == SourceKind.pdf ||
-                source.kind == SourceKind.txt
-            ? ExtractionStatus.describe(source.extractionStatus)
-            : 'Imported into “${topic.title}”.'),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            source.kind == SourceKind.pdf || source.kind == SourceKind.txt
+                ? ExtractionStatus.describe(source.extractionStatus)
+                : 'Imported into “${topic.title}”.',
+          ),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -229,12 +239,13 @@ class _TopicsScreenState extends State<TopicsScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final inboxCount =
-        _allTopics.where((t) => t.projectId == _inboxProjectId).length;
+    final inboxCount = _allTopics
+        .where((t) => t.projectId == _inboxProjectId)
+        .length;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Knowledge Hub'),
+        title: const Text('Topics'),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: scheme.primary,
@@ -255,7 +266,7 @@ class _TopicsScreenState extends State<TopicsScreen>
                 children: [
                   const Icon(Icons.folder_outlined, size: 18),
                   const SizedBox(width: 8),
-                  Text('Library (${_allSources.length})'),
+                  Text('Sources (${_allSources.length})'),
                 ],
               ),
             ),
@@ -273,18 +284,43 @@ class _TopicsScreenState extends State<TopicsScreen>
         icon: const Icon(Icons.add),
         label: Text(_tabController.index == 0 ? 'New Topic' : 'Add Source'),
       ),
-      body: !_loaded
+      body: _loadFailed && !_loaded
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(Gap.md),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Topics could not be loaded. '
+                      'Your records are unchanged.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: Gap.md),
+                    FilledButton(
+                      onPressed: () {
+                        setState(() => _loadFailed = false);
+                        _load();
+                      },
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : !_loaded
           ? const Padding(
               padding: EdgeInsets.fromLTRB(
-                  Space.page, Gap.md, Space.page, Gap.lg),
+                Space.page,
+                Gap.md,
+                Space.page,
+                Gap.lg,
+              ),
               child: DelayedSkeleton(skeleton: SkeletonList(panels: 2)),
             )
           : TabBarView(
               controller: _tabController,
-              children: [
-                _topicsTab(context, inboxCount),
-                _libraryTab(context),
-              ],
+              children: [_topicsTab(context, inboxCount), _sourcesTab(context)],
             ),
     );
   }
@@ -294,8 +330,7 @@ class _TopicsScreenState extends State<TopicsScreen>
     final displayed = _filteredTopics;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(
-          Space.page, Gap.md, Space.page, 80),
+      padding: const EdgeInsets.fromLTRB(Space.page, Gap.md, Space.page, 80),
       children: [
         // Quick search bar
         TextField(
@@ -304,7 +339,9 @@ class _TopicsScreenState extends State<TopicsScreen>
             prefixIcon: const Icon(Icons.search, size: 20),
             isDense: true,
             filled: true,
-            fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+            fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
+              alpha: 0.4,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -322,11 +359,20 @@ class _TopicsScreenState extends State<TopicsScreen>
               const SizedBox(width: 8),
               _filterChip('Inbox', inboxCount),
               const SizedBox(width: 8),
-              _filterChip('active', _allTopics.where((t) => t.status == 'active').length),
+              _filterChip(
+                'active',
+                _allTopics.where((t) => t.status == 'active').length,
+              ),
               const SizedBox(width: 8),
-              _filterChip('parked', _allTopics.where((t) => t.status == 'parked').length),
+              _filterChip(
+                'parked',
+                _allTopics.where((t) => t.status == 'parked').length,
+              ),
               const SizedBox(width: 8),
-              _filterChip('done', _allTopics.where((t) => t.status == 'done').length),
+              _filterChip(
+                'done',
+                _allTopics.where((t) => t.status == 'done').length,
+              ),
             ],
           ),
         ),
@@ -337,7 +383,11 @@ class _TopicsScreenState extends State<TopicsScreen>
             child: Center(
               child: Column(
                 children: [
-                  Icon(Icons.lightbulb_outline, size: 48, color: theme.colorScheme.outline),
+                  Icon(
+                    Icons.lightbulb_outline,
+                    size: 48,
+                    color: theme.colorScheme.outline,
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     _searchQuery.isNotEmpty
@@ -367,10 +417,10 @@ class _TopicsScreenState extends State<TopicsScreen>
     final displayLabel = label == 'active'
         ? 'Active'
         : label == 'parked'
-            ? 'Parked'
-            : label == 'done'
-                ? 'Done'
-                : label;
+        ? 'Parked'
+        : label == 'done'
+        ? 'Done'
+        : label;
 
     return FilterChip(
       selected: selected,
@@ -387,13 +437,12 @@ class _TopicsScreenState extends State<TopicsScreen>
     );
   }
 
-  Widget _libraryTab(BuildContext context) {
+  Widget _sourcesTab(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(
-          Space.page, Gap.md, Space.page, 80),
+      padding: const EdgeInsets.fromLTRB(Space.page, Gap.md, Space.page, 80),
       children: [
         // Storage banner
         NeoPanel(
@@ -406,7 +455,11 @@ class _TopicsScreenState extends State<TopicsScreen>
                   color: scheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(Icons.source_outlined, color: scheme.primary, size: 28),
+                child: Icon(
+                  Icons.source_outlined,
+                  color: scheme.primary,
+                  size: 28,
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -414,13 +467,17 @@ class _TopicsScreenState extends State<TopicsScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${_stats.files} files · ${(_stats.bytes / 1024).toStringAsFixed(0)} KB in local library',
-                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                      '${_stats.files} files · ${(_stats.bytes / 1024).toStringAsFixed(0)} KB stored on this device',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'PDFs, notes & learning assets',
-                      style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -442,12 +499,13 @@ class _TopicsScreenState extends State<TopicsScreen>
             child: Center(
               child: Column(
                 children: [
-                  Icon(Icons.folder_open_outlined, size: 48, color: scheme.outline),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Your Library is currently empty.',
-                    style: theme.textTheme.bodyMedium,
+                  Icon(
+                    Icons.folder_open_outlined,
+                    size: 48,
+                    color: scheme.outline,
                   ),
+                  const SizedBox(height: 12),
+                  Text('No sources yet.', style: theme.textTheme.bodyMedium),
                   const SizedBox(height: 8),
                   FilledButton.icon(
                     onPressed: _importDocument,
@@ -481,8 +539,8 @@ class _TopicsScreenState extends State<TopicsScreen>
 
     final subtitle = switch (s.kind) {
       SourceKind.link => s.url ?? '',
-      SourceKind.pdf || SourceKind.txt =>
-        ExtractionStatus.describe(s.extractionStatus),
+      SourceKind.pdf ||
+      SourceKind.txt => ExtractionStatus.describe(s.extractionStatus),
       _ => s.fileRelPath ?? '',
     };
 
@@ -502,8 +560,8 @@ class _TopicsScreenState extends State<TopicsScreen>
       icon: t.triggerUrl != null
           ? Icons.link
           : isInbox
-              ? Icons.inbox_outlined
-              : Icons.lightbulb_outline,
+          ? Icons.inbox_outlined
+          : Icons.lightbulb_outline,
       title: t.title,
       sub: [
         if (isInbox) 'Inbox' else _projectNames[t.projectId] ?? '',

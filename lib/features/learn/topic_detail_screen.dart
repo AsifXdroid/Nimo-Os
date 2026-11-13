@@ -76,7 +76,8 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
   }
 
   Future<void> _practiceTopic() async {
-    final reviewStore = widget.reviewStore ??
+    final reviewStore =
+        widget.reviewStore ??
         ReviewStore(widget.learn.db, TodayStore(widget.learn.db));
     await Navigator.push(
       context,
@@ -94,39 +95,51 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
   }
 
   Future<void> _buildClozeCards() async {
-    final minted =
-        await widget.learn.engine.mintClozeFromMarkedPoints(_topic.id);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$minted cloze cards added')),
+    final minted = await widget.learn.engine.mintClozeFromMarkedPoints(
+      _topic.id,
     );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('$minted cloze cards added')));
     _load();
   }
 
   Future<void> _importPack() async {
-    await showPackImportFlow(context,
-        learn: widget.learn, fixedTopicId: _topic.id);
+    await showPackImportFlow(
+      context,
+      learn: widget.learn,
+      fixedTopicId: _topic.id,
+    );
     _load();
   }
 
   // ------------------------------------------------------------ topic meta
 
   Future<void> _rename() async {
-    final name = await promptText(context,
-        title: 'Rename topic', initial: _topic.title, label: 'Title');
+    final name = await promptText(
+      context,
+      title: 'Rename topic',
+      initial: _topic.title,
+      label: 'Title',
+    );
     if (name == null || name.isEmpty) return;
     await widget.learn.store.updateTopic(_topic.id, title: name);
     _load();
   }
 
   Future<void> _editTrack() async {
-    final track = await promptText(context,
-        title: 'Learning track',
-        initial: _topic.track ?? '',
-        label: 'Track (e.g. Arabic, Health, Money)');
+    final track = await promptText(
+      context,
+      title: 'Learning track',
+      initial: _topic.track ?? '',
+      label: 'Track (e.g. Arabic, Health, Money)',
+    );
     if (track == null) return;
-    await widget.learn.store.updateTopic(_topic.id,
-        track: track, clearTrack: track.isEmpty);
+    await widget.learn.store.updateTopic(
+      _topic.id,
+      track: track,
+      clearTrack: track.isEmpty,
+    );
     _load();
   }
 
@@ -163,12 +176,26 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
   }
 
   Future<void> _deleteTopic() async {
-    if (!await confirmDelete(context, 'topic')) return;
+    // Fetch the sources first so the confirmation can state
+    // the scope (B-08): the cascade takes them, their files,
+    // and the topic's packs and questions with it.
+    final sources = await widget.learn.store.sourcesForTopic(_topic.id);
+    if (!mounted) return;
+    if (!await confirmDelete(
+      context,
+      'topic "${_topic.title}"',
+      scope: sources.isEmpty
+          ? 'It has no sources.'
+          : 'This also deletes its ${sources.length} '
+                'source${sources.length == 1 ? '' : 's'} (including their '
+                'files), packs and questions.',
+    )) {
+      return;
+    }
     // Remove the sources' Library files too — deleting a topic
     // must not leave its PDFs/texts behind in the Library, in
     // stats, and in every future backup (the per-source delete
     // below has always done this; the topic path must match).
-    final sources = await widget.learn.store.sourcesForTopic(_topic.id);
     await widget.learn.store.deleteTopic(_topic.id);
     for (final source in sources) {
       final rel = source.fileRelPath;
@@ -185,8 +212,7 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
   Future<void> _addLink() async {
     final url = await promptText(context, title: 'Add link', label: 'URL');
     if (url == null || url.isEmpty) return;
-    await widget.learn.imports
-        .importLink(topicId: _topic.id, url: url);
+    await widget.learn.imports.importLink(topicId: _topic.id, url: url);
     _load();
   }
 
@@ -194,7 +220,9 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
     final picked = await openFile(
       acceptedTypeGroups: const [
         XTypeGroup(
-            label: 'Documents', extensions: ['pdf', 'txt', 'md', 'html']),
+          label: 'Documents',
+          extensions: ['pdf', 'txt', 'md', 'html'],
+        ),
         XTypeGroup(label: 'All files'),
       ],
     );
@@ -206,12 +234,15 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
         originalName: picked.name,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(source.kind == SourceKind.pdf ||
-                source.kind == SourceKind.txt
-            ? ExtractionStatus.describe(source.extractionStatus)
-            : 'File added to the Library.'),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            source.kind == SourceKind.pdf || source.kind == SourceKind.txt
+                ? ExtractionStatus.describe(source.extractionStatus)
+                : 'File added to the Library.',
+          ),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -221,8 +252,12 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
   }
 
   Future<void> _addText() async {
-    final text = await promptText(context,
-        title: 'Add text', label: 'Text', maxLines: 6);
+    final text = await promptText(
+      context,
+      title: 'Add text',
+      label: 'Text',
+      maxLines: 6,
+    );
     if (text == null || text.isEmpty) return;
     await widget.learn.imports.importTextContent(
       topicId: _topic.id,
@@ -246,8 +281,7 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
         await Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) =>
-                ReadingScreen(learn: widget.learn, source: source),
+            builder: (_) => ReadingScreen(learn: widget.learn, source: source),
           ),
         );
       case SourceKind.link:
@@ -309,7 +343,9 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
     if (!await confirmDelete(context, '$count source${count > 1 ? 's' : ''}')) {
       return;
     }
-    final toDelete = _sources.where((s) => _selectedSourceIds.contains(s.id)).toList();
+    final toDelete = _sources
+        .where((s) => _selectedSourceIds.contains(s.id))
+        .toList();
     for (final s in toDelete) {
       await widget.learn.store.deleteSource(s.id);
       final rel = s.fileRelPath;
@@ -324,7 +360,10 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
   Future<void> _deleteSelectedPoints() async {
     final count = _selectedPointIds.length;
     if (count == 0) return;
-    if (!await confirmDelete(context, '$count marked point${count > 1 ? 's' : ''}')) {
+    if (!await confirmDelete(
+      context,
+      '$count marked point${count > 1 ? 's' : ''}',
+    )) {
       return;
     }
     for (final id in _selectedPointIds) {
@@ -340,7 +379,9 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
     final minted = await widget.learn.engine.mintClozeForPointIds(ids);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$minted cloze card${minted == 1 ? '' : 's'} added')),
+      SnackBar(
+        content: Text('$minted cloze card${minted == 1 ? '' : 's'} added'),
+      ),
     );
     _exitSelectionMode();
     _load();
@@ -386,7 +427,9 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
                           if (_selectedSourceIds.length == _sources.length) {
                             _selectedSourceIds.clear();
                           } else {
-                            _selectedSourceIds.addAll(_sources.map((s) => s.id));
+                            _selectedSourceIds.addAll(
+                              _sources.map((s) => s.id),
+                            );
                           }
                         });
                       },
@@ -509,11 +552,16 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
                         value: 'delete',
                         child: Row(
                           children: [
-                            Icon(Icons.delete_outline,
-                                size: 20, color: theme.colorScheme.error),
+                            Icon(
+                              Icons.delete_outline,
+                              size: 20,
+                              color: theme.colorScheme.error,
+                            ),
                             const SizedBox(width: 12),
-                            Text('Delete topic',
-                                style: TextStyle(color: theme.colorScheme.error)),
+                            Text(
+                              'Delete topic',
+                              style: TextStyle(color: theme.colorScheme.error),
+                            ),
                           ],
                         ),
                       ),
@@ -525,7 +573,11 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
             ? const Center(child: CircularProgressIndicator())
             : ListView(
                 padding: const EdgeInsets.fromLTRB(
-                    Space.page, Gap.md, Space.page, Gap.lg),
+                  Space.page,
+                  Gap.md,
+                  Space.page,
+                  Gap.lg,
+                ),
                 children: [
                   InkWell(
                     onTap: _rename,
@@ -554,8 +606,10 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
                         ],
                         onChanged: (v) async {
                           if (v == null) return;
-                          await widget.learn.store
-                              .updateTopic(_topic.id, status: v);
+                          await widget.learn.store.updateTopic(
+                            _topic.id,
+                            status: v,
+                          );
                           _load();
                         },
                       ),
@@ -597,8 +651,10 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
                   ),
                   const SizedBox(height: Space.s2),
                   if (_sources.isEmpty)
-                    Text('No sources yet — import the real material.',
-                        style: theme.textTheme.bodyMedium)
+                    Text(
+                      'No sources yet — import the real material.',
+                      style: theme.textTheme.bodyMedium,
+                    )
                   else
                     Column(
                       children: [
@@ -620,7 +676,9 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
                         for (final pt in _points)
                           NeoListRow(
                             leading: _isSelectingPoints
-                                ? NeoCheck(done: _selectedPointIds.contains(pt.id))
+                                ? NeoCheck(
+                                    done: _selectedPointIds.contains(pt.id),
+                                  )
                                 : null,
                             title: '“${pt.sentence}”',
                             sub: 'Cloze card: ${pt.clozeText}',
@@ -706,16 +764,13 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
     final subtitle = switch (s.kind) {
       SourceKind.link => s.url ?? '',
       SourceKind.pdf ||
-      SourceKind.txt =>
-        ExtractionStatus.describe(s.extractionStatus),
+      SourceKind.txt => ExtractionStatus.describe(s.extractionStatus),
       _ => s.fileRelPath ?? '',
     };
     final isSelected = _selectedSourceIds.contains(s.id);
 
     return NeoListRow(
-      leading: _isSelectingSources
-          ? NeoCheck(done: isSelected)
-          : null,
+      leading: _isSelectingSources ? NeoCheck(done: isSelected) : null,
       icon: _isSelectingSources ? null : icon,
       title: s.title,
       sub: subtitle,

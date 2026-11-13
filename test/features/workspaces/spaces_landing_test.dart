@@ -31,8 +31,12 @@ void main() {
     final store = Store(db);
     final ws = await store.createWorkspace('Personal');
     final prj = await store.createProject(ws.id, 'Biology');
-    await store.createItem(prj.id,
-        type: ItemType.note, title: 'Cell notes', note: 'mitochondria');
+    await store.createItem(
+      prj.id,
+      type: ItemType.note,
+      title: 'Cell notes',
+      note: 'mitochondria',
+    );
     return store;
   }
 
@@ -56,9 +60,9 @@ void main() {
   }
 
   Widget app(Store store) => MaterialApp(
-        theme: AppTheme.forPlate(AppPlate.midnight),
-        home: WorkspacesScreen(store: store),
-      );
+    theme: AppTheme.forPlate(AppPlate.midnight),
+    home: WorkspacesScreen(store: store),
+  );
 
   testWidgets('landing is a simple list: no panels, no counts, '
       'no recents before any visit', (tester) async {
@@ -124,10 +128,12 @@ void main() {
       // Add → Note: no title prompt, the editor opens directly.
       // (Target the project screen's own FAB — the workspace
       // screen's is still in the tree below it.)
-      await tester.tap(find.descendant(
-        of: find.byType(ItemsScreen),
-        matching: find.byType(FloatingActionButton),
-      ));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(ItemsScreen),
+          matching: find.byType(FloatingActionButton),
+        ),
+      );
       await settle(tester);
       await pumpUntil(tester, find.text('Add item'));
       // The item rows also carry a small "Note" type tag;
@@ -138,7 +144,9 @@ void main() {
       expect(find.text('New note'), findsNothing);
 
       await tester.enterText(
-          find.byType(TextField).last, 'Photosynthesis\nLight reactions');
+        find.byType(TextField).last,
+        'Photosynthesis\nLight reactions',
+      );
       await tester.tap(find.byType(BackButton).last);
       await settle(tester);
       // Back on the project, the note is listed under the
@@ -148,8 +156,7 @@ void main() {
     });
   });
 
-  test('visit history: deduped, most-recent-first, capped',
-      () async {
+  test('visit history: deduped, most-recent-first, capped', () async {
     final tmp = await Directory.systemTemp.createTemp('nimo-visits-');
     final db = await AppDatabase.openFile('${tmp.path}/test.db');
     final store = Store(db);
@@ -165,9 +172,36 @@ void main() {
     final visits = await store.recentProjectVisits();
     expect(visits.length, RecentProjects.maxStored);
     final first = await store.projects(ws.id);
-    expect(visits.first.syncId,
-        first.firstWhere((p) => p.id == ids.first).syncId);
+    expect(
+      visits.first.syncId,
+      first.firstWhere((p) => p.id == ids.first).syncId,
+    );
     // No duplicates.
     expect(visits.map((v) => v.syncId).toSet().length, visits.length);
+  });
+
+  // Redesign R3 (B-09 + B-08): the space row carries a
+  // visible ⋯ that opens the management sheet (long-press is
+  // no longer the only door), and Delete states its scope.
+  testWidgets('R3: visible ⋯ opens space options; delete '
+      'dialog states scope', (tester) async {
+    await tester.runAsync(() async {
+      final store = await seed();
+      await tester.pumpWidget(app(store));
+      await pumpUntil(tester, find.text('Personal'));
+      expect(find.byTooltip('Space options'), findsOneWidget);
+      await tester.tap(find.byTooltip('Space options'));
+      await settle(tester);
+      expect(find.text('Rename'), findsOneWidget);
+      expect(find.text('Pin to Today'), findsOneWidget);
+      await tester.tap(find.text('Delete'));
+      await settle(tester);
+      expect(find.text('Delete space "Personal"?'), findsOneWidget);
+      expect(find.textContaining('also deletes its 1 project'), findsOneWidget);
+      // Cancel keeps the space.
+      await tester.tap(find.text('Cancel'));
+      await settle(tester);
+      expect(find.text('Personal'), findsOneWidget);
+    });
   });
 }

@@ -159,4 +159,29 @@ void main() {
       expect(detail.topic.title, 'Arabic greetings');
     });
   });
+
+  // Redesign R3: the screen is named Topics; its second tab
+  // is Sources (the IA's one-name-per-concept renames).
+  testWidgets('R3: AppBar is Topics; second tab is Sources', (tester) async {
+    await tester.runAsync(() async {
+      final s = await seed(withTopics: false);
+      await tester.pumpWidget(app(s.learn, s.store));
+      for (var i = 0; i < 40; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        await tester.pump();
+        if (find.text('Topics').evaluate().isNotEmpty) break;
+      }
+      expect(find.text('Topics'), findsOneWidget);
+      expect(find.text('Knowledge Hub'), findsNothing);
+      expect(find.text('Sources (0)'), findsOneWidget);
+      await tester.tap(find.text('Sources (0)'));
+      for (var i = 0; i < 40; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+        await tester.pump(const Duration(milliseconds: 300));
+        if (find.text('No sources yet.').evaluate().isNotEmpty) break;
+      }
+      expect(find.text('No sources yet.'), findsOneWidget);
+      await s.db.close();
+    });
+  });
 }
